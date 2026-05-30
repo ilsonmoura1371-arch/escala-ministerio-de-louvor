@@ -8,7 +8,6 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Escala Louvor">
-<meta property="og:type" content="website">
 <meta property="og:title" content="Escala do Louvor">
 <meta property="og:description" content="Acesse a escala do ministério de música.">
 <meta property="og:image" content="guitarra-512.png">
@@ -25,7 +24,7 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
   import {
     getFirestore, collection, addDoc, updateDoc, deleteDoc,
-    doc, onSnapshot, query, where, orderBy, serverTimestamp
+    doc, onSnapshot, query, where, orderBy, serverTimestamp, getDoc, setDoc
   } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
   import {
     getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword,
@@ -41,650 +40,782 @@
     appId: "1:144171388952:web:54f59fa3dd9a149ab0f36d"
   };
 
-  const app  = initializeApp(firebaseConfig);
-  const db   = getFirestore(app);
-  const auth = getAuth(app);
-  const col  = collection(db, "escalas");
+  const app = initializeApp(firebaseConfig);
+  const db  = getFirestore(app);
+  const auth= getAuth(app);
+  const col = collection(db, "escalas");
 
+  // ESTADO
   let escalas          = [];
+  let musicos          = [];
   let editDocId        = null;
   let pendingDeleteId  = null;
-  let usuarioLogado    = null;
-  let unsubscribeLista = null;
-  let filtro           = 'futuras'; // 'futuras' | 'passadas'
+  let usuarioLogado    = null; // líder Firebase
+  let igrejaId         = null;
+  let membroLogado     = false;
+  let filtro           = 'futuras';
+  let unsubEscalas     = null;
+  let unsubMusicos     = null;
 
   const MESES  = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
   const SEMANA = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
 
-  /* ── AUTH ── */
-  onAuthStateChanged(auth, (user) => {
+  // Código secreto que você envia para quem comprou o sistema
+  // TROQUE POR UM CÓDIGO DIFÍCIL DE ADIVINHAR!
+  const CODIGO_ATIVACAO = "LOUVOR@2026";
+
+  const FUNCOES = [
+    { id:'vocal',     label:'Vocal Principal', icon:'🎤' },
+    { id:'back',      label:'Backing Vocals',  icon:'🎙️' },
+    { id:'violao',    label:'Violão',          icon:'🪕' },
+    { id:'guitarra',  label:'Guitarra',        icon:'🎸' },
+    { id:'teclado',   label:'Teclado',         icon:'🎹' },
+    { id:'bateria',   label:'Bateria',         icon:'🥁' },
+    { id:'baixo',     label:'Baixo',           icon:'🎵' },
+    { id:'sax',       label:'Saxofone',        icon:'🎷' },
+    { id:'percussao', label:'Percussão',       icon:'🪘' },
+    { id:'som',       label:'Mesa de Som',     icon:'🎚️' },
+    { id:'midia',     label:'Mídia/ProPresenter', icon:'🖥️' },
+  ];
+
+  /* ══════════════════════════════════════
+     AUTH FIREBASE (LÍDER)
+  ══════════════════════════════════════ */
+  onAuthStateChanged(auth, async (user) => {
     if (user) {
       usuarioLogado = user;
-      document.getElementById('auth-screen').style.display  = 'none';
-      document.getElementById('app-content').style.display  = 'block';
-      document.getElementById('nome-igreja-header').textContent = user.displayName || 'Minha Igreja';
-      iniciarListener();
-    } else {
+      igrejaId = user.uid;
+      membroLogado = false;
+      entrarNoApp(user.displayName || 'Minha Igreja', true);
+    } else if (!membroLogado) {
       usuarioLogado = null;
-      if (unsubscribeLista) { unsubscribeLista(); unsubscribeLista = null; }
-      document.getElementById('app-content').style.display  = 'none';
-      document.getElementById('auth-screen').style.display  = 'flex';
-      setStatus('offline');
+      mostrarTelaInicio();
     }
   });
 
-  window.handleAuth = async function(e) {
+  function mostrarTelaInicio() {
+    if (unsubEscalas) { unsubEscalas(); unsubEscalas = null; }
+    if (unsubMusicos) { unsubMusicos(); unsubMusicos = null; }
+    document.getElementById('tela-inicio').style.display   = 'flex';
+    document.getElementById('tela-lider').style.display    = 'none';
+    document.getElementById('app-content').style.display   = 'none';
+  }
+
+  function entrarNoApp(nomeIgreja, isLider) {
+    document.getElementById('tela-inicio').style.display  = 'none';
+    document.getElementById('tela-lider').style.display   = 'none';
+    document.getElementById('app-content').style.display  = 'block';
+    document.getElementById('nome-igreja-header').textContent = 'Ministério de Música';
+    document.getElementById('sub-igreja-header').textContent  = nomeIgreja;
+    document.getElementById('sub-igreja-header').style.display = 'block';
+
+    // Mostrar/ocultar abas de líder
+    document.getElementById('tab-form').style.display      = isLider ? 'flex' : 'none';
+    document.getElementById('tab-musicos').style.display   = isLider ? 'flex' : 'none';
+    document.getElementById('badge-lider').style.display   = isLider ? 'inline' : 'none';
+    document.getElementById('btn-sair').textContent        = isLider ? 'Sair' : 'Trocar';
+
+    iniciarListeners();
+  }
+
+  /* ── LOGIN LÍDER ── */
+  window.mostrarTelaLider = function() {
+    document.getElementById('tela-inicio').style.display = 'none';
+    document.getElementById('tela-lider').style.display  = 'flex';
+  };
+
+  window.voltarInicio = function() {
+    document.getElementById('tela-lider').style.display  = 'none';
+    document.getElementById('tela-inicio').style.display = 'flex';
+    document.getElementById('lider-erro').style.display  = 'none';
+  };
+
+  window.handleAuthLider = async function(e) {
     if (e) e.preventDefault();
-    const modoCadastro = document.getElementById('auth-mode-check').checked;
-    const email      = document.getElementById('auth-email').value.trim();
-    const senha      = document.getElementById('auth-senha').value.trim();
-    const nomeIgreja = document.getElementById('auth-nome-igreja').value.trim();
-    const btn        = document.getElementById('btn-auth');
-
-    if (!email || !senha) { showToast('⚠️ Preencha email e senha','danger'); return; }
-    if (modoCadastro && !nomeIgreja) { showToast('⚠️ Informe o nome da Igreja','danger'); return; }
-
-    btn.disabled = true;
-    btn.textContent = modoCadastro ? 'Criando Igreja...' : 'Entrando...';
-
+    const modo  = document.getElementById('lider-mode-check').checked;
+    const email = document.getElementById('lider-email').value.trim();
+    const senha = document.getElementById('lider-senha').value.trim();
+    const nome  = document.getElementById('lider-nome-igreja').value.trim();
+    const codigo= document.getElementById('lider-codigo').value.trim();
+    const btn   = document.getElementById('btn-lider-auth');
+    if (!email||!senha) { showToast('⚠️ Preencha email e senha','danger'); return; }
+    if (modo && !nome)  { showToast('⚠️ Informe o nome da Igreja','danger'); return; }
+    if (modo && codigo !== CODIGO_ATIVACAO) {
+      document.getElementById('lider-erro').style.display='block';
+      document.getElementById('lider-erro').textContent='❌ Código de ativação inválido. Contate o suporte.';
+      return;
+    }
+    btn.disabled=true; btn.textContent = modo?'Cadastrando...':'Entrando...';
     try {
-      if (modoCadastro) {
+      if (modo) {
         const cred = await createUserWithEmailAndPassword(auth, email, senha);
-        await updateProfile(cred.user, { displayName: nomeIgreja });
+        await updateProfile(cred.user, { displayName: nome });
+        // Salva senha de membro padrão no Firestore
+        await setDoc(doc(db,'igrejas',cred.user.uid), { nome, senhaMembro:'louvor123', createdAt: serverTimestamp() });
         showToast('✓ Igreja cadastrada!','success');
       } else {
         await signInWithEmailAndPassword(auth, email, senha);
-        showToast('✓ Bem-vindo de volta!','success');
+        showToast('✓ Bem-vindo!','success');
       }
-      document.getElementById('auth-form-element').reset();
-      document.getElementById('group-nome-igreja').style.display = 'none';
-    } catch (err) {
-      console.error(err);
-      if (err.code === 'auth/email-already-in-use')      showToast('❌ Email já cadastrado.','danger');
-      else if (err.code === 'auth/wrong-password' ||
-               err.code === 'auth/user-not-found' ||
-               err.code === 'auth/invalid-credential')   showToast('❌ Email ou senha incorretos.','danger');
-      else showToast('❌ Erro: ' + err.message,'danger');
+      document.getElementById('lider-form').reset();
+      document.getElementById('group-nome-lider').style.display='none';
+    } catch(err) {
+      document.getElementById('lider-erro').style.display='block';
+      document.getElementById('lider-erro').textContent =
+        err.code==='auth/email-already-in-use' ? '❌ Email já cadastrado.' :
+        (err.code==='auth/wrong-password'||err.code==='auth/user-not-found'||err.code==='auth/invalid-credential') ? '❌ Email ou senha incorretos.' :
+        '❌ '+err.message;
     } finally {
-      btn.disabled = false;
-      btn.textContent = modoCadastro ? 'Cadastrar Nova Igreja' : 'Entrar no Painel';
-    }
-  };
-
-  window.logout = async function() {
-    if (confirm('Deseja sair do painel?')) {
-      await signOut(auth);
-      showToast('Desconectado','');
+      btn.disabled=false;
+      btn.textContent = modo?'Cadastrar Igreja':'Entrar como Líder';
     }
   };
 
   window.recuperarSenha = async function() {
-    const email = document.getElementById('auth-email').value.trim();
-    if (!email) { showToast('⚠️ Digite seu email primeiro', 'danger'); document.getElementById('auth-email').focus(); return; }
+    const email = document.getElementById('lider-email').value.trim();
+    if (!email) { showToast('⚠️ Digite seu email primeiro','danger'); return; }
     try {
       await sendPasswordResetEmail(auth, email);
-      showToast('📧 Email de recuperação enviado! Verifique sua caixa de entrada.', 'success');
+      showToast('📧 Email de recuperação enviado!','success');
+    } catch(err) { showToast('❌ Email não encontrado.','danger'); }
+  };
+
+  window.toggleLiderMode = function() {
+    const modo = document.getElementById('lider-mode-check').checked;
+    document.getElementById('group-nome-lider').style.display   = modo?'block':'none';
+    document.getElementById('group-codigo-lider').style.display = modo?'block':'none';
+    document.getElementById('lider-title').textContent = modo?'Cadastrar sua Igreja':'Entrar como Líder';
+    document.getElementById('btn-lider-auth').textContent = modo?'Cadastrar Igreja':'Entrar como Líder';
+    document.getElementById('lider-erro').style.display='none';
+  };
+
+  /* ── LOGIN MEMBRO ── */
+  window.handleAuthMembro = async function(e) {
+    if (e) e.preventDefault();
+    const idIgreja = document.getElementById('membro-igreja-id').value.trim();
+    const senha    = document.getElementById('membro-senha').value.trim();
+    const btn      = document.getElementById('btn-membro-auth');
+    if (!idIgreja||!senha) { showToast('⚠️ Preencha os campos','danger'); return; }
+    btn.disabled=true; btn.textContent='Verificando...';
+    try {
+      const snap = await getDoc(doc(db,'igrejas',idIgreja));
+      if (!snap.exists()) { throw new Error('Igreja não encontrada.'); }
+      const dados = snap.data();
+      if (dados.senhaMembro !== senha) { throw new Error('Senha incorreta.'); }
+      igrejaId     = idIgreja;
+      membroLogado = true;
+      usuarioLogado= null;
+      entrarNoApp(dados.nome || 'Ministério', false);
     } catch(err) {
-      if (err.code === 'auth/user-not-found') showToast('❌ Email não cadastrado.', 'danger');
-      else showToast('❌ Erro ao enviar email: ' + err.message, 'danger');
+      document.getElementById('membro-erro').style.display='block';
+      document.getElementById('membro-erro').textContent = '❌ '+err.message;
+    } finally {
+      btn.disabled=false; btn.textContent='Entrar como Membro';
     }
   };
 
-  window.toggleAuthMode = function() {
-    const modo = document.getElementById('auth-mode-check').checked;
-    document.getElementById('group-nome-igreja').style.display = modo ? 'block' : 'none';
-    document.getElementById('auth-title').textContent  = modo ? 'Cadastrar sua Igreja' : 'Painel do Administrador';
-    document.getElementById('btn-auth').textContent    = modo ? 'Cadastrar Nova Igreja' : 'Entrar no Painel';
+  window.sair = async function() {
+    if (usuarioLogado) {
+      if (confirm('Deseja sair?')) { await signOut(auth); }
+    } else {
+      membroLogado=false; igrejaId=null;
+      mostrarTelaInicio();
+    }
   };
 
-  /* ── LISTENER FIRESTORE ── */
-  function iniciarListener() {
-    if (!usuarioLogado) return;
+  /* ══════════════════════════════════════
+     LISTENERS FIRESTORE
+  ══════════════════════════════════════ */
+  function iniciarListeners() {
+    if (!igrejaId) return;
     setStatus('connecting');
-    const q = query(col,
-      where("igrejaId","==", usuarioLogado.uid),
-      orderBy("dataISO","asc"),
-      orderBy("horario","asc")
+
+    // Escalas
+    if (unsubEscalas) unsubEscalas();
+    const qE = query(col, where("igrejaId","==",igrejaId), orderBy("dataISO","asc"), orderBy("horario","asc"));
+    unsubEscalas = onSnapshot(qE,
+      snap => { escalas=snap.docs.map(d=>({id:d.id,...d.data()})); setStatus('online'); renderLista(); atualizarBadge(); },
+      err  => { console.error(err); setStatus('error'); }
     );
-    if (unsubscribeLista) unsubscribeLista();
-    unsubscribeLista = onSnapshot(q,
-      snap => {
-        escalas = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        setStatus('online');
-        renderLista();
-        atualizarBadge();
-      },
-      err => { console.error(err); setStatus('error'); showToast('Erro ao carregar dados.','danger'); }
+
+    // Músicos
+    if (unsubMusicos) unsubMusicos();
+    const qM = query(collection(db,'musicos'), where("igrejaId","==",igrejaId), orderBy("nome","asc"));
+    unsubMusicos = onSnapshot(qM,
+      snap => { musicos=snap.docs.map(d=>({id:d.id,...d.data()})); renderMusicos(); },
+      err  => console.error(err)
     );
   }
 
   function setStatus(s) {
-    const el = document.getElementById('status-dot');
-    const tx = document.getElementById('status-text');
-    if (el && tx) {
-      el.className = 'status-dot ' + s;
-      tx.textContent = s==='online'?'Ao vivo':s==='connecting'?'Conectando...':'Desconectado';
-    }
+    const el=document.getElementById('status-dot'), tx=document.getElementById('status-text');
+    if(el&&tx){ el.className='status-dot '+s; tx.textContent=s==='online'?'Ao vivo':s==='connecting'?'Conectando...':'Desconectado'; }
   }
 
-  /* ── TABS ── */
+  /* ══════════════════════════════════════
+     TABS & FILTRO
+  ══════════════════════════════════════ */
   window.switchTab = function(tab) {
-    ['form','lista'].forEach(t => {
-      document.getElementById('panel-'+t).classList.toggle('active', t===tab);
-      document.getElementById('tab-'+t).classList.toggle('active',   t===tab);
+    ['lista','form','musicos-panel'].forEach(t=>{
+      const p=document.getElementById('panel-'+t); if(p) p.classList.toggle('active',t===tab);
+    });
+    ['lista','form','musicos'].forEach(t=>{
+      const b=document.getElementById('tab-'+t); if(b) b.classList.toggle('active',t===tab);
     });
   };
 
-  /* ── FILTRO ── */
   window.setFiltro = function(f) {
-    filtro = f;
-    document.getElementById('btn-futuras').classList.toggle('ativo',  f==='futuras');
-    document.getElementById('btn-passadas').classList.toggle('ativo', f==='passadas');
+    filtro=f;
+    document.getElementById('btn-futuras').classList.toggle('ativo',f==='futuras');
+    document.getElementById('btn-passadas').classList.toggle('ativo',f==='passadas');
     renderLista();
   };
 
-  /* ── TOAST ── */
+  /* ══════════════════════════════════════
+     TOAST
+  ══════════════════════════════════════ */
   let toastTimer;
-  window.showToast = function(msg, tipo='') {
-    const el = document.getElementById('toast');
-    el.innerHTML = msg; el.className = 'toast '+tipo;
+  window.showToast = function(msg,tipo='') {
+    const el=document.getElementById('toast');
+    el.innerHTML=msg; el.className='toast '+tipo;
     clearTimeout(toastTimer); el.classList.add('show');
-    toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
+    toastTimer=setTimeout(()=>el.classList.remove('show'),2800);
   };
 
-  /* ── FORM ── */
+  /* ══════════════════════════════════════
+     CRUD ESCALAS (só líder)
+  ══════════════════════════════════════ */
+  const isLider = ()=> !!usuarioLogado;
+
   window.resetForm = function() {
-    editDocId = null;
-    ['data','horario','vocal','back','hinos','links','recados'].forEach(id => {
-      const el = document.getElementById(id); if (el) el.value = '';
-    });
-    document.getElementById('form-title-text').textContent = 'Agendar nova data';
-    document.getElementById('btn-salvar').textContent = 'Salvar na Escala';
+    editDocId=null;
+    ['data','horario','hinos','links','recados'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+    FUNCOES.forEach(f=>{ const el=document.getElementById('f-'+f.id); if(el) el.value=''; });
+    document.getElementById('form-title-text').textContent='Agendar nova data';
+    document.getElementById('btn-salvar').textContent='Salvar na Escala';
     document.getElementById('btn-cancelar').classList.remove('visible');
-    document.getElementById('btn-salvar').disabled = false;
+    document.getElementById('btn-salvar').disabled=false;
   };
 
   window.salvar = async function() {
-    const data    = document.getElementById('data').value.trim();
-    const horario = document.getElementById('horario').value.trim();
-    const vocal   = document.getElementById('vocal').value.trim();
-    const back    = document.getElementById('back').value.trim();
-    const hinos   = document.getElementById('hinos').value.trim();
-    const links   = document.getElementById('links').value.trim();
-    const recados = document.getElementById('recados').value.trim();
+    if (!isLider()) { showToast('🔒 Apenas o líder pode criar escalas','danger'); return; }
+    const data   =document.getElementById('data').value.trim();
+    const horario=document.getElementById('horario').value.trim();
+    if (!data)    { showToast('⚠️ Informe a data','danger');    return; }
+    if (!horario) { showToast('⚠️ Informe o horário','danger'); return; }
 
-    if (!data)    { showToast('⚠️ Informe a data','danger');            document.getElementById('data').focus();    return; }
-    if (!horario) { showToast('⚠️ Informe o horário','danger');         document.getElementById('horario').focus(); return; }
-    if (!vocal)   { showToast('⚠️ Informe o vocal principal','danger'); document.getElementById('vocal').focus();   return; }
-    if (!back)    { showToast('⚠️ Informe os backing vocals','danger'); document.getElementById('back').focus();    return; }
-    if (!usuarioLogado) { showToast('⚠️ Sessão expirada.','danger'); return; }
+    const funcoes={};
+    FUNCOES.forEach(f=>{ funcoes[f.id]=document.getElementById('f-'+f.id)?.value.trim()||''; });
 
-    const btn = document.getElementById('btn-salvar');
-    btn.disabled = true; btn.textContent = 'Salvando...';
-
-    const obj = { dataISO:data, horario, vocal, back, hinos, links, recados,
-                  igrejaId: usuarioLogado.uid, updatedAt: serverTimestamp() };
+    const btn=document.getElementById('btn-salvar');
+    btn.disabled=true; btn.textContent='Salvando...';
+    const obj={ dataISO:data, horario, ...funcoes,
+      hinos:document.getElementById('hinos').value.trim(),
+      links:document.getElementById('links').value.trim(),
+      recados:document.getElementById('recados').value.trim(),
+      igrejaId, updatedAt:serverTimestamp() };
     try {
-      if (editDocId) {
-        await updateDoc(doc(db,"escalas",editDocId), obj);
-        showToast('✓ Escala atualizada','success');
-      } else {
-        obj.createdAt = serverTimestamp();
-        await addDoc(col, obj);
-        showToast('✓ Escala salva','success');
-      }
+      if (editDocId) { await updateDoc(doc(db,'escalas',editDocId),obj); showToast('✓ Escala atualizada','success'); }
+      else { obj.createdAt=serverTimestamp(); await addDoc(col,obj); showToast('✓ Escala salva','success'); }
       resetForm(); switchTab('lista');
-    } catch(err) {
-      console.error(err);
-      showToast('❌ Erro ao salvar.','danger');
-      btn.disabled = false;
-      btn.textContent = editDocId ? 'Atualizar Escala' : 'Salvar na Escala';
-    }
-  };
-
-  window.salvarApenasRecado = async function(id) {
-    const ta  = document.getElementById('recado-input-'+id); if (!ta) return;
-    const btn = document.getElementById('btn-recado-'+id);
-    if (btn) { btn.disabled=true; btn.textContent='Salvando...'; }
-    try {
-      await updateDoc(doc(db,"escalas",id), { recados: ta.value.trim(), updatedAt: serverTimestamp() });
-      showToast('💬 Recado atualizado!','success');
-    } catch(err) { showToast('❌ Erro ao salvar recado.','danger'); }
-    if (btn) { btn.disabled=false; btn.textContent='💾 Salvar Recado'; }
+    } catch(err) { console.error(err); showToast('❌ Erro ao salvar','danger'); btn.disabled=false; btn.textContent=editDocId?'Atualizar':'Salvar na Escala'; }
   };
 
   window.editarEscala = function(id) {
-    const e = escalas.find(x=>x.id===id); if (!e) return;
-    editDocId = id;
-    document.getElementById('data').value    = e.dataISO;
-    document.getElementById('horario').value = e.horario;
-    document.getElementById('vocal').value   = e.vocal;
-    document.getElementById('back').value    = e.back;
-    document.getElementById('hinos').value   = e.hinos   || '';
-    document.getElementById('links').value   = e.links   || '';
-    document.getElementById('recados').value = e.recados || '';
-    document.getElementById('form-title-text').textContent = 'Editar / Substituir escala';
-    document.getElementById('btn-salvar').textContent = 'Atualizar Escala';
+    if (!isLider()) { showToast('🔒 Apenas o líder pode editar','danger'); return; }
+    const e=escalas.find(x=>x.id===id); if(!e) return;
+    editDocId=id;
+    document.getElementById('data').value   =e.dataISO;
+    document.getElementById('horario').value=e.horario;
+    document.getElementById('hinos').value  =e.hinos   ||'';
+    document.getElementById('links').value  =e.links   ||'';
+    document.getElementById('recados').value=e.recados ||'';
+    FUNCOES.forEach(f=>{ const el=document.getElementById('f-'+f.id); if(el) el.value=e[f.id]||''; });
+    document.getElementById('form-title-text').textContent='Editar escala';
+    document.getElementById('btn-salvar').textContent='Atualizar Escala';
     document.getElementById('btn-cancelar').classList.add('visible');
-    switchTab('form');
-    window.scrollTo({ top:0, behavior:'smooth' });
+    switchTab('form'); window.scrollTo({top:0,behavior:'smooth'});
   };
 
   window.abrirDialog = function(id) {
-    pendingDeleteId = id;
-    const e = escalas.find(x=>x.id===id); if (!e) return;
-    const [ano,mes,dia] = e.dataISO.split('-');
-    document.getElementById('dialog-desc').textContent =
-      `Você vai remover a escala do dia ${dia}/${mes}/${ano} às ${e.horario}. Esta ação não pode ser desfeita.`;
+    if (!isLider()) { showToast('🔒 Apenas o líder pode excluir','danger'); return; }
+    pendingDeleteId=id;
+    const e=escalas.find(x=>x.id===id); if(!e) return;
+    const [ano,mes,dia]=e.dataISO.split('-');
+    document.getElementById('dialog-desc').textContent=`Remover a escala do dia ${dia}/${mes}/${ano} às ${e.horario}?`;
     document.getElementById('overlay').classList.add('active');
   };
-
   window.fecharDialog = function(e) {
-    if (e && e.target !== document.getElementById('overlay')) return;
-    document.getElementById('overlay').classList.remove('active');
-    pendingDeleteId = null;
+    if(e&&e.target!==document.getElementById('overlay')) return;
+    document.getElementById('overlay').classList.remove('active'); pendingDeleteId=null;
   };
-
   window.confirmarExclusao = async function() {
-    if (!pendingDeleteId) return;
-    const btn = document.querySelector('.btn-dialog-confirm');
+    if(!pendingDeleteId) return;
+    const btn=document.querySelector('.btn-dialog-confirm');
     btn.textContent='Removendo...'; btn.disabled=true;
-    try {
-      await deleteDoc(doc(db,"escalas",pendingDeleteId));
-      if (editDocId===pendingDeleteId) resetForm();
-      showToast('🗑 Escala removida','danger');
-    } catch(err) { showToast('❌ Erro ao remover','danger'); }
+    try { await deleteDoc(doc(db,'escalas',pendingDeleteId)); if(editDocId===pendingDeleteId) resetForm(); showToast('🗑 Removida','danger'); }
+    catch(err) { showToast('❌ Erro ao remover','danger'); }
     btn.textContent='Remover'; btn.disabled=false;
-    document.getElementById('overlay').classList.remove('active');
-    pendingDeleteId = null;
+    document.getElementById('overlay').classList.remove('active'); pendingDeleteId=null;
   };
 
-  /* ── WHATSAPP ── */
+  /* ══════════════════════════════════════
+     SALVAR CAMPOS DE MEMBRO (hinos/links/recados)
+  ══════════════════════════════════════ */
+  window.salvarCampoMembro = async function(id, campo) {
+    const el=document.getElementById(campo+'-input-'+id); if(!el) return;
+    const btn=document.getElementById('btn-'+campo+'-'+id);
+    if(btn){btn.disabled=true; btn.textContent='Salvando...';}
+    try {
+      await updateDoc(doc(db,'escalas',id),{ [campo]:el.value.trim(), updatedAt:serverTimestamp() });
+      showToast('✓ Salvo!','success');
+    } catch(err){ showToast('❌ Erro ao salvar','danger'); }
+    if(btn){btn.disabled=false; btn.textContent='💾 Salvar';}
+  };
+
+  /* ══════════════════════════════════════
+     WHATSAPP
+  ══════════════════════════════════════ */
   window.compartilharWhatsApp = function(id) {
-    const e = escalas.find(x=>x.id===id); if (!e) return;
-    const [ano,mes,dia] = e.dataISO.split('-');
-    const diaSemana = SEMANA[new Date(e.dataISO+'T00:00:00').getDay()];
-    const nomeIgreja = usuarioLogado?.displayName || 'Igreja';
-    let msg = `🎵 *ESCALA DO LOUVOR — ${nomeIgreja.toUpperCase()}*\n\n`;
-    msg += `📅 *${diaSemana}, ${dia}/${mes}/${ano}* às ${e.horario}\n\n`;
-    msg += `🎤 *Vocal Principal:* ${e.vocal}\n`;
-    msg += `👥 *Backing Vocals:* ${e.back}\n`;
-    if (e.hinos && e.hinos.trim()) {
-      msg += `\n🎵 *Hinos do Dia:*\n${e.hinos}\n`;
-    }
-    if (e.links && e.links.trim()) {
-      msg += `\n🔗 *Links das Músicas:*\n${e.links}\n`;
-    }
-    msg += `\n🙏 Contamos com a presença de todos!\n`;
-    msg += `\n_Enviado pelo App Escala do Louvor_`;
-    window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
+    const e=escalas.find(x=>x.id===id); if(!e) return;
+    const [ano,mes,dia]=e.dataISO.split('-');
+    const ds=SEMANA[new Date(e.dataISO+'T00:00:00').getDay()];
+    let msg=`🎵 *ESCALA DO LOUVOR*\n\n📅 *${ds}, ${dia}/${mes}/${ano}* às ${e.horario}\n\n`;
+    FUNCOES.forEach(f=>{ if(e[f.id]) msg+=`${f.icon} *${f.label}:* ${e[f.id]}\n`; });
+    if(e.hinos)   msg+=`\n🎵 *Hinos:*\n${e.hinos}\n`;
+    if(e.links)   msg+=`\n🔗 *Links:*\n${e.links}\n`;
+    msg+=`\n🙏 Contamos com todos!`;
+    window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');
   };
 
-  /* ── BADGE ── */
+  /* ══════════════════════════════════════
+     CRUD MÚSICOS
+  ══════════════════════════════════════ */
+  window.salvarMusico = async function() {
+    if(!isLider()){showToast('🔒 Apenas o líder pode cadastrar músicos','danger');return;}
+    const nome  =document.getElementById('musico-nome').value.trim();
+    const funcao=document.getElementById('musico-funcao').value;
+    if(!nome)  {showToast('⚠️ Informe o nome','danger');return;}
+    if(!funcao){showToast('⚠️ Selecione a função','danger');return;}
+    try {
+      await addDoc(collection(db,'musicos'),{ nome, funcao, igrejaId, createdAt:serverTimestamp() });
+      document.getElementById('musico-nome').value='';
+      document.getElementById('musico-funcao').value='';
+      showToast('✓ Músico cadastrado!','success');
+    } catch(err){ showToast('❌ Erro ao cadastrar','danger'); }
+  };
+
+  window.excluirMusico = async function(id) {
+    if(!isLider()){showToast('🔒 Apenas o líder pode excluir','danger');return;}
+    if(!confirm('Remover este músico?')) return;
+    try { await deleteDoc(doc(db,'musicos',id)); showToast('🗑 Músico removido','danger'); }
+    catch(err){ showToast('❌ Erro ao remover','danger'); }
+  };
+
+  function renderMusicos() {
+    const container=document.getElementById('lista-musicos'); if(!container) return;
+    if(musicos.length===0){
+      container.innerHTML='<p class="sem-conteudo" style="text-align:center;padding:20px;">Nenhum músico cadastrado ainda.</p>'; return;
+    }
+    // Agrupar por função
+    const grupos={};
+    FUNCOES.forEach(f=>{ grupos[f.id]=[]; });
+    musicos.forEach(m=>{ if(grupos[m.funcao]) grupos[m.funcao].push(m); });
+
+    let html='';
+    FUNCOES.forEach(f=>{
+      const lista=grupos[f.id];
+      if(lista.length===0) return;
+      html+=`<div class="musico-grupo">
+        <div class="musico-grupo-titulo">${f.icon} ${f.label}</div>
+        <div class="musico-grupo-lista">`;
+      lista.forEach(m=>{
+        html+=`<div class="musico-chip">
+          <span>${esc(m.nome)}</span>
+          ${isLider()?`<button class="musico-del" onclick="excluirMusico('${m.id}')">✕</button>`:''}
+        </div>`;
+      });
+      html+=`</div></div>`;
+    });
+    container.innerHTML=html;
+  }
+
+  /* ══════════════════════════════════════
+     BADGE & RENDER LISTA
+  ══════════════════════════════════════ */
   function atualizarBadge() {
-    const hoje = new Date(); hoje.setHours(0,0,0,0);
-    const futuras = escalas.filter(e => new Date(e.dataISO+'T00:00:00') >= hoje).length;
-    const el = document.getElementById('badge-count');
-    if (el) { el.textContent = futuras; el.style.display = futuras>0 ? 'inline-flex' : 'none'; }
+    const hoje=new Date(); hoje.setHours(0,0,0,0);
+    const n=escalas.filter(e=>new Date(e.dataISO+'T00:00:00')>=hoje).length;
+    const el=document.getElementById('badge-count');
+    if(el){el.textContent=n; el.style.display=n>0?'inline-flex':'none';}
   }
 
   function calcDiasBadge(dataISO) {
-    const hoje = new Date(); hoje.setHours(0,0,0,0);
-    const d    = new Date(dataISO+'T00:00:00');
-    const diff = Math.round((d-hoje)/86400000);
-    if (diff===0)            return { label:'Hoje',                      cls:'hoje'   };
-    if (diff===1)            return { label:'Amanhã',                    cls:'breve'  };
-    if (diff>1 && diff<=7)  return { label:`Em ${diff} dias`,           cls:'breve'  };
-    if (diff>7)              return { label:`Em ${diff} dias`,           cls:'normal' };
-    if (diff===-1)           return { label:'Ontem',                     cls:'passado'};
-    return                          { label:`Há ${Math.abs(diff)} dias`, cls:'passado'};
+    const hoje=new Date(); hoje.setHours(0,0,0,0);
+    const diff=Math.round((new Date(dataISO+'T00:00:00')-hoje)/86400000);
+    if(diff===0)           return{label:'Hoje',cls:'hoje'};
+    if(diff===1)           return{label:'Amanhã',cls:'breve'};
+    if(diff>1&&diff<=7)   return{label:`Em ${diff} dias`,cls:'breve'};
+    if(diff>7)             return{label:`Em ${diff} dias`,cls:'normal'};
+    if(diff===-1)          return{label:'Ontem',cls:'passado'};
+    return                       {label:`Há ${Math.abs(diff)} dias`,cls:'passado'};
   }
 
-  function formatarLinksHtml(textoLinks) {
-    if (!textoLinks||!textoLinks.trim()) return '<span class="sem-conteudo">Nenhum link adicionado</span>';
-    return textoLinks.trim().split('\n').map(linha => {
-      linha = linha.trim(); if (!linha) return '';
-      const rx = /(https?:\/\/[^\s]+)/g;
-      if (rx.test(linha)) {
-        rx.lastIndex=0;
-        return '<div class="link-item">'+linha.replace(rx, url=>
-          `<a href="${url}" target="_blank" rel="noopener noreferrer" class="musica-link"><span class="link-icon">▶</span> Ouvir / Assistir</a>`
-        )+'</div>';
-      }
-      return `<div class="link-item link-texto">${esc(linha)}</div>`;
+  function formatarLinksHtml(txt) {
+    if(!txt||!txt.trim()) return '<span class="sem-conteudo">Nenhum link adicionado</span>';
+    return txt.trim().split('\n').map(l=>{
+      l=l.trim(); if(!l) return '';
+      const rx=/(https?:\/\/[^\s]+)/g;
+      if(rx.test(l)){rx.lastIndex=0; return '<div class="link-item">'+l.replace(rx,u=>`<a href="${u}" target="_blank" rel="noopener noreferrer" class="musica-link"><span>▶</span> Ouvir / Assistir</a>`)+'</div>';}
+      return `<div class="link-item link-texto">${esc(l)}</div>`;
     }).filter(Boolean).join('');
   }
 
-  /* ── RENDER ── */
   function renderLista() {
-    const container = document.getElementById('lista-escalas');
-    if (!container) return;
+    const container=document.getElementById('lista-escalas'); if(!container) return;
+    const hoje=new Date(); hoje.setHours(0,0,0,0);
+    let lista=escalas.filter(e=>{ const d=new Date(e.dataISO+'T00:00:00'); return filtro==='futuras'?d>=hoje:d<hoje; });
+    if(filtro==='passadas') lista=[...lista].reverse();
 
-    const hoje = new Date(); hoje.setHours(0,0,0,0);
-    let lista = escalas.filter(e => {
-      const d = new Date(e.dataISO+'T00:00:00');
-      return filtro==='futuras' ? d>=hoje : d<hoje;
-    });
-    if (filtro==='passadas') lista = [...lista].reverse();
-
-    if (lista.length===0) {
-      container.innerHTML = `
-        <div class="empty-state">
-          <div class="empty-icon">${filtro==='futuras'?'🎶':'📖'}</div>
-          <h3>${filtro==='futuras'?'Nenhuma escala futura':'Nenhum histórico ainda'}</h3>
-          <p>${filtro==='futuras'?'Toque em "Nova Escala" para<br>começar a organizar a equipe.':'As escalas passadas aparecerão aqui.'}</p>
-        </div>`; return;
+    if(lista.length===0){
+      container.innerHTML=`<div class="empty-state"><div class="empty-icon">${filtro==='futuras'?'🎶':'📖'}</div>
+        <h3>${filtro==='futuras'?'Nenhuma escala futura':'Nenhum histórico ainda'}</h3>
+        <p>${filtro==='futuras'?'Toque em "Nova Escala" para começar.':'As escalas passadas aparecerão aqui.'}</p></div>`;
+      return;
     }
 
-    const html = lista.map(e => {
-      const [ano,mes,dia] = e.dataISO.split('-');
-      const dataBR    = `${dia}/${mes}/${ano}`;
-      const mesAbrev  = MESES[parseInt(mes)-1];
-      const diaSemana = SEMANA[new Date(e.dataISO+'T00:00:00').getDay()];
-      const badge     = calcDiasBadge(e.dataISO);
-      const isPassada = new Date(e.dataISO+'T00:00:00') < hoje;
+    const html=lista.map(e=>{
+      const [ano,mes,dia]=e.dataISO.split('-');
+      const dataBR=`${dia}/${mes}/${ano}`;
+      const mesAbrev=MESES[parseInt(mes)-1];
+      const diaSemana=SEMANA[new Date(e.dataISO+'T00:00:00').getDay()];
+      const badge=calcDiasBadge(e.dataISO);
+      const isPassada=new Date(e.dataISO+'T00:00:00')<hoje;
 
-      const hinosExibicao = e.hinos
-        ? `<div class="hinos-lista" style="white-space:pre-wrap;">${esc(e.hinos)}</div>`
-        : '<span class="sem-conteudo">Nenhum hino adicionado</span>';
-      const linksHtml = formatarLinksHtml(e.links);
-      const recadoVal = e.recados||'';
-      const temRecado = recadoVal.trim().length>0;
+      // Funções escaladas
+      let funcHtml='';
+      FUNCOES.forEach(f=>{
+        if(e[f.id]) funcHtml+=`<div class="escala-row">
+          <span class="escala-row-icon">${f.icon}</span>
+          <div class="escala-row-content">
+            <div class="escala-row-label">${f.label}</div>
+            <div class="escala-row-value">${esc(e[f.id])}</div>
+          </div></div>`;
+      });
 
-      return `
-        <div class="escala-card${isPassada?' passada':''}">
-          <div class="escala-card-header">
-            <div class="escala-date-block">
-              <div class="escala-date-num">
-                <span class="day">${dia}</span>
-                <span class="month">${mesAbrev}</span>
-              </div>
-              <div class="escala-date-info">
-                <span class="escala-date-full">${diaSemana}, ${dataBR}</span>
-                <span class="escala-time-badge">🕐 ${e.horario}</span>
-              </div>
-            </div>
-            <span class="dias-badge ${badge.cls}">${badge.label}</span>
-          </div>
+      const hinosVal=e.hinos||'';
+      const linksVal=e.links||'';
+      const recadoVal=e.recados||'';
+      const temRecado=recadoVal.trim().length>0;
 
-          <div class="escala-card-body">
-            <div class="escala-row">
-              <span class="escala-row-icon">🎤</span>
-              <div class="escala-row-content">
-                <div class="escala-row-label">Vocal Principal</div>
-                <div class="escala-row-value">${esc(e.vocal)}</div>
-              </div>
+      return `<div class="escala-card${isPassada?' passada':''}">
+        <div class="escala-card-header">
+          <div class="escala-date-block">
+            <div class="escala-date-num">
+              <span class="day">${dia}</span><span class="month">${mesAbrev}</span>
             </div>
-            <div class="escala-row">
-              <span class="escala-row-icon">👥</span>
-              <div class="escala-row-content">
-                <div class="escala-row-label">Backing Vocals</div>
-                <div class="escala-row-value">${esc(e.back)}</div>
-              </div>
-            </div>
-            <div class="escala-row">
-              <span class="escala-row-icon">🎵</span>
-              <div class="escala-row-content">
-                <div class="escala-row-label-hinos">Hinos do Dia</div>
-                <div class="escala-row-value-hinos">${hinosExibicao}</div>
-              </div>
-            </div>
-            <div class="escala-row">
-              <span class="escala-row-icon">🔗</span>
-              <div class="escala-row-content">
-                <div class="escala-row-label-links">Links das Músicas</div>
-                <div class="links-container">${linksHtml}</div>
-              </div>
-            </div>
-            <div class="recados-section">
-              <div class="recados-header">
-                <span class="recados-icon">📢</span>
-                <span class="recados-title">Avisos &amp; Justificativas</span>
-                ${temRecado?'<span class="recados-badge">Há mensagem</span>':''}
-              </div>
-              ${temRecado?`<div class="recado-exibido">${esc(recadoVal)}</div>`:''}
-              <textarea id="recado-input-${e.id}" class="recado-textarea"
-                placeholder="Deixe aqui seu aviso ou justificativa&#10;Ex: Não poderei ir este domingo — João"
-              >${esc(recadoVal)}</textarea>
-              <button id="btn-recado-${e.id}" class="btn-salvar-recado" onclick="salvarApenasRecado('${e.id}')">💾 Salvar Recado</button>
+            <div class="escala-date-info">
+              <span class="escala-date-full">${diaSemana}, ${dataBR}</span>
+              <span class="escala-time-badge">🕐 ${e.horario}</span>
             </div>
           </div>
+          <span class="dias-badge ${badge.cls}">${badge.label}</span>
+        </div>
 
-          <div class="escala-card-footer">
-            <button class="btn-whats-card" onclick="compartilharWhatsApp('${e.id}')">📲 WhatsApp</button>
-            <button class="btn-edit-card"  onclick="editarEscala('${e.id}')">✏️ Editar</button>
-            <button class="btn-del-card"   onclick="abrirDialog('${e.id}')">🗑</button>
+        <div class="escala-card-body">
+          ${funcHtml||'<p class="sem-conteudo" style="padding:10px 0">Nenhum músico escalado ainda.</p>'}
+
+          <!-- HINOS — editável por membro -->
+          <div class="campo-editavel">
+            <div class="campo-editavel-titulo">🎵 Hinos do Dia</div>
+            <div class="hinos-exibicao">${hinosVal?`<div style="white-space:pre-wrap;color:var(--text-hinos);font-weight:700;">${esc(hinosVal)}</div>`:'<span class="sem-conteudo">Nenhum hino adicionado</span>'}</div>
+            <textarea id="hinos-input-${e.id}" class="campo-textarea" placeholder="1. Grandioso És Tu&#10;2. Porque Ele Vive">${esc(hinosVal)}</textarea>
+            <button id="btn-hinos-${e.id}" class="btn-campo-salvar amarelo" onclick="salvarCampoMembro('${e.id}','hinos')">💾 Salvar Hinos</button>
           </div>
-        </div>`;
+
+          <!-- LINKS — editável por membro -->
+          <div class="campo-editavel">
+            <div class="campo-editavel-titulo">🔗 Links das Músicas</div>
+            <div class="links-exibicao">${formatarLinksHtml(linksVal)}</div>
+            <textarea id="links-input-${e.id}" class="campo-textarea" placeholder="Cole os links do YouTube ou Spotify">${esc(linksVal)}</textarea>
+            <button id="btn-links-${e.id}" class="btn-campo-salvar azul" onclick="salvarCampoMembro('${e.id}','links')">💾 Salvar Links</button>
+          </div>
+
+          <!-- RECADOS — editável por membro -->
+          <div class="campo-editavel roxo">
+            <div class="campo-editavel-titulo">📢 Avisos &amp; Justificativas ${temRecado?'<span class="recados-badge">Há mensagem</span>':''}</div>
+            ${temRecado?`<div class="recado-exibido">${esc(recadoVal)}</div>`:''}
+            <textarea id="recados-input-${e.id}" class="campo-textarea" placeholder="Deixe seu aviso ou justificativa&#10;Ex: Não poderei ir — João">${esc(recadoVal)}</textarea>
+            <button id="btn-recados-${e.id}" class="btn-campo-salvar roxo" onclick="salvarCampoMembro('${e.id}','recados')">💾 Salvar Recado</button>
+          </div>
+        </div>
+
+        <div class="escala-card-footer">
+          <button class="btn-whats-card" onclick="compartilharWhatsApp('${e.id}')">📲 WhatsApp</button>
+          ${isLider()?`
+          <button class="btn-edit-card" onclick="editarEscala('${e.id}')">✏️ Editar</button>
+          <button class="btn-del-card"  onclick="abrirDialog('${e.id}')">🗑</button>`:`
+          <span></span><span></span>`}
+        </div>
+      </div>`;
     }).join('');
 
-    container.innerHTML = `<div class="escala-list">${html}</div>`;
+    container.innerHTML=`<div class="escala-list">${html}</div>`;
   }
 
-  function esc(str) {
-    return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  }
+  function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('service-worker.js')
-        .then(r=>console.log('PWA pronto!',r.scope))
-        .catch(e=>console.log('Erro SW:',e));
+  if('serviceWorker' in navigator){
+    window.addEventListener('load',()=>{
+      navigator.serviceWorker.register('service-worker.js').catch(e=>console.log('SW:',e));
     });
   }
 </script>
 
 <style>
-  :root {
-    --bg-main:    #f8fafc;
-    --bg-header:  #1e3a8a;
-    --bg-card:    #ffffff;
-    --bg-input:   #f1f5f9;
-    --primary:    #1e3a8a;
-    --accent:     #3b82f6;
-    --text-main:  #0f172a;
-    --text-muted: #475569;
-    --text-hinos: #b45309;
-    --border:     #cbd5e1;
-    --danger:     #dc2626;
-    --success:    #16a34a;
-    --radius:     12px;
-    --radius-sm:  8px;
-    --shadow-sm:  0 2px 8px rgba(15,23,42,0.08);
-  }
-  *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
-  html { font-size:16px; scroll-behavior:smooth; }
-  body { font-family:'DM Sans',sans-serif; background:var(--bg-main); color:var(--text-main); min-height:100vh; -webkit-tap-highlight-color:transparent; }
+:root{
+  --bg-main:#f8fafc; --bg-header:#1e3a8a; --bg-card:#ffffff; --bg-input:#f1f5f9;
+  --primary:#1e3a8a; --accent:#3b82f6; --text-main:#0f172a; --text-muted:#475569;
+  --text-hinos:#b45309; --border:#cbd5e1; --danger:#dc2626; --success:#16a34a;
+  --radius:12px; --radius-sm:8px; --shadow-sm:0 2px 8px rgba(15,23,42,0.08);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{font-size:16px;scroll-behavior:smooth;}
+body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text-main);min-height:100vh;-webkit-tap-highlight-color:transparent;}
 
-  /* AUTH */
-  .auth-container { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px; background:linear-gradient(135deg,#1e3a8a 0%,#0f172a 100%); }
-  .auth-card { background:#fff; width:100%; max-width:400px; border-radius:var(--radius); padding:30px 24px; box-shadow:0 10px 25px rgba(0,0,0,0.3); }
-  .auth-logo { text-align:center; font-size:48px; margin-bottom:12px; }
-  .auth-card h2 { font-family:'Playfair Display',serif; font-size:22px; color:var(--primary); text-align:center; margin-bottom:6px; }
-  .auth-card p  { font-size:13px; color:var(--text-muted); text-align:center; margin-bottom:20px; }
-  .switch-container { display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:18px; background:var(--bg-input); padding:8px; border-radius:var(--radius-sm); font-size:13px; font-weight:700; }
-  .switch-container input { cursor:pointer; width:16px; height:16px; }
+/* ── TELA INÍCIO ── */
+.tela-inicio{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;background:linear-gradient(135deg,#1e3a8a 0%,#0f172a 100%);}
+.inicio-logo{font-size:56px;margin-bottom:12px;text-align:center;}
+.inicio-titulo{font-family:'Playfair Display',serif;font-size:26px;font-weight:700;color:#fff;text-align:center;margin-bottom:6px;}
+.inicio-sub{font-size:14px;color:#93c5fd;text-align:center;margin-bottom:36px;}
+.inicio-botoes{display:flex;flex-direction:column;gap:12px;width:100%;max-width:320px;}
+.btn-inicio{padding:16px;border:none;border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:16px;font-weight:700;cursor:pointer;text-align:center;}
+.btn-inicio-membro{background:#ffffff;color:#1e3a8a;}
+.btn-inicio-lider{background:rgba(255,255,255,0.15);color:#ffffff;border:2px solid rgba(255,255,255,0.4);}
+.inicio-id-box{margin-top:8px;background:rgba(255,255,255,0.1);border-radius:var(--radius);padding:14px;width:100%;max-width:320px;text-align:center;}
+.inicio-id-label{font-size:11px;color:#93c5fd;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;}
+.inicio-id-value{font-size:13px;color:#fbbf24;font-weight:700;word-break:break-all;}
 
-  .btn-recuperar { display:block; width:100%; padding:10px; margin-top:8px; background:transparent; border:none; color:var(--accent); font-family:'DM Sans',sans-serif; font-size:13px; font-weight:700; cursor:pointer; text-align:center; }
-  .btn-recuperar:hover { text-decoration:underline; }
+/* ── TELA LIDER ── */
+.tela-lider{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:linear-gradient(135deg,#1e3a8a 0%,#0f172a 100%);}
+.auth-card{background:#fff;width:100%;max-width:380px;border-radius:var(--radius);padding:28px 24px;box-shadow:0 10px 25px rgba(0,0,0,0.3);}
+.auth-logo{text-align:center;font-size:44px;margin-bottom:10px;}
+.auth-card h2{font-family:'Playfair Display',serif;font-size:21px;color:var(--primary);text-align:center;margin-bottom:6px;}
+.auth-card p{font-size:13px;color:var(--text-muted);text-align:center;margin-bottom:20px;}
+.switch-container{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:16px;background:var(--bg-input);padding:8px;border-radius:var(--radius-sm);font-size:12px;font-weight:700;}
+.switch-container input{cursor:pointer;width:16px;height:16px;}
+.erro-msg{font-size:12px;color:var(--danger);text-align:center;margin-bottom:10px;display:none;}
+.btn-voltar{display:block;width:100%;padding:10px;margin-top:8px;background:transparent;border:none;color:var(--text-muted);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;text-align:center;}
+.btn-recuperar{display:block;width:100%;padding:8px;background:transparent;border:none;color:var(--accent);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;text-align:center;}
 
-  /* HEADER */
-  .app-header { background:var(--bg-header); padding:12px 16px; position:sticky; top:0; z-index:100; box-shadow:0 2px 10px rgba(0,0,0,0.15); }
-  .header-top { display:flex; align-items:center; gap:12px; }
-  .header-text h1 { font-family:'Playfair Display',serif; font-size:20px; font-weight:700; color:#fff; }
-  .header-text p  { font-size:11px; color:#93c5fd; font-weight:500; letter-spacing:1px; text-transform:uppercase; margin-top:1px; }
-  #nome-igreja-header { font-size:11px; color:#fbbf24; font-weight:700; letter-spacing:0.5px; text-transform:uppercase; }
-  .header-right { margin-left:auto; display:flex; align-items:center; gap:8px; }
-  .header-status { display:flex; align-items:center; gap:6px; background:rgba(0,0,0,0.2); padding:4px 10px; border-radius:20px; }
-  .status-dot { width:8px; height:8px; border-radius:50%; }
-  .status-dot.online     { background:#4ade80; }
-  .status-dot.connecting { background:#fbbf24; }
-  .status-dot.error      { background:#f87171; }
-  .status-dot.offline    { background:#94a3b8; }
-  #status-text { font-size:11px; font-weight:700; color:#fff; }
-  .btn-logout { background:transparent; border:1px solid rgba(248,113,113,0.4); color:#f87171; font-size:12px; font-weight:700; cursor:pointer; padding:5px 10px; border-radius:20px; }
+/* ── HEADER ── */
+.app-header{background:var(--bg-header);padding:12px 16px;position:sticky;top:0;z-index:100;box-shadow:0 2px 10px rgba(0,0,0,0.15);}
+.header-top{display:flex;align-items:center;gap:10px;}
+.header-text h1{font-family:'Playfair Display',serif;font-size:19px;font-weight:700;color:#fff;}
+#nome-igreja-header{font-size:11px;color:#fbbf24;font-weight:700;text-transform:uppercase;}
+.header-right{margin-left:auto;display:flex;align-items:center;gap:8px;}
+.header-status{display:flex;align-items:center;gap:6px;background:rgba(0,0,0,0.2);padding:4px 10px;border-radius:20px;}
+.status-dot{width:8px;height:8px;border-radius:50%;}
+.status-dot.online{background:#4ade80;} .status-dot.connecting{background:#fbbf24;} .status-dot.error{background:#f87171;} .status-dot.offline{background:#94a3b8;}
+#status-text{font-size:11px;font-weight:700;color:#fff;}
+.btn-sair{background:transparent;border:1px solid rgba(248,113,113,0.4);color:#f87171;font-size:12px;font-weight:700;cursor:pointer;padding:5px 10px;border-radius:20px;}
+.badge-lider{background:#fbbf24;color:#78350f;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;margin-left:4px;}
 
-  /* ABAS */
-  .nav-tabs { display:flex; background:#fff; border-bottom:2px solid var(--border); position:sticky; top:68px; z-index:99; }
-  .nav-tab { flex:1; padding:13px 10px; background:transparent; border:none; color:var(--text-muted); font-family:'DM Sans',sans-serif; font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; cursor:pointer; border-bottom:3px solid transparent; transition:all 0.2s; display:flex; align-items:center; justify-content:center; gap:5px; }
-  .nav-tab.active { color:var(--primary); border-bottom-color:var(--primary); }
-  .badge { display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; background:var(--primary); color:#fff; font-size:11px; font-weight:700; border-radius:50%; }
+/* ── ABAS ── */
+.nav-tabs{display:flex;background:#fff;border-bottom:2px solid var(--border);position:sticky;top:62px;z-index:99;overflow-x:auto;}
+.nav-tab{flex:1;min-width:80px;padding:13px 8px;background:transparent;border:none;color:var(--text-muted);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;cursor:pointer;border-bottom:3px solid transparent;transition:all 0.2s;display:flex;align-items:center;justify-content:center;gap:4px;white-space:nowrap;}
+.nav-tab.active{color:var(--primary);border-bottom-color:var(--primary);}
+.badge{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;background:var(--primary);color:#fff;font-size:10px;font-weight:700;border-radius:50%;}
 
-  /* FILTRO */
-  .filtro-bar { display:flex; gap:8px; padding:12px 16px 4px; }
-  .btn-filtro { flex:1; padding:9px; border-radius:var(--radius-sm); border:1.5px solid var(--border); background:#fff; font-family:'DM Sans',sans-serif; font-size:13px; font-weight:700; color:var(--text-muted); cursor:pointer; transition:all 0.2s; }
-  .btn-filtro.ativo { background:var(--primary); color:#fff; border-color:var(--primary); }
+/* ── FILTRO ── */
+.filtro-bar{display:flex;gap:8px;padding:12px 16px 4px;}
+.btn-filtro{flex:1;padding:9px;border-radius:var(--radius-sm);border:1.5px solid var(--border);background:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;color:var(--text-muted);cursor:pointer;transition:all 0.2s;}
+.btn-filtro.ativo{background:var(--primary);color:#fff;border-color:var(--primary);}
 
-  /* PAINÉIS */
-  .main { padding:8px 16px 40px; }
-  .panel { display:none; }
-  .panel.active { display:block; }
+/* ── PAINÉIS ── */
+.main{padding:8px 16px 40px;}
+.panel{display:none;} .panel.active{display:block;}
 
-  /* FORM */
-  .form-card { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:20px; box-shadow:var(--shadow-sm); }
-  .form-card-title { font-family:'Playfair Display',serif; font-size:18px; font-weight:700; color:var(--primary); margin-bottom:16px; padding-bottom:8px; border-bottom:2px solid var(--bg-input); }
-  .field-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px; }
-  .field-group { margin-bottom:14px; }
-  .field-group label { display:block; font-size:12px; font-weight:700; color:var(--text-main); margin-bottom:6px; }
-  .field-group input, .field-group textarea { width:100%; background:var(--bg-input); border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--text-main); font-family:'DM Sans',sans-serif; font-size:16px; padding:12px; outline:none; }
-  .field-group input:focus, .field-group textarea:focus { border-color:var(--primary); background:#fff; box-shadow:0 0 0 3px rgba(30,58,138,0.1); }
-  .field-group textarea { resize:vertical; min-height:90px; font-weight:500; }
-  .field-hint { font-size:11px; color:var(--text-muted); margin-top:4px; }
-  .btn { display:block; width:100%; padding:14px; border:none; border-radius:var(--radius-sm); font-family:'DM Sans',sans-serif; font-size:16px; font-weight:700; cursor:pointer; }
-  .btn-primary   { background:var(--primary); color:#fff; margin-top:16px; box-shadow:0 4px 12px rgba(30,58,138,0.2); }
-  .btn-secondary { background:#e2e8f0; color:var(--text-muted); margin-top:10px; display:none; }
-  .btn-secondary.visible { display:block; }
+/* ── FORM ESCALA ── */
+.form-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow-sm);}
+.form-card-title{font-family:'Playfair Display',serif;font-size:17px;font-weight:700;color:var(--primary);margin-bottom:16px;padding-bottom:8px;border-bottom:2px solid var(--bg-input);}
+.form-section-label{font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin:16px 0 8px;display:flex;align-items:center;gap:6px;}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;}
+.field-group{margin-bottom:12px;}
+.field-group label{display:block;font-size:12px;font-weight:700;color:var(--text-main);margin-bottom:5px;}
+.field-group input,.field-group textarea,.field-group select{width:100%;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-main);font-family:'DM Sans',sans-serif;font-size:15px;padding:11px;outline:none;}
+.field-group input:focus,.field-group textarea:focus,.field-group select:focus{border-color:var(--primary);background:#fff;box-shadow:0 0 0 3px rgba(30,58,138,0.1);}
+.field-group textarea{resize:vertical;min-height:80px;}
+.field-hint{font-size:11px;color:var(--text-muted);margin-top:3px;}
+.btn{display:block;width:100%;padding:14px;border:none;border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:15px;font-weight:700;cursor:pointer;}
+.btn-primary{background:var(--primary);color:#fff;margin-top:16px;box-shadow:0 4px 12px rgba(30,58,138,0.2);}
+.btn-secondary{background:#e2e8f0;color:var(--text-muted);margin-top:10px;display:none;}
+.btn-secondary.visible{display:block;}
+.funcoes-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
 
-  /* CARDS */
-  .escala-list { display:flex; flex-direction:column; gap:16px; margin-top:12px; }
-  .escala-card { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; box-shadow:var(--shadow-sm); transition:opacity 0.2s; }
-  .escala-card.passada { opacity:0.65; }
-  .escala-card.passada .escala-date-num { background:#64748b; }
-  .escala-card-header { background:#f1f5f9; padding:12px 16px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--border); }
-  .escala-date-block { display:flex; align-items:center; gap:10px; }
-  .escala-date-num { background:var(--primary); border-radius:8px; width:44px; height:44px; display:flex; flex-direction:column; align-items:center; justify-content:center; }
-  .escala-date-num .day   { font-family:'Playfair Display',serif; font-size:19px; font-weight:700; color:#fff; line-height:1; }
-  .escala-date-num .month { font-size:9px; font-weight:700; text-transform:uppercase; color:#93c5fd; }
-  .escala-date-info  { display:flex; flex-direction:column; }
-  .escala-date-full  { font-size:15px; font-weight:700; color:var(--text-main); }
-  .escala-time-badge { font-size:12px; font-weight:700; color:var(--primary); margin-top:2px; }
-  .dias-badge { font-size:11px; font-weight:700; padding:4px 10px; border-radius:20px; text-transform:uppercase; }
-  .dias-badge.hoje    { background:#dcfce7; color:#15803d; border:1px solid #bbf7d0; }
-  .dias-badge.breve   { background:#fef3c7; color:#b45309; border:1px solid #fde68a; }
-  .dias-badge.normal  { background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; }
-  .dias-badge.passado { background:#f1f5f9; color:#64748b; border:1px solid #cbd5e1; }
+/* ── MÚSICOS PANEL ── */
+.musicos-form{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:16px;box-shadow:var(--shadow-sm);}
+.musicos-form h3{font-family:'Playfair Display',serif;font-size:16px;color:var(--primary);margin-bottom:14px;}
+.musico-grupo{margin-bottom:14px;}
+.musico-grupo-titulo{font-size:13px;font-weight:700;color:var(--text-main);margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+.musico-grupo-lista{display:flex;flex-wrap:wrap;gap:8px;}
+.musico-chip{display:flex;align-items:center;gap:6px;background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd;padding:5px 12px;border-radius:20px;font-size:13px;font-weight:700;}
+.musico-del{background:transparent;border:none;color:#dc2626;cursor:pointer;font-size:14px;padding:0 2px;line-height:1;}
+.musicos-lista-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow-sm);}
+.musicos-lista-card h3{font-family:'Playfair Display',serif;font-size:16px;color:var(--primary);margin-bottom:14px;}
 
-  .escala-card-body { padding:16px; }
-  .escala-row { display:flex; align-items:flex-start; gap:12px; padding:10px 0; border-bottom:1px solid #f1f5f9; }
-  .escala-row:last-of-type { border-bottom:none; }
-  .escala-row-icon    { font-size:18px; flex-shrink:0; width:24px; text-align:center; }
-  .escala-row-content { flex:1; min-width:0; }
-  .escala-row-label   { font-size:11px; font-weight:700; text-transform:uppercase; color:var(--text-muted); letter-spacing:0.5px; margin-bottom:2px; }
-  .escala-row-value   { font-size:16px; font-weight:700; color:var(--text-main); line-height:1.4; }
-  .escala-row-label-hinos { font-size:11px; font-weight:700; text-transform:uppercase; color:#78350f; letter-spacing:0.5px; margin-bottom:4px; }
-  .escala-row-value-hinos { background:#fffbeb; padding:10px; border-radius:6px; border-left:4px solid #d97706; }
-  .hinos-lista { font-size:15px; font-weight:700; color:var(--text-hinos); line-height:1.6; }
-  .escala-row-label-links { font-size:11px; font-weight:700; text-transform:uppercase; color:#1d4ed8; letter-spacing:0.5px; margin-bottom:6px; }
-  .links-container { display:flex; flex-direction:column; gap:6px; }
-  .link-item { display:flex; align-items:center; flex-wrap:wrap; gap:6px; }
-  .link-texto { font-size:14px; color:var(--text-muted); font-style:italic; }
-  .musica-link { display:inline-flex; align-items:center; gap:6px; background:#1e3a8a; color:#fff; padding:6px 14px; border-radius:20px; font-size:13px; font-weight:700; text-decoration:none; }
-  .link-icon { font-size:10px; }
+/* ── CARDS ESCALA ── */
+.escala-list{display:flex;flex-direction:column;gap:16px;margin-top:12px;}
+.escala-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow-sm);}
+.escala-card.passada{opacity:0.65;}
+.escala-card.passada .escala-date-num{background:#64748b;}
+.escala-card-header{background:#f1f5f9;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);}
+.escala-date-block{display:flex;align-items:center;gap:10px;}
+.escala-date-num{background:var(--primary);border-radius:8px;width:44px;height:44px;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+.escala-date-num .day{font-family:'Playfair Display',serif;font-size:19px;font-weight:700;color:#fff;line-height:1;}
+.escala-date-num .month{font-size:9px;font-weight:700;text-transform:uppercase;color:#93c5fd;}
+.escala-date-info{display:flex;flex-direction:column;}
+.escala-date-full{font-size:15px;font-weight:700;color:var(--text-main);}
+.escala-time-badge{font-size:12px;font-weight:700;color:var(--primary);margin-top:2px;}
+.dias-badge{font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;text-transform:uppercase;}
+.dias-badge.hoje{background:#dcfce7;color:#15803d;border:1px solid #bbf7d0;}
+.dias-badge.breve{background:#fef3c7;color:#b45309;border:1px solid #fde68a;}
+.dias-badge.normal{background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd;}
+.dias-badge.passado{background:#f1f5f9;color:#64748b;border:1px solid #cbd5e1;}
+.escala-card-body{padding:16px;}
+.escala-row{display:flex;align-items:flex-start;gap:12px;padding:9px 0;border-bottom:1px solid #f1f5f9;}
+.escala-row:last-of-type{border-bottom:none;}
+.escala-row-icon{font-size:18px;flex-shrink:0;width:24px;text-align:center;}
+.escala-row-content{flex:1;min-width:0;}
+.escala-row-label{font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.5px;margin-bottom:2px;}
+.escala-row-value{font-size:15px;font-weight:700;color:var(--text-main);line-height:1.4;}
 
-  /* RECADOS */
-  .recados-section { margin-top:14px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:var(--radius-sm); padding:14px; }
-  .recados-header  { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
-  .recados-icon    { font-size:16px; }
-  .recados-title   { font-size:13px; font-weight:700; text-transform:uppercase; color:var(--text-main); letter-spacing:0.5px; }
-  .recados-badge   { margin-left:auto; font-size:10px; font-weight:700; background:#fef3c7; color:#b45309; border:1px solid #fde68a; padding:2px 8px; border-radius:10px; text-transform:uppercase; }
-  .recado-exibido  { font-size:14px; color:#7c3aed; font-weight:500; background:#f5f3ff; border-left:3px solid #7c3aed; padding:8px 10px; border-radius:4px; margin-bottom:10px; white-space:pre-wrap; line-height:1.5; }
-  .recado-textarea { width:100%; background:#fff; border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--text-main); font-family:'DM Sans',sans-serif; font-size:14px; padding:10px; outline:none; resize:vertical; min-height:80px; line-height:1.5; }
-  .recado-textarea:focus { border-color:#7c3aed; box-shadow:0 0 0 3px rgba(124,58,237,0.1); }
-  .btn-salvar-recado { margin-top:8px; width:100%; padding:10px; background:#7c3aed; color:#fff; border:none; border-radius:var(--radius-sm); font-family:'DM Sans',sans-serif; font-size:13px; font-weight:700; cursor:pointer; }
+/* Campos editáveis pelo membro */
+.campo-editavel{background:#f8fafc;border:1px solid #e2e8f0;border-radius:var(--radius-sm);padding:12px;margin-top:12px;}
+.campo-editavel.roxo{background:#faf5ff;border-color:#e9d5ff;}
+.campo-editavel-titulo{font-size:12px;font-weight:700;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.5px;margin-bottom:8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.campo-textarea{width:100%;background:#fff;border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-main);font-family:'DM Sans',sans-serif;font-size:14px;padding:10px;outline:none;resize:vertical;min-height:72px;line-height:1.5;margin-top:6px;}
+.campo-textarea:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(30,58,138,0.1);}
+.btn-campo-salvar{margin-top:7px;width:100%;padding:9px;border:none;border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;}
+.btn-campo-salvar.amarelo{background:#d97706;color:#fff;}
+.btn-campo-salvar.azul{background:#1e3a8a;color:#fff;}
+.btn-campo-salvar.roxo{background:#7c3aed;color:#fff;}
+.recados-badge{font-size:10px;font-weight:700;background:#fef3c7;color:#b45309;border:1px solid #fde68a;padding:2px 7px;border-radius:10px;text-transform:uppercase;}
+.recado-exibido{font-size:14px;color:#7c3aed;font-weight:500;background:#f5f3ff;border-left:3px solid #7c3aed;padding:8px 10px;border-radius:4px;margin-bottom:8px;white-space:pre-wrap;line-height:1.5;}
+.musica-link{display:inline-flex;align-items:center;gap:6px;background:#1e3a8a;color:#fff;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:700;text-decoration:none;}
 
-  /* RODAPÉ CARD — 3 colunas */
-  .escala-card-footer { display:grid; grid-template-columns:2fr 1.2fr 0.6fr; border-top:1px solid var(--border); background:#f8fafc; }
-  .escala-card-footer button { padding:13px 8px; background:transparent; border:none; font-family:'DM Sans',sans-serif; font-size:13px; font-weight:700; text-transform:uppercase; cursor:pointer; }
-  .btn-whats-card { color:#15803d; border-right:1px solid var(--border); }
-  .btn-edit-card  { color:#b45309; border-right:1px solid var(--border); }
-  .btn-del-card   { color:var(--danger); }
+/* Rodapé card */
+.escala-card-footer{display:grid;grid-template-columns:2fr 1fr 0.5fr;border-top:1px solid var(--border);background:#f8fafc;}
+.escala-card-footer button,.escala-card-footer span{padding:13px 8px;background:transparent;border:none;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;text-transform:uppercase;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.btn-whats-card{color:#15803d;border-right:1px solid var(--border);}
+.btn-edit-card{color:#b45309;border-right:1px solid var(--border);}
+.btn-del-card{color:var(--danger);}
 
-  .sem-conteudo { color:#94a3b8; font-style:italic; font-size:13px; }
+/* field-group dentro de auth */
+.field-group input{width:100%;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-main);font-family:'DM Sans',sans-serif;font-size:16px;padding:12px;outline:none;}
+.field-group input:focus{border-color:var(--primary);background:#fff;box-shadow:0 0 0 3px rgba(30,58,138,0.1);}
 
-  /* TOAST */
-  .toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(80px); background:#0f172a; color:#fff; padding:12px 24px; border-radius:50px; font-size:14px; font-weight:700; box-shadow:0 10px 25px rgba(0,0,0,0.3); opacity:0; transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1); z-index:999; white-space:nowrap; }
-  .toast.show    { opacity:1; transform:translateX(-50%) translateY(0); }
-  .toast.success { background:#16a34a; }
-  .toast.danger  { background:#dc2626; }
-
-  /* DIALOG */
-  .overlay { position:fixed; inset:0; background:rgba(15,23,42,0.6); z-index:200; display:none; align-items:flex-end; }
-  .overlay.active { display:flex; }
-  .dialog { background:#fff; border-radius:var(--radius) var(--radius) 0 0; padding:24px 20px; width:100%; }
-  .dialog h3 { font-family:'Playfair Display',serif; font-size:19px; font-weight:700; margin-bottom:8px; }
-  .dialog p  { font-size:15px; color:var(--text-muted); line-height:1.5; margin-bottom:20px; }
-  .dialog-actions { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-  .dialog-actions button { padding:14px; border-radius:var(--radius-sm); font-family:'DM Sans',sans-serif; font-size:15px; font-weight:700; cursor:pointer; border:none; }
-  .btn-dialog-cancel  { background:#e2e8f0; color:var(--text-muted); }
-  .btn-dialog-confirm { background:var(--danger); color:#fff; }
-
-  /* EMPTY */
-  .empty-state { text-align:center; padding:60px 24px; color:var(--text-muted); }
-  .empty-icon  { font-size:56px; margin-bottom:12px; }
-  .empty-state h3 { font-family:'Playfair Display',serif; font-size:20px; font-weight:700; color:var(--text-main); margin-bottom:6px; }
+.sem-conteudo{color:#94a3b8;font-style:italic;font-size:13px;}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:#0f172a;color:#fff;padding:12px 24px;border-radius:50px;font-size:14px;font-weight:700;box-shadow:0 10px 25px rgba(0,0,0,0.3);opacity:0;transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1);z-index:999;white-space:nowrap;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+.toast.success{background:#16a34a;} .toast.danger{background:#dc2626;}
+.overlay{position:fixed;inset:0;background:rgba(15,23,42,0.6);z-index:200;display:none;align-items:flex-end;}
+.overlay.active{display:flex;}
+.dialog{background:#fff;border-radius:var(--radius) var(--radius) 0 0;padding:24px 20px;width:100%;}
+.dialog h3{font-family:'Playfair Display',serif;font-size:18px;font-weight:700;margin-bottom:8px;}
+.dialog p{font-size:14px;color:var(--text-muted);line-height:1.5;margin-bottom:18px;}
+.dialog-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.dialog-actions button{padding:14px;border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;border:none;}
+.btn-dialog-cancel{background:#e2e8f0;color:var(--text-muted);}
+.btn-dialog-confirm{background:var(--danger);color:#fff;}
+.empty-state{text-align:center;padding:50px 24px;color:var(--text-muted);}
+.empty-icon{font-size:52px;margin-bottom:12px;}
+.empty-state h3{font-family:'Playfair Display',serif;font-size:19px;font-weight:700;color:var(--text-main);margin-bottom:6px;}
 </style>
 </head>
 <body>
 
-<!-- TELA DE LOGIN -->
-<div id="auth-screen" style="display:flex;">
-  <div class="auth-container">
+<!-- ══ TELA INÍCIO ══ -->
+<div id="tela-inicio" style="display:flex;">
+  <div class="tela-inicio">
+    <div class="inicio-logo">🎼</div>
+    <h1 class="inicio-titulo">Escala do Louvor</h1>
+    <p class="inicio-sub">Ministério de Música</p>
+    <div class="inicio-botoes">
+      <!-- MEMBRO -->
+      <div style="background:rgba(255,255,255,0.08);border-radius:var(--radius);padding:16px;">
+        <p style="color:#93c5fd;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;text-align:center;">Acesso Membro</p>
+        <form onsubmit="handleAuthMembro(event)">
+          <div class="field-group" style="margin-bottom:10px;">
+            <input type="text" id="membro-igreja-id" placeholder="ID da Igreja (fornecido pelo líder)" style="font-size:14px;">
+          </div>
+          <div class="field-group" style="margin-bottom:10px;">
+            <input type="password" id="membro-senha" placeholder="Senha dos membros">
+          </div>
+          <p id="membro-erro" class="erro-msg" style="color:#fca5a5;display:none;"></p>
+          <button type="submit" id="btn-membro-auth" class="btn-inicio btn-inicio-membro">Entrar como Membro</button>
+        </form>
+      </div>
+      <button class="btn-inicio btn-inicio-lider" onclick="mostrarTelaLider()">🔐 Entrar como Líder</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ TELA LÍDER ══ -->
+<div id="tela-lider" style="display:none;">
+  <div class="tela-lider">
     <div class="auth-card">
       <div class="auth-logo">🎼</div>
-      <h2 id="auth-title">Painel do Administrador</h2>
-      <p>Gerencie a escala do ministério de música da sua igreja</p>
-
+      <h2 id="lider-title">Entrar como Líder</h2>
+      <p>Administre a escala da sua igreja</p>
       <div class="switch-container">
         <span>Já tenho cadastro</span>
-        <input type="checkbox" id="auth-mode-check" onchange="toggleAuthMode()">
+        <input type="checkbox" id="lider-mode-check" onchange="toggleLiderMode()">
         <span>Cadastrar nova Igreja</span>
       </div>
-
-      <form id="auth-form-element" onsubmit="handleAuth(event)">
-        <div id="group-nome-igreja" class="field-group" style="display:none;">
-          <label for="auth-nome-igreja">Nome da Igreja</label>
-          <input type="text" id="auth-nome-igreja" placeholder="Ex: Igreja Batista Central">
+      <form id="lider-form" onsubmit="handleAuthLider(event)">
+        <div id="group-nome-lider" class="field-group" style="display:none;margin-bottom:12px;">
+          <label>Nome da Igreja</label>
+          <input type="text" id="lider-nome-igreja" placeholder="Ex: Igreja Batista Central">
         </div>
-        <div class="field-group">
-          <label for="auth-email">Email</label>
-          <input type="email" id="auth-email" placeholder="seu@email.com" autocomplete="email">
+        <div id="group-codigo-lider" class="field-group" style="display:none;margin-bottom:12px;">
+          <label>🔑 Código de Ativação</label>
+          <input type="text" id="lider-codigo" placeholder="Código fornecido pelo suporte">
+          <div class="field-hint" style="color:#93c5fd;">Recebido no momento da compra do sistema.</div>
         </div>
-        <div class="field-group">
-          <label for="auth-senha">Senha</label>
-          <input type="password" id="auth-senha" placeholder="Mínimo 6 caracteres" autocomplete="current-password">
+        <div class="field-group" style="margin-bottom:12px;">
+          <label>Email</label>
+          <input type="email" id="lider-email" placeholder="seu@email.com" autocomplete="email">
         </div>
-        <button type="submit" id="btn-auth" class="btn btn-primary">Entrar no Painel</button>
-        <button type="button" id="btn-recuperar" class="btn-recuperar" onclick="recuperarSenha()">Esqueci minha senha</button>
+        <div class="field-group" style="margin-bottom:12px;">
+          <label>Senha</label>
+          <input type="password" id="lider-senha" placeholder="Mínimo 6 caracteres" autocomplete="current-password">
+        </div>
+        <p id="lider-erro" class="erro-msg"></p>
+        <button type="submit" id="btn-lider-auth" class="btn btn-primary">Entrar como Líder</button>
+        <button type="button" class="btn-recuperar" onclick="recuperarSenha()">Esqueci minha senha</button>
+        <button type="button" class="btn-voltar" onclick="voltarInicio()">← Voltar</button>
       </form>
     </div>
   </div>
 </div>
 
-<!-- APP PRINCIPAL -->
+<!-- ══ APP PRINCIPAL ══ -->
 <div id="app-content" style="display:none;">
 
   <header class="app-header">
     <div class="header-top">
       <div class="header-text">
-        <h1>Escala do Louvor</h1>
-        <p id="nome-igreja-header">Ministério de Música</p>
+        <h1>Escala do Louvor <span id="badge-lider" class="badge-lider" style="display:none;">LÍDER</span></h1>
+        <div id="nome-igreja-header">Ministério de Música</div>
+        <div id="sub-igreja-header" style="font-size:11px;color:#fbbf24;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;display:none;"></div>
       </div>
       <div class="header-right">
         <div class="header-status">
-          <div id="status-dot" class="status-dot connecting"></div>
+          <div id="status-dot" class="status-dot offline"></div>
           <span id="status-text">Conectando...</span>
         </div>
-        <button class="btn-logout" onclick="logout()">Sair</button>
+        <button id="btn-sair" class="btn-sair" onclick="sair()">Sair</button>
       </div>
     </div>
   </header>
@@ -693,56 +824,95 @@
     <button id="tab-lista" class="nav-tab active" onclick="switchTab('lista')">
       Escalas <span id="badge-count" class="badge" style="display:none;">0</span>
     </button>
-    <button id="tab-form" class="nav-tab" onclick="switchTab('form')">Nova Escala</button>
+    <button id="tab-form"    class="nav-tab" style="display:none;" onclick="switchTab('form')">Nova Escala</button>
+    <button id="tab-musicos" class="nav-tab" style="display:none;" onclick="switchTab('musicos-panel')">Músicos</button>
   </nav>
 
   <main class="main">
 
+    <!-- LISTA -->
     <div id="panel-lista" class="panel active">
       <div class="filtro-bar">
         <button id="btn-futuras"  class="btn-filtro ativo" onclick="setFiltro('futuras')">📅 Próximas</button>
-        <button id="btn-passadas" class="btn-filtro"        onclick="setFiltro('passadas')">📖 Histórico</button>
+        <button id="btn-passadas" class="btn-filtro"       onclick="setFiltro('passadas')">📖 Histórico</button>
       </div>
       <div id="lista-escalas"></div>
     </div>
 
+    <!-- FORM NOVA ESCALA -->
     <div id="panel-form" class="panel">
       <div class="form-card">
         <div class="form-card-title"><span id="form-title-text">Agendar nova data</span></div>
         <div class="field-row">
-          <div class="field-group">
-            <label for="data">Data</label>
-            <input type="date" id="data">
-          </div>
-          <div class="field-group">
-            <label for="horario">Horário</label>
-            <input type="time" id="horario">
-          </div>
+          <div class="field-group"><label>Data</label><input type="date" id="data"></div>
+          <div class="field-group"><label>Horário</label><input type="time" id="horario"></div>
+        </div>
+        <div class="form-section-label">🎤 Músicos Escalados</div>
+        <div class="funcoes-grid">
+          <!-- Gera campos para cada função -->
+          <div class="field-group"><label>🎤 Vocal Principal</label><input type="text" id="f-vocal" placeholder="Nome"></div>
+          <div class="field-group"><label>🎙️ Backing Vocals</label><input type="text" id="f-back" placeholder="Nomes"></div>
+          <div class="field-group"><label>🪕 Violão</label><input type="text" id="f-violao" placeholder="Nome"></div>
+          <div class="field-group"><label>🎸 Guitarra</label><input type="text" id="f-guitarra" placeholder="Nome"></div>
+          <div class="field-group"><label>🎹 Teclado</label><input type="text" id="f-teclado" placeholder="Nome"></div>
+          <div class="field-group"><label>🥁 Bateria</label><input type="text" id="f-bateria" placeholder="Nome"></div>
+          <div class="field-group"><label>🎵 Baixo</label><input type="text" id="f-baixo" placeholder="Nome"></div>
+          <div class="field-group"><label>🎷 Saxofone</label><input type="text" id="f-sax" placeholder="Nome"></div>
+          <div class="field-group"><label>🪘 Percussão</label><input type="text" id="f-percussao" placeholder="Nome"></div>
+          <div class="field-group"><label>🎚️ Mesa de Som</label><input type="text" id="f-som" placeholder="Nome"></div>
+          <div class="field-group"><label>🖥️ Mídia</label><input type="text" id="f-midia" placeholder="Nome"></div>
+        </div>
+        <div class="form-section-label">🎵 Repertório</div>
+        <div class="field-group">
+          <label>Hinos do Dia</label>
+          <textarea id="hinos" placeholder="1. Grandioso És Tu&#10;2. Porque Ele Vive"></textarea>
         </div>
         <div class="field-group">
-          <label for="vocal">Vocal Principal</label>
-          <input type="text" id="vocal" placeholder="Ex: Ana Clara">
-        </div>
-        <div class="field-group">
-          <label for="back">Backing Vocals</label>
-          <input type="text" id="back" placeholder="Ex: Lucas, Mariana, Davi">
-        </div>
-        <div class="field-group">
-          <label for="hinos">Hinos do Dia</label>
-          <textarea id="hinos" placeholder="1. Grandioso És Tu&#10;2. Porque Ele Vive&#10;3. Oceanos"></textarea>
-        </div>
-        <div class="field-group">
-          <label for="links">🔗 Links das Músicas</label>
+          <label>🔗 Links das Músicas</label>
           <textarea id="links" placeholder="Cole os links do YouTube ou Spotify&#10;Ex: Grandioso És Tu https://youtu.be/..."></textarea>
-          <div class="field-hint">Um link por linha. Pode escrever o nome antes do link.</div>
+          <div class="field-hint">Um link por linha.</div>
         </div>
         <div class="field-group">
-          <label for="recados">📢 Avisos / Justificativas</label>
-          <textarea id="recados" placeholder="Avisos gerais ou ausências&#10;Ex: João não poderá vir neste domingo."></textarea>
-          <div class="field-hint">Os membros também podem editar este campo diretamente no card.</div>
+          <label>📢 Avisos</label>
+          <textarea id="recados" placeholder="Avisos gerais para esta data."></textarea>
         </div>
         <button id="btn-salvar" class="btn btn-primary" onclick="salvar()">Salvar na Escala</button>
-        <button id="btn-cancelar" class="btn btn-secondary" onclick="resetForm(); switchTab('lista');">Cancelar Edição</button>
+        <button id="btn-cancelar" class="btn btn-secondary" onclick="resetForm();switchTab('lista')">Cancelar</button>
+      </div>
+    </div>
+
+    <!-- MÚSICOS -->
+    <div id="panel-musicos-panel" class="panel">
+      <div class="musicos-form">
+        <h3>➕ Cadastrar Músico</h3>
+        <div class="field-row">
+          <div class="field-group">
+            <label>Nome</label>
+            <input type="text" id="musico-nome" placeholder="Nome do músico">
+          </div>
+          <div class="field-group">
+            <label>Função</label>
+            <select id="musico-funcao">
+              <option value="">Selecione...</option>
+              <option value="vocal">🎤 Vocal Principal</option>
+              <option value="back">🎙️ Backing Vocals</option>
+              <option value="violao">🪕 Violão</option>
+              <option value="guitarra">🎸 Guitarra</option>
+              <option value="teclado">🎹 Teclado</option>
+              <option value="bateria">🥁 Bateria</option>
+              <option value="baixo">🎵 Baixo</option>
+              <option value="sax">🎷 Saxofone</option>
+              <option value="percussao">🪘 Percussão</option>
+              <option value="som">🎚️ Mesa de Som</option>
+              <option value="midia">🖥️ Mídia</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn btn-primary" style="margin-top:8px;" onclick="salvarMusico()">Cadastrar Músico</button>
+      </div>
+      <div class="musicos-lista-card">
+        <h3>👥 Equipe da Igreja</h3>
+        <div id="lista-musicos"></div>
       </div>
     </div>
 
@@ -752,9 +922,9 @@
   <div id="overlay" class="overlay" onclick="fecharDialog(event)">
     <div class="dialog">
       <h3>Remover Escala?</h3>
-      <p id="dialog-desc">Esta ação não pode ser desfeita.</p>
+      <p id="dialog-desc"></p>
       <div class="dialog-actions">
-        <button class="btn-dialog-cancel"  onclick="fecharDialog()">Cancelar</button>
+        <button class="btn-dialog-cancel" onclick="fecharDialog()">Cancelar</button>
         <button class="btn-dialog-confirm" onclick="confirmarExclusao()">Remover</button>
       </div>
     </div>
@@ -762,6 +932,29 @@
 
 </div><!-- fim app-content -->
 
+<!-- PAINEL ID DA IGREJA (para o líder compartilhar com membros) -->
+<div id="panel-id-igreja" style="display:none;position:fixed;bottom:0;left:0;right:0;background:#1e3a8a;color:#fff;padding:10px 16px;z-index:50;text-align:center;">
+  <span style="font-size:11px;color:#93c5fd;font-weight:700;text-transform:uppercase;">ID da Igreja para membros: </span>
+  <span id="txt-id-igreja" style="font-size:13px;color:#fbbf24;font-weight:700;word-break:break-all;"></span>
+</div>
+
 <div id="toast" class="toast"></div>
+
+<script type="module">
+  // Mostra ID da igreja para o líder copiar e enviar aos membros
+  import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
+  import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
+  const _app = getApps()[0];
+  const _auth = getAuth(_app);
+  onAuthStateChanged(_auth, user => {
+    if (user) {
+      document.getElementById('panel-id-igreja').style.display='block';
+      document.getElementById('txt-id-igreja').textContent = user.uid;
+    } else {
+      document.getElementById('panel-id-igreja').style.display='none';
+    }
+  });
+</script>
+
 </body>
 </html>
