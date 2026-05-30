@@ -7,7 +7,7 @@
   <title>Sistema de Escala - Ministério de Louvor</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2=family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
@@ -39,11 +39,30 @@
       bateria: "🥁 Bateria", percussao: "🪘 Percussão", mesa: "🎛️ Som / Mídia"
     };
 
+    // Garante a renderização segura das telas sem travar o app
+    window.mostrarTela = function(telaId) {
+      const tAuth = document.getElementById('auth-screen');
+      const tPublic = document.getElementById('public-screen');
+      const tAdmin = document.getElementById('admin-panel');
+
+      if(tAuth) tAuth.style.display = telaId === 'auth-screen' ? 'flex' : 'none';
+      if(tPublic) tPublic.style.display = telaId === 'public-screen' ? 'block' : 'none';
+      if(tAdmin) tAdmin.style.display = telaId === 'admin-panel' ? 'block' : 'none';
+      
+      if(telaId === 'public-screen') {
+        carregarEscalasPublicas();
+      }
+    };
+
+    // Monitor do Estado de Login com proteção contra elementos nulos
     onAuthStateChanged(auth, (user) => {
       if (user) {
         usuarioLogado = user;
         mostrarTela('admin-panel');
-        document.getElementById('nome-igreja-header-admin').textContent = user.displayName || "IMO KM 32";
+        const headerAdmin = document.getElementById('nome-igreja-header-admin');
+        if (headerAdmin) {
+          headerAdmin.textContent = user.displayName || "IMO KM 32";
+        }
         iniciarListenerAdmin();
       } else {
         usuarioLogado = null;
@@ -52,23 +71,19 @@
       }
     });
 
-    window.mostrarTela = function(telaId) {
-      document.getElementById('auth-screen').style.display = telaId === 'auth-screen' ? 'flex' : 'none';
-      document.getElementById('public-screen').style.display = telaId === 'public-screen' ? 'block' : 'none';
-      document.getElementById('admin-panel').style.display = telaId === 'admin-panel' ? 'block' : 'none';
-      
-      if(telaId === 'public-screen') {
-        carregarEscalasPublicas();
-      }
-    };
-
     window.toggleModoAuth = function(modo) {
       const isCadastro = modo === 'cadastro';
-      document.getElementById('container-nome-igreja').style.display = isCadastro ? 'block' : 'none';
-      document.getElementById('btn-auth-submit').textContent = isCadastro ? 'Cadastrar e Criar Conta' : 'Entrar no Painel';
-      document.getElementById('tab-login').classList.toggle('active', !isCadastro);
-      document.getElementById('tab-cadastro').classList.toggle('active', isCadastro);
-      document.getElementById('auth-action-mode').value = modo;
+      const containerNome = document.getElementById('container-nome-igreja');
+      const btnSubmit = document.getElementById('btn-auth-submit');
+      const tabLogin = document.getElementById('tab-login');
+      const tabCadastro = document.getElementById('tab-cadastro');
+      const actionMode = document.getElementById('auth-action-mode');
+
+      if(containerNome) containerNome.style.display = isCadastro ? 'block' : 'none';
+      if(btnSubmit) btnSubmit.textContent = isCadastro ? 'Cadastrar e Criar Conta' : 'Entrar no Painel';
+      if(tabLogin) tabLogin.classList.toggle('active', !isCadastro);
+      if(tabCadastro) tabCadastro.classList.toggle('active', isCadastro);
+      if(actionMode) actionMode.value = modo;
     };
 
     window.handleAuthForm = async function(e) {
@@ -210,6 +225,7 @@
 
     function renderLista(containerId, isAdmin = false) {
       const container = document.getElementById(containerId);
+      if (!container) return;
       if (escalas.length === 0) {
         container.innerHTML = `<div class="empty-state"><h3>Nenhuma escala encontrada</h3></div>`;
         return;
@@ -237,6 +253,7 @@
     let toastTimer;
     window.showToast = function(msg, tipo = '') {
       const el = document.getElementById('toast');
+      if(!el) return;
       el.innerHTML = msg; el.className = 'toast ' + tipo + ' show';
       clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
     };
@@ -264,4 +281,153 @@
     .field-group label { display: block; font-size: 13px; color: var(--text-muted); margin-bottom: 6px; }
     .field-group input, .field-group textarea { width: 100%; background: var(--bg-input); border: 1px solid var(--border); border-radius: 8px; padding: 12px; color: white; font-size: 15px; outline: none; font-family: inherit; }
     
-    .btn { display: block; width: 100%; padding: 12px
+    .btn { display: block; width: 100%; padding: 12px; border: none; border-radius: 8px; font-size: 15px; font-weight: 700; cursor: pointer; text-align: center; }
+    .btn-primary { background: var(--primary); color: #0f172a; }
+    .btn-public-access { background: #10b981; color: white; margin-top: 14px; }
+    .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-muted); padding: 8px 16px; border-radius: 30px; cursor: pointer; font-size: 13px; }
+    
+    .seletor-botoes-container { display: flex; flex-wrap: wrap; gap: 6px; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 12px; }
+    .btn-add-funcao { background: var(--bg-input); border: 1px solid var(--border); color: white; padding: 6px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; }
+    
+    .row-funcao-ativa { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.02); padding: 6px; border-radius: 6px; margin-bottom: 6px; }
+    .lbl-funcao-ativa { font-size: 13px; font-weight: 700; color: var(--primary); width: 130px; }
+    .row-funcao-ativa input { flex: 1; background: var(--bg-input); border: 1px solid var(--border); border-radius: 6px; padding: 8px; color: white; font-size: 14px; }
+    .btn-remove-funcao { background: transparent; border: none; cursor: pointer; font-size: 14px; }
+
+    .louve-card { background: var(--bg-card); border-radius: var(--radius); margin-bottom: 16px; padding: 16px; border: 1px solid var(--border); }
+    .louve-meta { display: flex; gap: 8px; margin-bottom: 12px; align-items: center; }
+    .badge-date { background: rgba(56, 189, 248, 0.15); color: var(--primary); padding: 4px 10px; border-radius: 50px; font-size: 12px; font-weight: 700; }
+    .badge-time { background: rgba(255, 255, 255, 0.08); padding: 4px 10px; border-radius: 50px; font-size: 12px; }
+    .btn-delete-sm { margin-left: auto; background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; color: #ef4444; padding: 3px 8px; border-radius: 6px; font-size: 11px; cursor: pointer; }
+
+    .team-section { background: rgba(0,0,0,0.15); padding: 12px; border-radius: 8px; margin-bottom: 12px; }
+    .team-row { display: flex; margin-bottom: 5px; font-size: 14px; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 3px; }
+    .team-label { color: var(--text-muted); width: 130px; }
+    .team-value { font-weight: 700; color: white; }
+    
+    .songs-box, .alert-box { border-radius: 8px; padding: 12px; margin-top: 8px; border-left: 3px solid; font-size: 14px; }
+    .songs-box { background: rgba(16, 185, 129, 0.05); border-left-color: #10b981; }
+    .alert-box { background: rgba(245, 158, 11, 0.05); border-left-color: #f59e0b; }
+    .box-title { font-size: 11px; font-weight: 700; text-transform: uppercase; margin-bottom: 4px; }
+    .songs-box .box-title { color: #10b981; }
+    .alert-box .box-title { color: #f59e0b; }
+
+    .welcome-container { background: linear-gradient(135deg, #1e3a8a 0%, #0f172a 100%); padding: 24px 16px; text-align: center; border-radius: 0 0 20px 20px; }
+    .app-header { background: var(--bg-card); padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); }
+    .nav-tabs { display: flex; background: var(--bg-card); padding: 4px; margin: 12px auto; max-width: 480px; border-radius: 8px; border: 1px solid var(--border); }
+    .nav-tab { flex: 1; padding: 10px; background: transparent; border: none; font-weight: 700; cursor: pointer; font-size: 13px; color: var(--text-muted); border-radius: 6px; }
+    .nav-tab.active { color: #0f172a; background: var(--primary); }
+    
+    .panel { display: none; }
+    .panel.active { display: block; }
+    .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); padding: 12px 24px; border-radius: 50px; display: none; z-index: 9999; font-weight: 700; }
+    .toast.show { display: block; }
+    .toast.success { background: #10b981; color: white; }
+    .toast.danger { background: #ef4444; color: white; }
+    .empty-state { text-align: center; color: var(--text-muted); padding: 30px 10px; }
+  </style>
+</head>
+<body>
+
+<div id="auth-screen" class="auth-container">
+  <div class="auth-card">
+    <h2>Ministério de Louvor</h2>
+    <p class="auth-subtitle">Controle de Membros, Instrumentos e Cânticos</p>
+    
+    <div class="auth-tabs">
+      <button id="tab-login" class="auth-tab active" onclick="toggleModoAuth('login')">Já sou Cadastrado</button>
+      <button id="tab-cadastro" class="auth-tab" onclick="toggleModoAuth('cadastro')">Cadastrar Nova Igreja</button>
+    </div>
+
+    <form onsubmit="handleAuthForm(event)">
+      <input type="hidden" id="auth-action-mode" value="login">
+      
+      <div class="field-group" id="container-nome-igreja" style="display: none;">
+        <label>Nome da Igreja / Congregação *</label>
+        <input type="text" id="auth-nome-igreja" placeholder="Ex: IMO KM 32">
+      </div>
+
+      <div class="field-group">
+        <label>E-mail do Administrador *</label>
+        <input type="email" id="auth-email" placeholder="lider@gmail.com" required>
+      </div>
+
+      <div class="field-group">
+        <label>Senha de Acesso *</label>
+        <input type="password" id="auth-senha" placeholder="••••••••" required>
+      </div>
+
+      <button type="submit" id="btn-auth-submit" class="btn btn-primary">Entrar no Painel</button>
+    </form>
+
+    <hr style="border: 0; border-top: 1px solid var(--border); margin: 20px 0;">
+    
+    <button class="btn btn-public-access" onclick="mostrarTela('public-screen')">🎸 Entrar como Voluntário / Escala</button>
+  </div>
+</div>
+
+<div id="public-screen" style="display: none;">
+  <div class="welcome-container">
+    <h1>Escalas Publicadas</h1>
+    <p style="color: var(--primary); font-size: 14px; margin-top: 4px;">Consulte seus dias de atuação e repertórios</p>
+  </div>
+  <main class="main">
+    <div id="lista-escalas-publica"></div>
+    <div style="text-align: center; margin-top: 25px;">
+      <button class="btn-outline" onclick="mostrarTela('auth-screen')">← Sair e Voltar ao Início</button>
+    </div>
+  </main>
+</div>
+
+<div id="admin-panel" style="display: none;">
+  <header class="app-header">
+    <div>
+      <span style="font-size:11px; color:var(--primary); font-weight:bold; display:block; text-transform:uppercase;">Painel do Líder</span>
+      <h1 id="nome-igreja-header-admin">IMO KM 32</h1>
+    </div>
+    <button class="btn-outline" style="padding: 6px 12px;" onclick="logout()">Sair 🚪</button>
+  </header>
+  
+  <nav class="nav-tabs">
+    <button id="tab-lista" class="nav-tab active" onclick="switchTabAdmin('lista')">Escalas Ativas</button>
+    <button id="tab-form" class="nav-tab" onclick="switchTabAdmin('form')">+ Usuários, Funções e Escala</button>
+  </nav>
+
+  <main class="main">
+    <div id="panel-lista" class="panel active">
+      <div id="lista-escalas-admin"></div>
+    </div>
+
+    <div id="panel-form" class="panel">
+      <div class="field-group"><label>Data do Culto / Evento *</label><input type="date" id="data"></div>
+      <div class="field-group"><label>Horário de Início *</label><input type="time" id="horario"></div>
+      
+      <div class="field-group">
+        <label style="color:var(--primary); font-weight:700;">1. Clique nos botões para definir as Funções/Instrumentos:</label>
+        <div id="botoes-seletor-funcoes" class="seletor-botoes-container"></div>
+      </div>
+
+      <div class="field-group">
+        <label>2. Digite o nome do Voluntário correspondente:</label>
+        <div id="campos-funcoes-dinamicas"></div>
+      </div>
+
+      <div class="field-group">
+        <label>3. Repertório de Músicas do Culto</label>
+        <textarea id="hinos" rows="4" placeholder="Ex:&#10;1. Hosana - Tom: E&#10;2. Te Louvarei - Tom: G"></textarea>
+      </div>
+
+      <div class="field-group">
+        <label>4. Orientações Gerais / Horário do Ensaio</label>
+        <textarea id="recados" rows="2" placeholder="Ex: Ensaio geral às 18:00h no templo."></textarea>
+      </div>
+
+      <button id="btn-salvar" class="btn btn-primary" onclick="salvarEscala()">Publicar Escala Oficial</button>
+    </div>
+  </main>
+</div>
+
+<div id="toast" class="toast"></div>
+
+</body>
+</html>
