@@ -8,14 +8,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Escala Louvor">
-<meta property="og:title" content="Escala do Louvor">
-<meta property="og:description" content="Acesse a escala do ministério de música.">
-<meta property="og:image" content="guitarra-512.png">
 <title>Escala do Louvor</title>
-<link rel="manifest" href="manifest2.json">
-<link rel="apple-touch-icon" sizes="144x144" href="guitarra-144.png">
-<link rel="apple-touch-icon" sizes="192x192" href="guitarra-192.png">
-<link rel="icon" type="image/png" sizes="48x48" href="guitarra-48.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
@@ -24,7 +17,7 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
   import {
     getFirestore, collection, addDoc, updateDoc, deleteDoc,
-    doc, onSnapshot, query, where, orderBy, serverTimestamp, getDoc, setDoc
+    doc, onSnapshot, query, where, orderBy, serverTimestamp, getDoc, setDoc, getDocs
   } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
   import {
     getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword,
@@ -40,42 +33,41 @@
     appId: "1:144171388952:web:54f59fa3dd9a149ab0f36d"
   };
 
-  const app = initializeApp(firebaseConfig);
-  const db  = getFirestore(app);
-  const auth= getAuth(app);
-  const col = collection(db, "escalas");
+  const app  = initializeApp(firebaseConfig);
+  const db   = getFirestore(app);
+  const auth = getAuth(app);
+  const col  = collection(db, "escalas");
 
   // ESTADO
-  let escalas          = [];
-  let musicos          = [];
-  let editDocId        = null;
-  let pendingDeleteId  = null;
-  let usuarioLogado    = null; // líder Firebase
-  let igrejaId         = null;
-  let membroLogado     = false;
-  let filtro           = 'futuras';
-  let unsubEscalas     = null;
-  let unsubMusicos     = null;
+  let escalas         = [];
+  let musicos         = [];
+  let editDocId       = null;
+  let pendingDeleteId = null;
+  let usuarioLogado   = null;
+  let igrejaId        = null;
+  let nomeIgrejaAtual = '';
+  let membroLogado    = false;
+  let filtro          = 'futuras';
+  let unsubEscalas    = null;
+  let unsubMusicos    = null;
 
   const MESES  = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  const MESES_FULL = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
   const SEMANA = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
-
-  // Código secreto que você envia para quem comprou o sistema
-  // TROQUE POR UM CÓDIGO DIFÍCIL DE ADIVINHAR!
   const CODIGO_ATIVACAO = "LOUVOR@2026";
 
   const FUNCOES = [
-    { id:'vocal',     label:'Vocal Principal', icon:'🎤' },
-    { id:'back',      label:'Backing Vocals',  icon:'🎙️' },
-    { id:'violao',    label:'Violão',          icon:'🪕' },
-    { id:'guitarra',  label:'Guitarra',        icon:'🎸' },
-    { id:'teclado',   label:'Teclado',         icon:'🎹' },
-    { id:'bateria',   label:'Bateria',         icon:'🥁' },
-    { id:'baixo',     label:'Baixo',           icon:'🎵' },
-    { id:'sax',       label:'Saxofone',        icon:'🎷' },
-    { id:'percussao', label:'Percussão',       icon:'🪘' },
-    { id:'som',       label:'Mesa de Som',     icon:'🎚️' },
-    { id:'midia',     label:'Mídia/ProPresenter', icon:'🖥️' },
+    { id:'vocal',     label:'Vocal Principal',    icon:'🎤' },
+    { id:'back',      label:'Backing Vocals',      icon:'🎙️' },
+    { id:'violao',    label:'Violão',              icon:'🪕' },
+    { id:'guitarra',  label:'Guitarra',            icon:'🎸' },
+    { id:'teclado',   label:'Teclado',             icon:'🎹' },
+    { id:'bateria',   label:'Bateria',             icon:'🥁' },
+    { id:'baixo',     label:'Baixo',               icon:'🎵' },
+    { id:'sax',       label:'Saxofone',            icon:'🎷' },
+    { id:'percussao', label:'Percussão',           icon:'🪘' },
+    { id:'som',       label:'Mesa de Som',         icon:'🎚️' },
+    { id:'midia',     label:'Mídia/ProPresenter',  icon:'🖥️' },
   ];
 
   /* ══════════════════════════════════════
@@ -86,7 +78,14 @@
       usuarioLogado = user;
       igrejaId = user.uid;
       membroLogado = false;
-      entrarNoApp(user.displayName || 'Minha Igreja', true);
+      // Busca nome real da igreja no Firestore
+      try {
+        const snap = await getDoc(doc(db,'igrejas',user.uid));
+        nomeIgrejaAtual = snap.exists() ? (snap.data().nome || user.displayName || 'Minha Igreja') : (user.displayName || 'Minha Igreja');
+      } catch(e) {
+        nomeIgrejaAtual = user.displayName || 'Minha Igreja';
+      }
+      entrarNoApp(nomeIgrejaAtual, true);
     } else if (!membroLogado) {
       usuarioLogado = null;
       mostrarTelaInicio();
@@ -105,16 +104,11 @@
     document.getElementById('tela-inicio').style.display  = 'none';
     document.getElementById('tela-lider').style.display   = 'none';
     document.getElementById('app-content').style.display  = 'block';
-    document.getElementById('nome-igreja-header').textContent = 'Ministério de Música';
-    document.getElementById('sub-igreja-header').textContent  = nomeIgreja;
-    document.getElementById('sub-igreja-header').style.display = 'block';
-
-    // Mostrar/ocultar abas de líder
-    document.getElementById('tab-form').style.display      = isLider ? 'flex' : 'none';
-    document.getElementById('tab-musicos').style.display   = isLider ? 'flex' : 'none';
-    document.getElementById('badge-lider').style.display   = isLider ? 'inline' : 'none';
-    document.getElementById('btn-sair').textContent        = isLider ? 'Sair' : 'Trocar';
-
+    document.getElementById('nome-igreja-header').textContent = nomeIgreja || 'Ministério de Música';
+    document.getElementById('tab-form').style.display     = isLider ? 'flex' : 'none';
+    document.getElementById('tab-musicos').style.display  = isLider ? 'flex' : 'none';
+    document.getElementById('badge-lider').style.display  = isLider ? 'inline' : 'none';
+    document.getElementById('btn-sair').textContent       = isLider ? 'Sair' : 'Trocar';
     iniciarListeners();
   }
 
@@ -150,8 +144,9 @@
       if (modo) {
         const cred = await createUserWithEmailAndPassword(auth, email, senha);
         await updateProfile(cred.user, { displayName: nome });
-        // Salva senha de membro padrão no Firestore
-        await setDoc(doc(db,'igrejas',cred.user.uid), { nome, senhaMembro:'louvor123', createdAt: serverTimestamp() });
+        await setDoc(doc(db,'igrejas',cred.user.uid), {
+          nome, senhaMembro:'louvor123', createdAt: serverTimestamp()
+        });
         showToast('✓ Igreja cadastrada!','success');
       } else {
         await signInWithEmailAndPassword(auth, email, senha);
@@ -189,28 +184,36 @@
     document.getElementById('lider-erro').style.display='none';
   };
 
-  /* ── LOGIN MEMBRO ── */
+  /* ── LOGIN MEMBRO (por nome da igreja + senha) ── */
   window.handleAuthMembro = async function(e) {
     if (e) e.preventDefault();
-    const idIgreja = document.getElementById('membro-igreja-id').value.trim();
-    const senha    = document.getElementById('membro-senha').value.trim();
-    const btn      = document.getElementById('btn-membro-auth');
-    if (!idIgreja||!senha) { showToast('⚠️ Preencha os campos','danger'); return; }
+    const nomeDigitado = document.getElementById('membro-nome-igreja').value.trim().toLowerCase();
+    const senha        = document.getElementById('membro-senha').value.trim();
+    const btn          = document.getElementById('btn-membro-auth');
+    if (!nomeDigitado||!senha) { showToast('⚠️ Preencha os campos','danger'); return; }
     btn.disabled=true; btn.textContent='Verificando...';
     try {
-      const snap = await getDoc(doc(db,'igrejas',idIgreja));
-      if (!snap.exists()) { throw new Error('Igreja não encontrada.'); }
-      const dados = snap.data();
-      if (dados.senhaMembro !== senha) { throw new Error('Senha incorreta.'); }
-      igrejaId     = idIgreja;
-      membroLogado = true;
-      usuarioLogado= null;
-      entrarNoApp(dados.nome || 'Ministério', false);
+      // Busca todas as igrejas e compara o nome
+      const snap = await getDocs(collection(db,'igrejas'));
+      let encontrada = null;
+      snap.forEach(d => {
+        const dados = d.data();
+        if (dados.nome && dados.nome.toLowerCase() === nomeDigitado) {
+          encontrada = { id: d.id, ...dados };
+        }
+      });
+      if (!encontrada) throw new Error('Igreja não encontrada. Verifique o nome.');
+      if (encontrada.senhaMembro !== senha) throw new Error('Senha incorreta.');
+      igrejaId      = encontrada.id;
+      nomeIgrejaAtual = encontrada.nome;
+      membroLogado  = true;
+      usuarioLogado = null;
+      entrarNoApp(encontrada.nome, false);
     } catch(err) {
       document.getElementById('membro-erro').style.display='block';
       document.getElementById('membro-erro').textContent = '❌ '+err.message;
     } finally {
-      btn.disabled=false; btn.textContent='Entrar como Membro';
+      btn.disabled=false; btn.textContent='Entrar';
     }
   };
 
@@ -229,20 +232,16 @@
   function iniciarListeners() {
     if (!igrejaId) return;
     setStatus('connecting');
-
-    // Escalas
     if (unsubEscalas) unsubEscalas();
     const qE = query(col, where("igrejaId","==",igrejaId), orderBy("dataISO","asc"), orderBy("horario","asc"));
     unsubEscalas = onSnapshot(qE,
       snap => { escalas=snap.docs.map(d=>({id:d.id,...d.data()})); setStatus('online'); renderLista(); atualizarBadge(); },
       err  => { console.error(err); setStatus('error'); }
     );
-
-    // Músicos
     if (unsubMusicos) unsubMusicos();
     const qM = query(collection(db,'musicos'), where("igrejaId","==",igrejaId), orderBy("nome","asc"));
     unsubMusicos = onSnapshot(qM,
-      snap => { musicos=snap.docs.map(d=>({id:d.id,...d.data()})); renderMusicos(); },
+      snap => { musicos=snap.docs.map(d=>({id:d.id,...d.data()})); renderMusicos(); verificarAniversarios(); },
       err  => console.error(err)
     );
   }
@@ -253,15 +252,64 @@
   }
 
   /* ══════════════════════════════════════
+     ANIVERSÁRIOS DO MÊS
+  ══════════════════════════════════════ */
+  function verificarAniversarios() {
+    const mesAtual = new Date().getMonth() + 1; // 1-12
+    const diaAtual = new Date().getDate();
+    const aniversariantes = musicos.filter(m => {
+      if (!m.aniversario) return false;
+      const [, mes] = m.aniversario.split('-');
+      return parseInt(mes) === mesAtual;
+    });
+
+    const banner = document.getElementById('banner-aniversarios');
+    if (!banner) return;
+
+    if (aniversariantes.length === 0) {
+      banner.style.display = 'none';
+      return;
+    }
+
+    // Ordena por dia
+    aniversariantes.sort((a,b) => {
+      const [,, dA] = a.aniversario.split('-');
+      const [,, dB] = b.aniversario.split('-');
+      return parseInt(dA) - parseInt(dB);
+    });
+
+    const hoje = aniversariantes.filter(m => {
+      const [,, dia] = m.aniversario.split('-');
+      return parseInt(dia) === diaAtual;
+    });
+
+    let html = `<div class="aniv-header">🎂 Aniversários de ${MESES_FULL[mesAtual-1]}</div><div class="aniv-lista">`;
+    aniversariantes.forEach(m => {
+      const [,, dia] = m.aniversario.split('-');
+      const isHoje = parseInt(dia) === diaAtual;
+      html += `<div class="aniv-item${isHoje?' hoje':''}">
+        <span class="aniv-icon">${isHoje?'🎉':'🎂'}</span>
+        <span class="aniv-nome">${esc(m.nome)}</span>
+        <span class="aniv-dia">dia ${parseInt(dia)}</span>
+        ${isHoje?'<span class="aniv-tag">Hoje!</span>':''}
+      </div>`;
+    });
+    html += '</div>';
+    banner.innerHTML = html;
+    banner.style.display = 'block';
+  }
+
+  /* ══════════════════════════════════════
      TABS & FILTRO
   ══════════════════════════════════════ */
   window.switchTab = function(tab) {
-    ['lista','form','musicos-panel'].forEach(t=>{
+    ['lista','form','musicos-panel','calendario'].forEach(t=>{
       const p=document.getElementById('panel-'+t); if(p) p.classList.toggle('active',t===tab);
     });
-    ['lista','form','musicos'].forEach(t=>{
+    ['lista','form','musicos','calendario'].forEach(t=>{
       const b=document.getElementById('tab-'+t); if(b) b.classList.toggle('active',t===tab);
     });
+    if (tab === 'calendario') renderCalendario();
   };
 
   window.setFiltro = function(f) {
@@ -283,7 +331,7 @@
   };
 
   /* ══════════════════════════════════════
-     CRUD ESCALAS (só líder)
+     CRUD ESCALAS
   ══════════════════════════════════════ */
   const isLider = ()=> !!usuarioLogado;
 
@@ -303,10 +351,8 @@
     const horario=document.getElementById('horario').value.trim();
     if (!data)    { showToast('⚠️ Informe a data','danger');    return; }
     if (!horario) { showToast('⚠️ Informe o horário','danger'); return; }
-
     const funcoes={};
     FUNCOES.forEach(f=>{ funcoes[f.id]=document.getElementById('f-'+f.id)?.value.trim()||''; });
-
     const btn=document.getElementById('btn-salvar');
     btn.disabled=true; btn.textContent='Salvando...';
     const obj={ dataISO:data, horario, ...funcoes,
@@ -359,9 +405,6 @@
     document.getElementById('overlay').classList.remove('active'); pendingDeleteId=null;
   };
 
-  /* ══════════════════════════════════════
-     SALVAR CAMPOS DE MEMBRO (hinos/links/recados)
-  ══════════════════════════════════════ */
   window.salvarCampoMembro = async function(id, campo) {
     const el=document.getElementById(campo+'-input-'+id); if(!el) return;
     const btn=document.getElementById('btn-'+campo+'-'+id);
@@ -389,18 +432,22 @@
   };
 
   /* ══════════════════════════════════════
-     CRUD MÚSICOS
+     CRUD MÚSICOS (com aniversário)
   ══════════════════════════════════════ */
   window.salvarMusico = async function() {
     if(!isLider()){showToast('🔒 Apenas o líder pode cadastrar músicos','danger');return;}
-    const nome  =document.getElementById('musico-nome').value.trim();
-    const funcao=document.getElementById('musico-funcao').value;
+    const nome     = document.getElementById('musico-nome').value.trim();
+    const funcao   = document.getElementById('musico-funcao').value;
+    const aniversario = document.getElementById('musico-aniversario').value;
     if(!nome)  {showToast('⚠️ Informe o nome','danger');return;}
     if(!funcao){showToast('⚠️ Selecione a função','danger');return;}
     try {
-      await addDoc(collection(db,'musicos'),{ nome, funcao, igrejaId, createdAt:serverTimestamp() });
+      await addDoc(collection(db,'musicos'),{
+        nome, funcao, aniversario: aniversario||'', igrejaId, createdAt:serverTimestamp()
+      });
       document.getElementById('musico-nome').value='';
       document.getElementById('musico-funcao').value='';
+      document.getElementById('musico-aniversario').value='';
       showToast('✓ Músico cadastrado!','success');
     } catch(err){ showToast('❌ Erro ao cadastrar','danger'); }
   };
@@ -417,11 +464,9 @@
     if(musicos.length===0){
       container.innerHTML='<p class="sem-conteudo" style="text-align:center;padding:20px;">Nenhum músico cadastrado ainda.</p>'; return;
     }
-    // Agrupar por função
     const grupos={};
     FUNCOES.forEach(f=>{ grupos[f.id]=[]; });
     musicos.forEach(m=>{ if(grupos[m.funcao]) grupos[m.funcao].push(m); });
-
     let html='';
     FUNCOES.forEach(f=>{
       const lista=grupos[f.id];
@@ -430,8 +475,12 @@
         <div class="musico-grupo-titulo">${f.icon} ${f.label}</div>
         <div class="musico-grupo-lista">`;
       lista.forEach(m=>{
+        const anivInfo = m.aniversario ? (() => {
+          const [,mes,dia] = m.aniversario.split('-');
+          return `🎂 ${parseInt(dia)}/${parseInt(mes)}`;
+        })() : '';
         html+=`<div class="musico-chip">
-          <span>${esc(m.nome)}</span>
+          <span>${esc(m.nome)}${anivInfo?`<small class="chip-aniv">${anivInfo}</small>`:''}</span>
           ${isLider()?`<button class="musico-del" onclick="excluirMusico('${m.id}')">✕</button>`:''}
         </div>`;
       });
@@ -439,6 +488,116 @@
     });
     container.innerHTML=html;
   }
+
+  /* ══════════════════════════════════════
+     CALENDÁRIO NEON
+  ══════════════════════════════════════ */
+  let calMes = new Date().getMonth();
+  let calAno = new Date().getFullYear();
+
+  window.calAnterior = function() {
+    calMes--; if(calMes<0){calMes=11;calAno--;}
+    renderCalendario();
+  };
+  window.calProximo = function() {
+    calMes++; if(calMes>11){calMes=0;calAno++;}
+    renderCalendario();
+  };
+
+  function renderCalendario() {
+    const container = document.getElementById('calendario-grid');
+    if(!container) return;
+    document.getElementById('cal-titulo').textContent = `${MESES_FULL[calMes]} ${calAno}`;
+
+    const diasEscalados = {};
+    escalas.forEach(e => {
+      const [ano,mes,dia] = e.dataISO.split('-');
+      if(parseInt(ano)===calAno && parseInt(mes)-1===calMes) {
+        diasEscalados[parseInt(dia)] = e;
+      }
+    });
+
+    const diasAniv = {};
+    musicos.forEach(m => {
+      if(!m.aniversario) return;
+      const [,mes,dia] = m.aniversario.split('-');
+      if(parseInt(mes)-1 === calMes) {
+        if(!diasAniv[parseInt(dia)]) diasAniv[parseInt(dia)] = [];
+        diasAniv[parseInt(dia)].push(m.nome);
+      }
+    });
+
+    const primeiroDia = new Date(calAno, calMes, 1).getDay();
+    const totalDias   = new Date(calAno, calMes+1, 0).getDate();
+    const hoje = new Date();
+    const diaHoje = hoje.getDate(), mesHoje = hoje.getMonth(), anoHoje = hoje.getFullYear();
+
+    let html = '';
+    // Cabeçalho dias da semana
+    ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'].forEach(d => {
+      html += `<div class="cal-header-dia">${d}</div>`;
+    });
+
+    // Células vazias iniciais
+    for(let i=0;i<primeiroDia;i++) html += `<div class="cal-dia vazio"></div>`;
+
+    for(let d=1;d<=totalDias;d++){
+      const isHoje = d===diaHoje && calMes===mesHoje && calAno===anoHoje;
+      const escala = diasEscalados[d];
+      const anivs  = diasAniv[d];
+      let cls = 'cal-dia';
+      if(isHoje) cls += ' hoje';
+      if(escala) cls += ' tem-escala';
+      if(anivs)  cls += ' tem-aniv';
+
+      html += `<div class="${cls}" ${escala?`onclick="verEscalaCalendario('${escala.id}')"`:''}">
+        <span class="cal-num">${d}</span>
+        ${escala?`<div class="cal-dot escala-dot" title="${escala.horario}"></div>`:''}
+        ${anivs?`<div class="cal-dot aniv-dot" title="🎂 ${anivs.join(', ')}"></div>`:''}
+      </div>`;
+    }
+
+    container.innerHTML = html;
+
+    // Legenda
+    const legendaEscalas = escalas.filter(e=>{
+      const [ano,mes] = e.dataISO.split('-');
+      return parseInt(ano)===calAno && parseInt(mes)-1===calMes;
+    });
+    const legendaAnivs = musicos.filter(m=>{
+      if(!m.aniversario) return false;
+      const [,mes] = m.aniversario.split('-');
+      return parseInt(mes)-1===calMes;
+    });
+
+    let legHtml = '';
+    if(legendaEscalas.length>0) {
+      legHtml += `<div class="cal-leg-section"><div class="cal-leg-titulo">🎵 Escalas do mês</div>`;
+      legendaEscalas.forEach(e => {
+        const [,mes,dia] = e.dataISO.split('-');
+        const ds = SEMANA[new Date(e.dataISO+'T00:00:00').getDay()];
+        legHtml += `<div class="cal-leg-item escala" onclick="switchTab('lista')">${ds}, ${parseInt(dia)}/${parseInt(mes)} – ${e.horario}</div>`;
+      });
+      legHtml += `</div>`;
+    }
+    if(legendaAnivs.length>0) {
+      legHtml += `<div class="cal-leg-section"><div class="cal-leg-titulo">🎂 Aniversariantes</div>`;
+      legendaAnivs.forEach(m => {
+        const [,, dia] = m.aniversario.split('-');
+        legHtml += `<div class="cal-leg-item aniv">Dia ${parseInt(dia)} – ${esc(m.nome)}</div>`;
+      });
+      legHtml += `</div>`;
+    }
+    document.getElementById('cal-legenda').innerHTML = legHtml;
+  }
+
+  window.verEscalaCalendario = function(id) {
+    switchTab('lista');
+    setTimeout(() => {
+      const el = document.querySelector(`[data-id="${id}"]`);
+      if(el) el.scrollIntoView({behavior:'smooth', block:'center'});
+    }, 200);
+  };
 
   /* ══════════════════════════════════════
      BADGE & RENDER LISTA
@@ -453,12 +612,12 @@
   function calcDiasBadge(dataISO) {
     const hoje=new Date(); hoje.setHours(0,0,0,0);
     const diff=Math.round((new Date(dataISO+'T00:00:00')-hoje)/86400000);
-    if(diff===0)           return{label:'Hoje',cls:'hoje'};
-    if(diff===1)           return{label:'Amanhã',cls:'breve'};
-    if(diff>1&&diff<=7)   return{label:`Em ${diff} dias`,cls:'breve'};
-    if(diff>7)             return{label:`Em ${diff} dias`,cls:'normal'};
-    if(diff===-1)          return{label:'Ontem',cls:'passado'};
-    return                       {label:`Há ${Math.abs(diff)} dias`,cls:'passado'};
+    if(diff===0)         return{label:'Hoje',cls:'hoje'};
+    if(diff===1)         return{label:'Amanhã',cls:'breve'};
+    if(diff>1&&diff<=7) return{label:`Em ${diff} dias`,cls:'breve'};
+    if(diff>7)           return{label:`Em ${diff} dias`,cls:'normal'};
+    if(diff===-1)        return{label:'Ontem',cls:'passado'};
+    return                     {label:`Há ${Math.abs(diff)} dias`,cls:'passado'};
   }
 
   function formatarLinksHtml(txt) {
@@ -476,14 +635,12 @@
     const hoje=new Date(); hoje.setHours(0,0,0,0);
     let lista=escalas.filter(e=>{ const d=new Date(e.dataISO+'T00:00:00'); return filtro==='futuras'?d>=hoje:d<hoje; });
     if(filtro==='passadas') lista=[...lista].reverse();
-
     if(lista.length===0){
       container.innerHTML=`<div class="empty-state"><div class="empty-icon">${filtro==='futuras'?'🎶':'📖'}</div>
         <h3>${filtro==='futuras'?'Nenhuma escala futura':'Nenhum histórico ainda'}</h3>
         <p>${filtro==='futuras'?'Toque em "Nova Escala" para começar.':'As escalas passadas aparecerão aqui.'}</p></div>`;
       return;
     }
-
     const html=lista.map(e=>{
       const [ano,mes,dia]=e.dataISO.split('-');
       const dataBR=`${dia}/${mes}/${ano}`;
@@ -491,8 +648,6 @@
       const diaSemana=SEMANA[new Date(e.dataISO+'T00:00:00').getDay()];
       const badge=calcDiasBadge(e.dataISO);
       const isPassada=new Date(e.dataISO+'T00:00:00')<hoje;
-
-      // Funções escaladas
       let funcHtml='';
       FUNCOES.forEach(f=>{
         if(e[f.id]) funcHtml+=`<div class="escala-row">
@@ -502,13 +657,11 @@
             <div class="escala-row-value">${esc(e[f.id])}</div>
           </div></div>`;
       });
-
       const hinosVal=e.hinos||'';
       const linksVal=e.links||'';
       const recadoVal=e.recados||'';
       const temRecado=recadoVal.trim().length>0;
-
-      return `<div class="escala-card${isPassada?' passada':''}">
+      return `<div class="escala-card${isPassada?' passada':''}" data-id="${e.id}">
         <div class="escala-card-header">
           <div class="escala-date-block">
             <div class="escala-date-num">
@@ -521,27 +674,20 @@
           </div>
           <span class="dias-badge ${badge.cls}">${badge.label}</span>
         </div>
-
         <div class="escala-card-body">
           ${funcHtml||'<p class="sem-conteudo" style="padding:10px 0">Nenhum músico escalado ainda.</p>'}
-
-          <!-- HINOS — editável por membro -->
           <div class="campo-editavel">
             <div class="campo-editavel-titulo">🎵 Hinos do Dia</div>
             <div class="hinos-exibicao">${hinosVal?`<div style="white-space:pre-wrap;color:var(--text-hinos);font-weight:700;">${esc(hinosVal)}</div>`:'<span class="sem-conteudo">Nenhum hino adicionado</span>'}</div>
             <textarea id="hinos-input-${e.id}" class="campo-textarea" placeholder="1. Grandioso És Tu&#10;2. Porque Ele Vive">${esc(hinosVal)}</textarea>
             <button id="btn-hinos-${e.id}" class="btn-campo-salvar amarelo" onclick="salvarCampoMembro('${e.id}','hinos')">💾 Salvar Hinos</button>
           </div>
-
-          <!-- LINKS — editável por membro -->
           <div class="campo-editavel">
             <div class="campo-editavel-titulo">🔗 Links das Músicas</div>
             <div class="links-exibicao">${formatarLinksHtml(linksVal)}</div>
             <textarea id="links-input-${e.id}" class="campo-textarea" placeholder="Cole os links do YouTube ou Spotify">${esc(linksVal)}</textarea>
             <button id="btn-links-${e.id}" class="btn-campo-salvar azul" onclick="salvarCampoMembro('${e.id}','links')">💾 Salvar Links</button>
           </div>
-
-          <!-- RECADOS — editável por membro -->
           <div class="campo-editavel roxo">
             <div class="campo-editavel-titulo">📢 Avisos &amp; Justificativas ${temRecado?'<span class="recados-badge">Há mensagem</span>':''}</div>
             ${temRecado?`<div class="recado-exibido">${esc(recadoVal)}</div>`:''}
@@ -549,7 +695,6 @@
             <button id="btn-recados-${e.id}" class="btn-campo-salvar roxo" onclick="salvarCampoMembro('${e.id}','recados')">💾 Salvar Recado</button>
           </div>
         </div>
-
         <div class="escala-card-footer">
           <button class="btn-whats-card" onclick="compartilharWhatsApp('${e.id}')">📲 WhatsApp</button>
           ${isLider()?`
@@ -559,178 +704,387 @@
         </div>
       </div>`;
     }).join('');
-
     container.innerHTML=`<div class="escala-list">${html}</div>`;
   }
 
   function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-
-  if('serviceWorker' in navigator){
-    window.addEventListener('load',()=>{
-      navigator.serviceWorker.register('service-worker.js').catch(e=>console.log('SW:',e));
-    });
-  }
 </script>
 
 <style>
 :root{
-  --bg-main:#f8fafc; --bg-header:#1e3a8a; --bg-card:#ffffff; --bg-input:#f1f5f9;
-  --primary:#1e3a8a; --accent:#3b82f6; --text-main:#0f172a; --text-muted:#475569;
-  --text-hinos:#b45309; --border:#cbd5e1; --danger:#dc2626; --success:#16a34a;
-  --radius:12px; --radius-sm:8px; --shadow-sm:0 2px 8px rgba(15,23,42,0.08);
+  --bg-main:#0a0f1e;
+  --bg-header:#060c18;
+  --bg-card:#0d1526;
+  --bg-input:#111827;
+  --primary:#1e3a8a;
+  --accent:#00e5ff;
+  --accent2:#7c3aed;
+  --neon:#00e5ff;
+  --neon2:#a855f7;
+  --neon3:#22d3ee;
+  --text-main:#e2e8f0;
+  --text-muted:#64748b;
+  --text-hinos:#fbbf24;
+  --border:#1e293b;
+  --border-neon:rgba(0,229,255,0.25);
+  --danger:#ef4444;
+  --success:#22c55e;
+  --radius:14px;
+  --radius-sm:9px;
+  --shadow-neon:0 0 20px rgba(0,229,255,0.15);
+  --shadow-sm:0 2px 12px rgba(0,0,0,0.4);
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 html{font-size:16px;scroll-behavior:smooth;}
 body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text-main);min-height:100vh;-webkit-tap-highlight-color:transparent;}
 
 /* ── TELA INÍCIO ── */
-.tela-inicio{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;background:linear-gradient(135deg,#1e3a8a 0%,#0f172a 100%);}
-.inicio-logo{font-size:56px;margin-bottom:12px;text-align:center;}
-.inicio-titulo{font-family:'Playfair Display',serif;font-size:26px;font-weight:700;color:#fff;text-align:center;margin-bottom:6px;}
-.inicio-sub{font-size:14px;color:#93c5fd;text-align:center;margin-bottom:36px;}
-.inicio-botoes{display:flex;flex-direction:column;gap:12px;width:100%;max-width:320px;}
-.btn-inicio{padding:16px;border:none;border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:16px;font-weight:700;cursor:pointer;text-align:center;}
-.btn-inicio-membro{background:#ffffff;color:#1e3a8a;}
-.btn-inicio-lider{background:rgba(255,255,255,0.15);color:#ffffff;border:2px solid rgba(255,255,255,0.4);}
-.inicio-id-box{margin-top:8px;background:rgba(255,255,255,0.1);border-radius:var(--radius);padding:14px;width:100%;max-width:320px;text-align:center;}
-.inicio-id-label{font-size:11px;color:#93c5fd;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;}
-.inicio-id-value{font-size:13px;color:#fbbf24;font-weight:700;word-break:break-all;}
+.tela-inicio{
+  min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:24px;
+  background: radial-gradient(ellipse at 50% 0%, rgba(0,229,255,0.12) 0%, transparent 60%),
+              radial-gradient(ellipse at 80% 100%, rgba(124,58,237,0.1) 0%, transparent 60%),
+              linear-gradient(180deg,#060c18 0%,#0a0f1e 100%);
+}
 
-/* ── TELA LIDER ── */
-.tela-lider{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:linear-gradient(135deg,#1e3a8a 0%,#0f172a 100%);}
-.auth-card{background:#fff;width:100%;max-width:380px;border-radius:var(--radius);padding:28px 24px;box-shadow:0 10px 25px rgba(0,0,0,0.3);}
+/* ── LOGO ABERTURA ── */
+.inicio-logo-wrap{
+  width:120px;height:120px;border-radius:50%;
+  background:rgba(0,229,255,0.08);
+  border:2px solid rgba(0,229,255,0.3);
+  display:flex;align-items:center;justify-content:center;
+  margin:0 auto 20px;
+  box-shadow:0 0 40px rgba(0,229,255,0.2), inset 0 0 20px rgba(0,229,255,0.05);
+  animation:pulseNeon 3s ease-in-out infinite;
+  flex-shrink:0;
+}
+.inicio-logo-emoji{font-size:52px;line-height:1;display:block;text-align:center;}
+@keyframes pulseNeon{0%,100%{box-shadow:0 0 30px rgba(0,229,255,0.2),inset 0 0 20px rgba(0,229,255,0.05);}50%{box-shadow:0 0 60px rgba(0,229,255,0.35),inset 0 0 30px rgba(0,229,255,0.1);}}
+
+.inicio-titulo{font-family:'Playfair Display',serif;font-size:28px;font-weight:700;color:#fff;text-align:center;margin-bottom:6px;text-shadow:0 0 30px rgba(0,229,255,0.4);}
+.inicio-sub{font-size:13px;color:var(--accent);text-align:center;margin-bottom:36px;text-transform:uppercase;letter-spacing:2px;font-weight:700;}
+.inicio-botoes{display:flex;flex-direction:column;gap:14px;width:100%;max-width:340px;}
+
+.membro-box{
+  background:rgba(0,229,255,0.04);
+  border:1px solid var(--border-neon);
+  border-radius:var(--radius);padding:18px;
+  box-shadow:var(--shadow-neon);
+}
+.membro-box-label{color:var(--accent);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:12px;text-align:center;}
+.input-neon{
+  width:100%;background:rgba(0,0,0,0.4);
+  border:1px solid rgba(0,229,255,0.2);
+  border-radius:var(--radius-sm);
+  color:var(--text-main);font-family:'DM Sans',sans-serif;font-size:15px;padding:12px 14px;
+  outline:none;margin-bottom:10px;
+}
+.input-neon::placeholder{color:#334155;}
+.input-neon:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,229,255,0.1);}
+.btn-inicio{
+  padding:15px;border:none;border-radius:var(--radius);
+  font-family:'DM Sans',sans-serif;font-size:15px;font-weight:700;cursor:pointer;text-align:center;
+  transition:all 0.2s;
+}
+.btn-inicio-membro{
+  background:linear-gradient(135deg,#00bcd4,#0097a7);
+  color:#fff;
+  box-shadow:0 4px 20px rgba(0,229,255,0.3);
+}
+.btn-inicio-membro:hover{box-shadow:0 4px 30px rgba(0,229,255,0.5);}
+.btn-inicio-lider{
+  background:rgba(124,58,237,0.15);
+  color:#a78bfa;
+  border:1px solid rgba(124,58,237,0.4);
+}
+.btn-inicio-lider:hover{background:rgba(124,58,237,0.25);}
+.erro-msg{font-size:12px;color:#f87171;text-align:center;margin-bottom:8px;display:none;}
+
+/* ── TELA LÍDER ── */
+.tela-lider{
+  min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;
+  background:radial-gradient(ellipse at 50% 0%,rgba(124,58,237,0.15) 0%,transparent 60%),
+             linear-gradient(180deg,#060c18 0%,#0a0f1e 100%);
+}
+.auth-card{
+  background:rgba(13,21,38,0.95);
+  width:100%;max-width:380px;border-radius:var(--radius);padding:30px 24px;
+  border:1px solid rgba(124,58,237,0.3);
+  box-shadow:0 0 40px rgba(124,58,237,0.15);
+}
 .auth-logo{text-align:center;font-size:44px;margin-bottom:10px;}
-.auth-card h2{font-family:'Playfair Display',serif;font-size:21px;color:var(--primary);text-align:center;margin-bottom:6px;}
+.auth-card h2{font-family:'Playfair Display',serif;font-size:21px;color:#c4b5fd;text-align:center;margin-bottom:6px;}
 .auth-card p{font-size:13px;color:var(--text-muted);text-align:center;margin-bottom:20px;}
-.switch-container{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:16px;background:var(--bg-input);padding:8px;border-radius:var(--radius-sm);font-size:12px;font-weight:700;}
-.switch-container input{cursor:pointer;width:16px;height:16px;}
-.erro-msg{font-size:12px;color:var(--danger);text-align:center;margin-bottom:10px;display:none;}
+.switch-container{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:16px;background:rgba(0,0,0,0.3);padding:10px;border-radius:var(--radius-sm);font-size:12px;font-weight:700;color:var(--text-muted);}
+.switch-container input{cursor:pointer;width:16px;height:16px;accent-color:var(--accent2);}
 .btn-voltar{display:block;width:100%;padding:10px;margin-top:8px;background:transparent;border:none;color:var(--text-muted);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;text-align:center;}
 .btn-recuperar{display:block;width:100%;padding:8px;background:transparent;border:none;color:var(--accent);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;text-align:center;}
 
 /* ── HEADER ── */
-.app-header{background:var(--bg-header);padding:12px 16px;position:sticky;top:0;z-index:100;box-shadow:0 2px 10px rgba(0,0,0,0.15);}
+.app-header{
+  background:var(--bg-header);
+  padding:12px 16px;position:sticky;top:0;z-index:100;
+  border-bottom:1px solid rgba(0,229,255,0.1);
+  box-shadow:0 2px 20px rgba(0,0,0,0.5);
+}
 .header-top{display:flex;align-items:center;gap:10px;}
-.header-text h1{font-family:'Playfair Display',serif;font-size:19px;font-weight:700;color:#fff;}
-#nome-igreja-header{font-size:11px;color:#fbbf24;font-weight:700;text-transform:uppercase;}
+.header-text h1{font-family:'Playfair Display',serif;font-size:18px;font-weight:700;color:#fff;}
+#nome-igreja-header{font-size:12px;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;}
 .header-right{margin-left:auto;display:flex;align-items:center;gap:8px;}
-.header-status{display:flex;align-items:center;gap:6px;background:rgba(0,0,0,0.2);padding:4px 10px;border-radius:20px;}
+.header-status{display:flex;align-items:center;gap:6px;background:rgba(0,0,0,0.4);padding:4px 10px;border-radius:20px;border:1px solid var(--border);}
 .status-dot{width:8px;height:8px;border-radius:50%;}
-.status-dot.online{background:#4ade80;} .status-dot.connecting{background:#fbbf24;} .status-dot.error{background:#f87171;} .status-dot.offline{background:#94a3b8;}
-#status-text{font-size:11px;font-weight:700;color:#fff;}
-.btn-sair{background:transparent;border:1px solid rgba(248,113,113,0.4);color:#f87171;font-size:12px;font-weight:700;cursor:pointer;padding:5px 10px;border-radius:20px;}
-.badge-lider{background:#fbbf24;color:#78350f;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;margin-left:4px;}
+.status-dot.online{background:#22c55e;box-shadow:0 0 8px #22c55e;}
+.status-dot.connecting{background:#fbbf24;box-shadow:0 0 8px #fbbf24;}
+.status-dot.error{background:#ef4444;box-shadow:0 0 8px #ef4444;}
+.status-dot.offline{background:#475569;}
+#status-text{font-size:11px;font-weight:700;color:var(--text-main);}
+.btn-sair{background:transparent;border:1px solid rgba(239,68,68,0.4);color:#f87171;font-size:12px;font-weight:700;cursor:pointer;padding:5px 12px;border-radius:20px;}
+.badge-lider{background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;margin-left:4px;box-shadow:0 0 10px rgba(168,85,247,0.4);}
 
 /* ── ABAS ── */
-.nav-tabs{display:flex;background:#fff;border-bottom:2px solid var(--border);position:sticky;top:62px;z-index:99;overflow-x:auto;}
-.nav-tab{flex:1;min-width:80px;padding:13px 8px;background:transparent;border:none;color:var(--text-muted);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;cursor:pointer;border-bottom:3px solid transparent;transition:all 0.2s;display:flex;align-items:center;justify-content:center;gap:4px;white-space:nowrap;}
-.nav-tab.active{color:var(--primary);border-bottom-color:var(--primary);}
-.badge{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;background:var(--primary);color:#fff;font-size:10px;font-weight:700;border-radius:50%;}
+.nav-tabs{
+  display:flex;background:var(--bg-header);
+  border-bottom:1px solid rgba(0,229,255,0.1);
+  position:sticky;top:62px;z-index:99;overflow-x:auto;
+}
+.nav-tab{
+  flex:1;min-width:70px;padding:13px 8px;background:transparent;border:none;
+  color:var(--text-muted);font-family:'DM Sans',sans-serif;font-size:11px;font-weight:700;
+  text-transform:uppercase;letter-spacing:0.5px;cursor:pointer;
+  border-bottom:2px solid transparent;transition:all 0.2s;
+  display:flex;align-items:center;justify-content:center;gap:4px;white-space:nowrap;
+}
+.nav-tab.active{color:var(--accent);border-bottom-color:var(--accent);text-shadow:0 0 10px rgba(0,229,255,0.5);}
+.badge{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;background:var(--accent);color:#000;font-size:10px;font-weight:700;border-radius:50%;}
 
 /* ── FILTRO ── */
 .filtro-bar{display:flex;gap:8px;padding:12px 16px 4px;}
-.btn-filtro{flex:1;padding:9px;border-radius:var(--radius-sm);border:1.5px solid var(--border);background:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;color:var(--text-muted);cursor:pointer;transition:all 0.2s;}
-.btn-filtro.ativo{background:var(--primary);color:#fff;border-color:var(--primary);}
+.btn-filtro{
+  flex:1;padding:9px;border-radius:var(--radius-sm);
+  border:1px solid var(--border);background:rgba(0,0,0,0.3);
+  font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;
+  color:var(--text-muted);cursor:pointer;transition:all 0.2s;
+}
+.btn-filtro.ativo{
+  background:rgba(0,229,255,0.1);color:var(--accent);
+  border-color:rgba(0,229,255,0.4);
+  box-shadow:0 0 15px rgba(0,229,255,0.1);
+}
 
 /* ── PAINÉIS ── */
 .main{padding:8px 16px 40px;}
 .panel{display:none;} .panel.active{display:block;}
 
+/* ── BANNER ANIVERSÁRIOS ── */
+.banner-aniversarios{
+  background:linear-gradient(135deg,rgba(251,191,36,0.08),rgba(245,158,11,0.05));
+  border:1px solid rgba(251,191,36,0.25);
+  border-radius:var(--radius);padding:14px;margin:12px 0 4px;
+  box-shadow:0 0 20px rgba(251,191,36,0.08);
+  display:none;
+}
+.aniv-header{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#fbbf24;margin-bottom:10px;}
+.aniv-lista{display:flex;flex-direction:column;gap:6px;}
+.aniv-item{display:flex;align-items:center;gap:8px;font-size:13px;}
+.aniv-item.hoje .aniv-nome{color:#fbbf24;font-weight:700;}
+.aniv-icon{font-size:16px;}
+.aniv-nome{flex:1;color:var(--text-main);}
+.aniv-dia{font-size:12px;color:var(--text-muted);}
+.aniv-tag{background:#fbbf24;color:#000;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;text-transform:uppercase;}
+
 /* ── FORM ESCALA ── */
-.form-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow-sm);}
-.form-card-title{font-family:'Playfair Display',serif;font-size:17px;font-weight:700;color:var(--primary);margin-bottom:16px;padding-bottom:8px;border-bottom:2px solid var(--bg-input);}
+.form-card{background:var(--bg-card);border:1px solid var(--border-neon);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow-neon);}
+.form-card-title{font-family:'Playfair Display',serif;font-size:17px;font-weight:700;color:var(--accent);margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid var(--border-neon);}
 .form-section-label{font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin:16px 0 8px;display:flex;align-items:center;gap:6px;}
 .field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;}
 .field-group{margin-bottom:12px;}
 .field-group label{display:block;font-size:12px;font-weight:700;color:var(--text-main);margin-bottom:5px;}
-.field-group input,.field-group textarea,.field-group select{width:100%;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-main);font-family:'DM Sans',sans-serif;font-size:15px;padding:11px;outline:none;}
-.field-group input:focus,.field-group textarea:focus,.field-group select:focus{border-color:var(--primary);background:#fff;box-shadow:0 0 0 3px rgba(30,58,138,0.1);}
+.field-group input,.field-group textarea,.field-group select{
+  width:100%;background:var(--bg-input);border:1px solid var(--border);
+  border-radius:var(--radius-sm);color:var(--text-main);
+  font-family:'DM Sans',sans-serif;font-size:15px;padding:11px;outline:none;
+}
+.field-group input:focus,.field-group textarea:focus,.field-group select:focus{
+  border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,229,255,0.1);
+}
+.field-group select option{background:#0d1526;color:var(--text-main);}
 .field-group textarea{resize:vertical;min-height:80px;}
 .field-hint{font-size:11px;color:var(--text-muted);margin-top:3px;}
 .btn{display:block;width:100%;padding:14px;border:none;border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:15px;font-weight:700;cursor:pointer;}
-.btn-primary{background:var(--primary);color:#fff;margin-top:16px;box-shadow:0 4px 12px rgba(30,58,138,0.2);}
-.btn-secondary{background:#e2e8f0;color:var(--text-muted);margin-top:10px;display:none;}
+.btn-primary{
+  background:linear-gradient(135deg,#0097a7,#006064);
+  color:#fff;margin-top:16px;
+  box-shadow:0 4px 20px rgba(0,229,255,0.25);
+}
+.btn-primary:hover{box-shadow:0 4px 30px rgba(0,229,255,0.4);}
+.btn-secondary{background:rgba(255,255,255,0.05);color:var(--text-muted);border:1px solid var(--border);margin-top:10px;display:none;}
 .btn-secondary.visible{display:block;}
 .funcoes-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
 
-/* ── MÚSICOS PANEL ── */
-.musicos-form{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:16px;box-shadow:var(--shadow-sm);}
-.musicos-form h3{font-family:'Playfair Display',serif;font-size:16px;color:var(--primary);margin-bottom:14px;}
-.musico-grupo{margin-bottom:14px;}
+/* ── MÚSICOS ── */
+.musicos-form{background:var(--bg-card);border:1px solid var(--border-neon);border-radius:var(--radius);padding:16px;margin-bottom:16px;box-shadow:var(--shadow-neon);}
+.musicos-form h3{font-family:'Playfair Display',serif;font-size:16px;color:var(--accent);margin-bottom:14px;}
+.musico-grupo{margin-bottom:16px;}
 .musico-grupo-titulo{font-size:13px;font-weight:700;color:var(--text-main);margin-bottom:8px;display:flex;align-items:center;gap:6px;}
 .musico-grupo-lista{display:flex;flex-wrap:wrap;gap:8px;}
-.musico-chip{display:flex;align-items:center;gap:6px;background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd;padding:5px 12px;border-radius:20px;font-size:13px;font-weight:700;}
-.musico-del{background:transparent;border:none;color:#dc2626;cursor:pointer;font-size:14px;padding:0 2px;line-height:1;}
-.musicos-lista-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow-sm);}
-.musicos-lista-card h3{font-family:'Playfair Display',serif;font-size:16px;color:var(--primary);margin-bottom:14px;}
+.musico-chip{
+  display:flex;align-items:center;gap:6px;
+  background:rgba(0,229,255,0.06);color:var(--neon3);
+  border:1px solid rgba(0,229,255,0.2);
+  padding:5px 12px;border-radius:20px;font-size:13px;font-weight:700;
+}
+.chip-aniv{font-size:10px;color:#fbbf24;margin-left:4px;font-weight:400;}
+.musico-del{background:transparent;border:none;color:#ef4444;cursor:pointer;font-size:14px;padding:0 2px;line-height:1;}
+.musicos-lista-card{background:var(--bg-card);border:1px solid var(--border-neon);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow-neon);}
+.musicos-lista-card h3{font-family:'Playfair Display',serif;font-size:16px;color:var(--accent);margin-bottom:14px;}
+
+/* ── CALENDÁRIO NEON ── */
+.calendario-wrap{margin-top:12px;}
+.cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+.cal-nav button{
+  background:rgba(0,229,255,0.08);border:1px solid rgba(0,229,255,0.2);
+  color:var(--accent);font-size:18px;width:40px;height:40px;
+  border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  font-family:'DM Sans',sans-serif;font-weight:700;transition:all 0.2s;
+}
+.cal-nav button:hover{background:rgba(0,229,255,0.15);box-shadow:0 0 15px rgba(0,229,255,0.2);}
+#cal-titulo{font-family:'Playfair Display',serif;font-size:18px;font-weight:700;color:var(--accent);text-shadow:0 0 15px rgba(0,229,255,0.4);}
+.cal-grid{
+  display:grid;grid-template-columns:repeat(7,1fr);gap:4px;
+  background:var(--bg-card);border:1px solid var(--border-neon);
+  border-radius:var(--radius);padding:12px;
+  box-shadow:0 0 30px rgba(0,229,255,0.05);
+}
+.cal-header-dia{
+  text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;
+  color:var(--accent);padding:6px 2px;letter-spacing:0.5px;
+}
+.cal-dia{
+  min-height:48px;border-radius:8px;padding:4px;
+  display:flex;flex-direction:column;align-items:center;justify-content:flex-start;
+  cursor:default;transition:all 0.15s;
+  position:relative;
+}
+.cal-dia.tem-escala{
+  background:rgba(0,229,255,0.06);border:1px solid rgba(0,229,255,0.2);
+  cursor:pointer;
+}
+.cal-dia.tem-escala:hover{background:rgba(0,229,255,0.12);box-shadow:0 0 12px rgba(0,229,255,0.15);}
+.cal-dia.tem-aniv{
+  background:rgba(251,191,36,0.06);border:1px solid rgba(251,191,36,0.2);
+}
+.cal-dia.tem-escala.tem-aniv{
+  background:linear-gradient(135deg,rgba(0,229,255,0.06),rgba(251,191,36,0.06));
+  border:1px solid rgba(0,229,255,0.2);
+}
+.cal-dia.hoje .cal-num{
+  background:var(--accent);color:#000;font-weight:700;
+  border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;
+  box-shadow:0 0 12px rgba(0,229,255,0.5);font-size:12px;
+}
+.cal-dia.vazio{min-height:48px;}
+.cal-num{font-size:12px;font-weight:600;color:var(--text-muted);line-height:24px;height:24px;display:flex;align-items:center;justify-content:center;}
+.cal-dia.tem-escala .cal-num,.cal-dia.tem-aniv .cal-num{color:var(--text-main);}
+.cal-dots{display:flex;gap:3px;justify-content:center;margin-top:2px;}
+.cal-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+.escala-dot{background:var(--accent);box-shadow:0 0 6px var(--accent);}
+.aniv-dot{background:#fbbf24;box-shadow:0 0 6px #fbbf24;}
+.cal-legenda{margin-top:12px;display:flex;flex-direction:column;gap:10px;}
+.cal-leg-section{}
+.cal-leg-titulo{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);margin-bottom:6px;}
+.cal-leg-item{
+  font-size:13px;padding:8px 12px;border-radius:8px;margin-bottom:4px;cursor:default;
+}
+.cal-leg-item.escala{
+  background:rgba(0,229,255,0.06);border:1px solid rgba(0,229,255,0.15);
+  color:var(--neon3);cursor:pointer;
+}
+.cal-leg-item.escala:hover{background:rgba(0,229,255,0.12);}
+.cal-leg-item.aniv{
+  background:rgba(251,191,36,0.06);border:1px solid rgba(251,191,36,0.15);color:#fbbf24;
+}
 
 /* ── CARDS ESCALA ── */
 .escala-list{display:flex;flex-direction:column;gap:16px;margin-top:12px;}
-.escala-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow-sm);}
-.escala-card.passada{opacity:0.65;}
-.escala-card.passada .escala-date-num{background:#64748b;}
-.escala-card-header{background:#f1f5f9;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);}
+.escala-card{background:var(--bg-card);border:1px solid var(--border-neon);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow-neon);}
+.escala-card.passada{opacity:0.55;}
+.escala-card-header{background:rgba(0,0,0,0.3);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);}
 .escala-date-block{display:flex;align-items:center;gap:10px;}
-.escala-date-num{background:var(--primary);border-radius:8px;width:44px;height:44px;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+.escala-date-num{
+  background:linear-gradient(135deg,#0097a7,#006064);
+  border-radius:8px;width:44px;height:44px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  box-shadow:0 0 15px rgba(0,229,255,0.2);
+}
 .escala-date-num .day{font-family:'Playfair Display',serif;font-size:19px;font-weight:700;color:#fff;line-height:1;}
-.escala-date-num .month{font-size:9px;font-weight:700;text-transform:uppercase;color:#93c5fd;}
+.escala-date-num .month{font-size:9px;font-weight:700;text-transform:uppercase;color:rgba(255,255,255,0.7);}
 .escala-date-info{display:flex;flex-direction:column;}
 .escala-date-full{font-size:15px;font-weight:700;color:var(--text-main);}
-.escala-time-badge{font-size:12px;font-weight:700;color:var(--primary);margin-top:2px;}
+.escala-time-badge{font-size:12px;font-weight:700;color:var(--accent);margin-top:2px;}
 .dias-badge{font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;text-transform:uppercase;}
-.dias-badge.hoje{background:#dcfce7;color:#15803d;border:1px solid #bbf7d0;}
-.dias-badge.breve{background:#fef3c7;color:#b45309;border:1px solid #fde68a;}
-.dias-badge.normal{background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd;}
-.dias-badge.passado{background:#f1f5f9;color:#64748b;border:1px solid #cbd5e1;}
+.dias-badge.hoje{background:rgba(34,197,94,0.15);color:#22c55e;border:1px solid rgba(34,197,94,0.3);}
+.dias-badge.breve{background:rgba(251,191,36,0.1);color:#fbbf24;border:1px solid rgba(251,191,36,0.25);}
+.dias-badge.normal{background:rgba(0,229,255,0.08);color:var(--accent);border:1px solid rgba(0,229,255,0.2);}
+.dias-badge.passado{background:rgba(100,116,139,0.1);color:#64748b;border:1px solid rgba(100,116,139,0.2);}
 .escala-card-body{padding:16px;}
-.escala-row{display:flex;align-items:flex-start;gap:12px;padding:9px 0;border-bottom:1px solid #f1f5f9;}
+.escala-row{display:flex;align-items:flex-start;gap:12px;padding:9px 0;border-bottom:1px solid rgba(255,255,255,0.04);}
 .escala-row:last-of-type{border-bottom:none;}
 .escala-row-icon{font-size:18px;flex-shrink:0;width:24px;text-align:center;}
 .escala-row-content{flex:1;min-width:0;}
 .escala-row-label{font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.5px;margin-bottom:2px;}
 .escala-row-value{font-size:15px;font-weight:700;color:var(--text-main);line-height:1.4;}
 
-/* Campos editáveis pelo membro */
-.campo-editavel{background:#f8fafc;border:1px solid #e2e8f0;border-radius:var(--radius-sm);padding:12px;margin-top:12px;}
-.campo-editavel.roxo{background:#faf5ff;border-color:#e9d5ff;}
+/* Campos editáveis */
+.campo-editavel{background:rgba(0,0,0,0.2);border:1px solid rgba(255,255,255,0.06);border-radius:var(--radius-sm);padding:12px;margin-top:12px;}
+.campo-editavel.roxo{background:rgba(124,58,237,0.05);border-color:rgba(124,58,237,0.2);}
 .campo-editavel-titulo{font-size:12px;font-weight:700;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.5px;margin-bottom:8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
-.campo-textarea{width:100%;background:#fff;border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-main);font-family:'DM Sans',sans-serif;font-size:14px;padding:10px;outline:none;resize:vertical;min-height:72px;line-height:1.5;margin-top:6px;}
-.campo-textarea:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(30,58,138,0.1);}
+.campo-textarea{width:100%;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-main);font-family:'DM Sans',sans-serif;font-size:14px;padding:10px;outline:none;resize:vertical;min-height:72px;line-height:1.5;margin-top:6px;}
+.campo-textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,229,255,0.08);}
 .btn-campo-salvar{margin-top:7px;width:100%;padding:9px;border:none;border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;}
-.btn-campo-salvar.amarelo{background:#d97706;color:#fff;}
-.btn-campo-salvar.azul{background:#1e3a8a;color:#fff;}
-.btn-campo-salvar.roxo{background:#7c3aed;color:#fff;}
-.recados-badge{font-size:10px;font-weight:700;background:#fef3c7;color:#b45309;border:1px solid #fde68a;padding:2px 7px;border-radius:10px;text-transform:uppercase;}
-.recado-exibido{font-size:14px;color:#7c3aed;font-weight:500;background:#f5f3ff;border-left:3px solid #7c3aed;padding:8px 10px;border-radius:4px;margin-bottom:8px;white-space:pre-wrap;line-height:1.5;}
-.musica-link{display:inline-flex;align-items:center;gap:6px;background:#1e3a8a;color:#fff;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:700;text-decoration:none;}
+.btn-campo-salvar.amarelo{background:linear-gradient(135deg,#d97706,#b45309);color:#fff;}
+.btn-campo-salvar.azul{background:linear-gradient(135deg,#0097a7,#006064);color:#fff;}
+.btn-campo-salvar.roxo{background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#fff;}
+.recados-badge{font-size:10px;font-weight:700;background:rgba(251,191,36,0.1);color:#fbbf24;border:1px solid rgba(251,191,36,0.25);padding:2px 7px;border-radius:10px;text-transform:uppercase;}
+.recado-exibido{font-size:14px;color:#c4b5fd;font-weight:500;background:rgba(124,58,237,0.08);border-left:2px solid #7c3aed;padding:8px 10px;border-radius:4px;margin-bottom:8px;white-space:pre-wrap;line-height:1.5;}
+.musica-link{display:inline-flex;align-items:center;gap:6px;background:rgba(0,229,255,0.1);border:1px solid rgba(0,229,255,0.25);color:var(--accent);padding:5px 12px;border-radius:20px;font-size:12px;font-weight:700;text-decoration:none;}
 
 /* Rodapé card */
-.escala-card-footer{display:grid;grid-template-columns:2fr 1fr 0.5fr;border-top:1px solid var(--border);background:#f8fafc;}
+.escala-card-footer{display:grid;grid-template-columns:2fr 1fr 0.5fr;border-top:1px solid var(--border);background:rgba(0,0,0,0.2);}
 .escala-card-footer button,.escala-card-footer span{padding:13px 8px;background:transparent;border:none;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;text-transform:uppercase;cursor:pointer;display:flex;align-items:center;justify-content:center;}
-.btn-whats-card{color:#15803d;border-right:1px solid var(--border);}
-.btn-edit-card{color:#b45309;border-right:1px solid var(--border);}
+.btn-whats-card{color:#22c55e;border-right:1px solid var(--border);}
+.btn-edit-card{color:#fbbf24;border-right:1px solid var(--border);}
 .btn-del-card{color:var(--danger);}
 
-/* field-group dentro de auth */
+/* Inputs auth lider */
 .field-group input{width:100%;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-main);font-family:'DM Sans',sans-serif;font-size:16px;padding:12px;outline:none;}
-.field-group input:focus{border-color:var(--primary);background:#fff;box-shadow:0 0 0 3px rgba(30,58,138,0.1);}
+.field-group input:focus{border-color:var(--accent2);box-shadow:0 0 0 3px rgba(124,58,237,0.1);}
 
-.sem-conteudo{color:#94a3b8;font-style:italic;font-size:13px;}
-.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:#0f172a;color:#fff;padding:12px 24px;border-radius:50px;font-size:14px;font-weight:700;box-shadow:0 10px 25px rgba(0,0,0,0.3);opacity:0;transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1);z-index:999;white-space:nowrap;}
+.sem-conteudo{color:#334155;font-style:italic;font-size:13px;}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:#0f172a;color:#fff;padding:12px 24px;border-radius:50px;font-size:14px;font-weight:700;box-shadow:0 10px 25px rgba(0,0,0,0.5);opacity:0;transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1);z-index:999;white-space:nowrap;border:1px solid var(--border);}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
-.toast.success{background:#16a34a;} .toast.danger{background:#dc2626;}
-.overlay{position:fixed;inset:0;background:rgba(15,23,42,0.6);z-index:200;display:none;align-items:flex-end;}
+.toast.success{background:#052e16;border-color:rgba(34,197,94,0.4);color:#22c55e;}
+.toast.danger{background:#450a0a;border-color:rgba(239,68,68,0.4);color:#f87171;}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:200;display:none;align-items:flex-end;}
 .overlay.active{display:flex;}
-.dialog{background:#fff;border-radius:var(--radius) var(--radius) 0 0;padding:24px 20px;width:100%;}
-.dialog h3{font-family:'Playfair Display',serif;font-size:18px;font-weight:700;margin-bottom:8px;}
+.dialog{background:var(--bg-card);border:1px solid var(--border-neon);border-radius:var(--radius) var(--radius) 0 0;padding:24px 20px;width:100%;}
+.dialog h3{font-family:'Playfair Display',serif;font-size:18px;font-weight:700;color:var(--text-main);margin-bottom:8px;}
 .dialog p{font-size:14px;color:var(--text-muted);line-height:1.5;margin-bottom:18px;}
 .dialog-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
 .dialog-actions button{padding:14px;border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;border:none;}
-.btn-dialog-cancel{background:#e2e8f0;color:var(--text-muted);}
+.btn-dialog-cancel{background:rgba(255,255,255,0.06);color:var(--text-muted);}
 .btn-dialog-confirm{background:var(--danger);color:#fff;}
 .empty-state{text-align:center;padding:50px 24px;color:var(--text-muted);}
 .empty-icon{font-size:52px;margin-bottom:12px;}
 .empty-state h3{font-family:'Playfair Display',serif;font-size:19px;font-weight:700;color:var(--text-main);margin-bottom:6px;}
+
+/* ── PAINEL ID LÍDER ── */
+#panel-id-igreja{
+  position:fixed;bottom:0;left:0;right:0;
+  background:rgba(6,12,24,0.95);
+  border-top:1px solid rgba(0,229,255,0.2);
+  padding:10px 16px;z-index:50;text-align:center;
+  backdrop-filter:blur(10px);
+}
 </style>
 </head>
 <body>
@@ -738,25 +1092,25 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
 <!-- ══ TELA INÍCIO ══ -->
 <div id="tela-inicio" style="display:flex;">
   <div class="tela-inicio">
-    <div class="inicio-logo">🎼</div>
+    <!-- LOGO CORRIGIDO: tamanho fixo, não sai da dimensão -->
+    <div class="inicio-logo-wrap">
+      <span class="inicio-logo-emoji">🎼</span>
+    </div>
     <h1 class="inicio-titulo">Escala do Louvor</h1>
     <p class="inicio-sub">Ministério de Música</p>
+
     <div class="inicio-botoes">
-      <!-- MEMBRO -->
-      <div style="background:rgba(255,255,255,0.08);border-radius:var(--radius);padding:16px;">
-        <p style="color:#93c5fd;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;text-align:center;">Acesso Membro</p>
+      <!-- MEMBRO: entra com nome da Igreja + senha (sem ID) -->
+      <div class="membro-box">
+        <div class="membro-box-label">Acesso Membro</div>
         <form onsubmit="handleAuthMembro(event)">
-          <div class="field-group" style="margin-bottom:10px;">
-            <input type="text" id="membro-igreja-id" placeholder="ID da Igreja (fornecido pelo líder)" style="font-size:14px;">
-          </div>
-          <div class="field-group" style="margin-bottom:10px;">
-            <input type="password" id="membro-senha" placeholder="Senha dos membros">
-          </div>
-          <p id="membro-erro" class="erro-msg" style="color:#fca5a5;display:none;"></p>
-          <button type="submit" id="btn-membro-auth" class="btn-inicio btn-inicio-membro">Entrar como Membro</button>
+          <input type="text" id="membro-nome-igreja" class="input-neon" placeholder="Nome da sua Igreja" autocomplete="off">
+          <input type="password" id="membro-senha" class="input-neon" placeholder="Senha dos membros">
+          <p id="membro-erro" class="erro-msg"></p>
+          <button type="submit" id="btn-membro-auth" class="btn-inicio btn-inicio-membro">Entrar →</button>
         </form>
       </div>
-      <button class="btn-inicio btn-inicio-lider" onclick="mostrarTelaLider()">🔐 Entrar como Líder</button>
+      <button class="btn-inicio btn-inicio-lider" onclick="mostrarTelaLider()">🔐 Líder / Administrador</button>
     </div>
   </div>
 </div>
@@ -781,7 +1135,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
         <div id="group-codigo-lider" class="field-group" style="display:none;margin-bottom:12px;">
           <label>🔑 Código de Ativação</label>
           <input type="text" id="lider-codigo" placeholder="Código fornecido pelo suporte">
-          <div class="field-hint" style="color:#93c5fd;">Recebido no momento da compra do sistema.</div>
+          <div class="field-hint" style="color:#64748b;">Recebido no momento da compra.</div>
         </div>
         <div class="field-group" style="margin-bottom:12px;">
           <label>Email</label>
@@ -791,7 +1145,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
           <label>Senha</label>
           <input type="password" id="lider-senha" placeholder="Mínimo 6 caracteres" autocomplete="current-password">
         </div>
-        <p id="lider-erro" class="erro-msg"></p>
+        <p id="lider-erro" class="erro-msg" style="color:#f87171;"></p>
         <button type="submit" id="btn-lider-auth" class="btn btn-primary">Entrar como Líder</button>
         <button type="button" class="btn-recuperar" onclick="recuperarSenha()">Esqueci minha senha</button>
         <button type="button" class="btn-voltar" onclick="voltarInicio()">← Voltar</button>
@@ -806,9 +1160,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
   <header class="app-header">
     <div class="header-top">
       <div class="header-text">
-        <h1>Escala do Louvor <span id="badge-lider" class="badge-lider" style="display:none;">LÍDER</span></h1>
+        <h1>🎼 <span id="badge-lider" class="badge-lider" style="display:none;">LÍDER</span></h1>
         <div id="nome-igreja-header">Ministério de Música</div>
-        <div id="sub-igreja-header" style="font-size:11px;color:#fbbf24;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;display:none;"></div>
       </div>
       <div class="header-right">
         <div class="header-status">
@@ -821,22 +1174,36 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
   </header>
 
   <nav class="nav-tabs">
-    <button id="tab-lista" class="nav-tab active" onclick="switchTab('lista')">
-      Escalas <span id="badge-count" class="badge" style="display:none;">0</span>
-    </button>
-    <button id="tab-form"    class="nav-tab" style="display:none;" onclick="switchTab('form')">Nova Escala</button>
-    <button id="tab-musicos" class="nav-tab" style="display:none;" onclick="switchTab('musicos-panel')">Músicos</button>
+    <button id="tab-lista"      class="nav-tab active"          onclick="switchTab('lista')">Escalas <span id="badge-count" class="badge" style="display:none;">0</span></button>
+    <button id="tab-calendario" class="nav-tab"                 onclick="switchTab('calendario')">📅 Calendário</button>
+    <button id="tab-form"       class="nav-tab" style="display:none;" onclick="switchTab('form')">+ Nova</button>
+    <button id="tab-musicos"    class="nav-tab" style="display:none;" onclick="switchTab('musicos-panel')">Músicos</button>
   </nav>
 
   <main class="main">
 
     <!-- LISTA -->
     <div id="panel-lista" class="panel active">
+      <!-- Banner aniversários -->
+      <div id="banner-aniversarios" class="banner-aniversarios"></div>
       <div class="filtro-bar">
         <button id="btn-futuras"  class="btn-filtro ativo" onclick="setFiltro('futuras')">📅 Próximas</button>
         <button id="btn-passadas" class="btn-filtro"       onclick="setFiltro('passadas')">📖 Histórico</button>
       </div>
       <div id="lista-escalas"></div>
+    </div>
+
+    <!-- CALENDÁRIO -->
+    <div id="panel-calendario" class="panel">
+      <div class="calendario-wrap">
+        <div class="cal-nav">
+          <button onclick="calAnterior()">‹</button>
+          <span id="cal-titulo"></span>
+          <button onclick="calProximo()">›</button>
+        </div>
+        <div id="calendario-grid" class="cal-grid"></div>
+        <div id="cal-legenda" class="cal-legenda"></div>
+      </div>
     </div>
 
     <!-- FORM NOVA ESCALA -->
@@ -849,7 +1216,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
         </div>
         <div class="form-section-label">🎤 Músicos Escalados</div>
         <div class="funcoes-grid">
-          <!-- Gera campos para cada função -->
           <div class="field-group"><label>🎤 Vocal Principal</label><input type="text" id="f-vocal" placeholder="Nome"></div>
           <div class="field-group"><label>🎙️ Backing Vocals</label><input type="text" id="f-back" placeholder="Nomes"></div>
           <div class="field-group"><label>🪕 Violão</label><input type="text" id="f-violao" placeholder="Nome"></div>
@@ -908,6 +1274,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
             </select>
           </div>
         </div>
+        <!-- NOVO: campo aniversário -->
+        <div class="field-group">
+          <label>🎂 Data de Aniversário (opcional)</label>
+          <input type="date" id="musico-aniversario">
+        </div>
         <button class="btn btn-primary" style="margin-top:8px;" onclick="salvarMusico()">Cadastrar Músico</button>
       </div>
       <div class="musicos-lista-card">
@@ -932,19 +1303,18 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
 
 </div><!-- fim app-content -->
 
-<!-- PAINEL ID DA IGREJA (para o líder compartilhar com membros) -->
-<div id="panel-id-igreja" style="display:none;position:fixed;bottom:0;left:0;right:0;background:#1e3a8a;color:#fff;padding:10px 16px;z-index:50;text-align:center;">
-  <span style="font-size:11px;color:#93c5fd;font-weight:700;text-transform:uppercase;">ID da Igreja para membros: </span>
-  <span id="txt-id-igreja" style="font-size:13px;color:#fbbf24;font-weight:700;word-break:break-all;"></span>
+<!-- PAINEL ID DA IGREJA (para o líder compartilhar) -->
+<div id="panel-id-igreja" style="display:none;">
+  <span style="font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;">ID da Igreja (para membros): </span>
+  <span id="txt-id-igreja" style="font-size:12px;color:var(--accent);font-weight:700;word-break:break-all;"></span>
 </div>
 
 <div id="toast" class="toast"></div>
 
 <script type="module">
-  // Mostra ID da igreja para o líder copiar e enviar aos membros
   import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
   import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
-  const _app = getApps()[0];
+  const _app  = getApps()[0];
   const _auth = getAuth(_app);
   onAuthStateChanged(_auth, user => {
     if (user) {
