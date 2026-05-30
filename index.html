@@ -102,9 +102,10 @@
         atualizarBadge();
       },
       (error) => { 
-        console.error(error); 
+        console.error("Erro no Firestore Listener:", error); 
         setStatus('error'); 
-        showToast('Erro ao carregar dados do banco.', 'danger');
+        // Se o erro for falta de índice, o link aparecerá no console F12 do navegador
+        showToast('Erro ao carregar dados. Verifique o console do navegador.', 'danger');
       }
     );
   }
@@ -167,7 +168,7 @@
   window.toggleAuthMode = function() {
     const modoCadastro = document.getElementById('auth-mode-check').checked;
     document.getElementById('group-nome-igreja').style.display = modoCadastro ? 'block' : 'none';
-    document.getElementById('auth-title').textContent = modoCadastro ? 'Cadastrar sua Igreja' : 'Painel do Administrador';
+    document.getElementById('auth-title').textContent = modoCadastro ? 'Cadastrar sua Igreja' : 'Painel do Administrator';
     document.getElementById('btn-auth').textContent = modoCadastro ? 'Cadastrar Nova Igreja' : 'Entrar no Painel';
   };
 
@@ -219,7 +220,6 @@
     btn.disabled = true;
     btn.textContent = 'Salvando...';
 
-    // Salvando o registro atrelado à ID única da Igreja logada
     const obj = { 
       dataISO: data, 
       horario, 
@@ -245,7 +245,7 @@
       switchTab('lista');
     } catch (e) {
       console.error(e);
-      showToast('❌ Erro ao salvar. Verifique as regras do banco.', 'danger');
+      showToast('❌ Erro ao salvar.', 'danger');
       btn.disabled = false;
       btn.textContent = editDocId ? 'Atualizar Escala' : 'Salvar na Escala';
     }
@@ -341,7 +341,7 @@
     }
     const linhas = textoLinks.trim().split('\n');
     return linhas.map(linha => {
-      linha = inlineEsc(linha.trim());
+      linha = esc(linha.trim());
       if (!linha) return '';
       const urlRegex = /(https?:\/\/[^\s]+)/g;
       const temUrl = urlRegex.test(linha);
@@ -355,10 +355,6 @@
       }
       return `<div class="link-item link-texto">${linha}</div>`;
     }).filter(Boolean).join('');
-  }
-
-  function inlineEsc(str) {
-    return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
   function renderLista() {
@@ -493,4 +489,123 @@
     --primary:    #1e3a8a;
     --accent:     #3b82f6;
     --text-main:  #0f172a;
-    --
+    --text-muted: #475569;
+    --text-hinos: #b45309;
+    --border:     #cbd5e1;
+    --danger:     #dc2626;
+    --success:    #16a34a;
+    --radius:     12px;
+    --radius-sm:  8px;
+    --shadow-sm:  0 2px 8px rgba(15,23,42,0.08);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { font-size: 16px; scroll-behavior: smooth; }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg-main);
+    color: var(--text-main);
+    min-height: 100vh;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* ── TELA DE AUTH ── */
+  .auth-container {
+    min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px;
+    background: linear-gradient(135deg, #1e3a8a 0%, #0f172a 100%);
+  }
+  .auth-card {
+    background: #ffffff; width: 100%; max-width: 400px; border-radius: var(--radius);
+    padding: 30px 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+  }
+  .auth-card h2 { font-family: 'Playfair Display', serif; font-size: 24px; color: var(--primary); text-align: center; margin-bottom: 8px; }
+  .auth-card p { font-size: 14px; color: var(--text-muted); text-align: center; margin-bottom: 24px; }
+  
+  .switch-container {
+    display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 20px;
+    background: var(--bg-input); padding: 8px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 700;
+  }
+  .switch-container input { cursor: pointer; width: 16px; height: 16px; }
+
+  /* ── APP CONTENT ── */
+  .app-header {
+    background: var(--bg-header); padding: 16px 16px 14px;
+    position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+  }
+  .header-top { display: flex; align-items: center; gap: 14px; }
+  .header-text h1 { font-family: 'Playfair Display', serif; font-size: 21px; font-weight: 700; color: #ffffff; }
+  .header-text p { font-size: 11px; color: #93c5fd; font-weight: 500; letter-spacing: 1px; text-transform: uppercase; margin-top: 1px; }
+  
+  .header-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+  .header-status { display: flex; align-items: center; gap: 6px; background: rgba(0,0,0,0.2); padding: 4px 10px; border-radius: 20px; }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .status-dot.online     { background: #4ade80; }
+  .status-dot.connecting { background: #fbbf24; }
+  .status-dot.error      { background: #f87171; }
+  #status-text { font-size: 11px; font-weight: 700; color: #ffffff; }
+  .btn-logout { background: transparent; border: none; color: #f87171; font-size: 18px; cursor: pointer; padding: 4px; }
+
+  /* ── ABAS ── */
+  .nav-tabs { display: flex; background: #ffffff; border-bottom: 2px solid var(--border); position: sticky; top: 67px; z-index: 99; }
+  .nav-tab {
+    flex: 1; padding: 14px 10px; background: transparent; border: none; color: var(--text-muted);
+    font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+    cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.2s;
+  }
+  .nav-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+  .nav-tab .badge {
+    display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px;
+    background: var(--primary); color: #ffffff; font-size: 11px; font-weight: 700; border-radius: 50%; margin-left: 4px;
+  }
+
+  /* ── PAINÉIS & FORMS ── */
+  .main { padding: 16px; padding-bottom: 40px; }
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  .form-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow-sm); }
+  .form-card-title { font-family: 'Playfair Display', serif; font-size: 18px; font-weight: 700; color: var(--primary); margin-bottom: 16px; padding-bottom: 8px; border-bottom: 2px solid var(--bg-input); }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+  .field-group { margin-bottom: 14px; }
+  .field-group label { display: block; font-size: 12px; font-weight: 700; color: var(--text-main); margin-bottom: 6px; }
+  .field-group input, .field-group textarea {
+    width: 100%; background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-sm);
+    color: var(--text-main); font-family: 'DM Sans', sans-serif; font-size: 16px; padding: 12px; outline: none;
+  }
+  .field-group input:focus, .field-group textarea:focus { border-color: var(--primary); background: #ffffff; box-shadow: 0 0 0 3px rgba(30,58,138,0.1); }
+  .field-group textarea { resize: vertical; min-height: 90px; font-weight: 500; }
+  .field-hint { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+
+  .btn { display: block; width: 100%; padding: 14px; border: none; border-radius: var(--radius-sm); font-family: 'DM Sans', sans-serif; font-size: 16px; font-weight: 700; cursor: pointer; }
+  .btn-primary { background: var(--primary); color: #ffffff; margin-top: 16px; box-shadow: 0 4px 12px rgba(30,58,138,0.2); }
+  .btn-secondary { background: #e2e8f0; color: var(--text-muted); margin-top: 10px; display: none; }
+  .btn-secondary.visible { display: block; }
+
+  /* ── CARDS DA LISTA ── */
+  .escala-list { display: flex; flex-direction: column; gap: 16px; }
+  .escala-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow-sm); }
+  .escala-card-header { background: #f1f5f9; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); }
+  .escala-date-block { display: flex; align-items: center; gap: 10px; }
+  .escala-date-num { background: var(--primary); border-radius: 8px; width: 44px; height: 44px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .escala-date-num .day   { font-family: 'Playfair Display', serif; font-size: 19px; font-weight: 700; color: #ffffff; line-height: 1; }
+  .escala-date-num .month { font-size: 9px; font-weight: 700; text-transform: uppercase; color: #93c5fd; }
+  .escala-date-info  { display: flex; flex-direction: column; }
+  .escala-date-full  { font-size: 15px; font-weight: 700; color: var(--text-main); }
+  .escala-time-badge { font-size: 12px; font-weight: 700; color: var(--primary); margin-top: 2px; }
+
+  .dias-badge { font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px; text-transform: uppercase; }
+  .dias-badge.hoje    { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
+  .dias-badge.breve   { background: #fef3c7; color: #b45309; border: 1px solid #fde68a; }
+  .dias-badge.normal  { background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; }
+  .dias-badge.passado { background: #f1f5f9; color: #64748b; border: 1px solid #cbd5e1; }
+
+  .escala-card-body { padding: 16px; }
+  .escala-row { display: flex; align-items: flex-start; gap: 12px; padding: 10px 0; border-bottom: 1px solid #f1f5f9; }
+  .escala-row:last-of-type { border-bottom: none; }
+  .escala-row-icon   { font-size: 18px; flex-shrink: 0; width: 24px; text-align: center; }
+  .escala-row-content { flex: 1; min-width: 0; }
+  .escala-row-label { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px; margin-bottom: 2px; }
+  .escala-row-value { font-size: 16px; font-weight: 700; color: var(--text-main); line-height: 1.4; }
+
+  .escala-row-label-hinos { font-size: 11px; font-weight: 700; text-transform: uppercase; color: #78350f; letter-spacing: 0.5px; margin-bottom: 4px; }
+  .escala-row-value-hinos { background: #fffbeb; padding: 10
