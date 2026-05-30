@@ -7,12 +7,12 @@
   <title>Sistema de Escala - Ministério de Louvor</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2=family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
     import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, query, where, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
-    import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
+    import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyABNJEfKqvbTawlgQGPoIXMvYWRmH9kCZY",
@@ -39,12 +39,11 @@
       bateria: "🥁 Bateria", percussao: "🪘 Percussão", mesa: "🎛️ Som / Mídia"
     };
 
-    // Monitoramento do estado de login
     onAuthStateChanged(auth, (user) => {
       if (user) {
         usuarioLogado = user;
         mostrarTela('admin-panel');
-        document.getElementById('nome-igreja-header-admin').textContent = user.displayName || "Minha Igreja";
+        document.getElementById('nome-igreja-header-admin').textContent = user.displayName || "IMO KM 32";
         iniciarListenerAdmin();
       } else {
         usuarioLogado = null;
@@ -66,7 +65,7 @@
     window.toggleModoAuth = function(modo) {
       const isCadastro = modo === 'cadastro';
       document.getElementById('container-nome-igreja').style.display = isCadastro ? 'block' : 'none';
-      document.getElementById('btn-auth-submit').textContent = isCadastro ? 'Criar Conta da Igreja' : 'Entrar no Painel';
+      document.getElementById('btn-auth-submit').textContent = isCadastro ? 'Cadastrar e Criar Conta' : 'Entrar no Painel';
       document.getElementById('tab-login').classList.toggle('active', !isCadastro);
       document.getElementById('tab-cadastro').classList.toggle('active', isCadastro);
       document.getElementById('auth-action-mode').value = modo;
@@ -80,51 +79,36 @@
       const nomeIgreja = document.getElementById('auth-nome-igreja').value.trim();
       const btn = document.getElementById('btn-auth-submit');
 
-      if (!email || !senha || (modo === 'cadastro' && !nomeIgreja)) {
-        showToast('⚠️ Preencha todos os campos obrigatórios', 'danger');
-        return;
-      }
-
       btn.disabled = true;
 
       try {
         if (modo === 'cadastro') {
+          if (!nomeIgreja) { showToast('⚠️ Digite o nome da Igreja', 'danger'); btn.disabled = false; return; }
           const userCredential = await createUserWithEmailAndPassword(auth, email, senha);
           await updateProfile(userCredential.user, { displayName: nomeIgreja });
           showToast('✓ Igreja cadastrada com sucesso!', 'success');
         } else {
           await signInWithEmailAndPassword(auth, email, senha);
-          showToast('✓ Bem-vindo ao painel!', 'success');
+          showToast('✓ Login realizado com sucesso!', 'success');
         }
       } catch (error) {
-        console.error(error);
         showToast('❌ Erro na autenticação. Verifique os dados.', 'danger');
       } finally {
         btn.disabled = false;
       }
     };
 
-    window.recuperarSenha = async function() {
-      const email = document.getElementById('auth-email').value.trim();
-      if (!email) { showToast('⚠️ Digite seu e-mail no campo acima primeiro.', 'danger'); return; }
-      try {
-        await sendPasswordResetEmail(auth, email);
-        showToast('✉️ Link de recuperação enviado para o seu e-mail!', 'success');
-      } catch (error) { showToast('❌ Erro ao enviar redefinição.', 'danger'); }
-    };
-
     window.logout = async function() {
-      if (confirm('Deseja sair do painel administrativo?')) { await signOut(auth); }
+      if (confirm('Deseja sair do painel?')) { await signOut(auth); }
     };
 
-    // FUNÇÕES DE ESCALA E BANCO
     function carregarEscalasPublicas() {
       const qSimple = query(colEscalas, orderBy("dataISO", "asc"));
       if (unsubscribeLista) unsubscribeLista();
       unsubscribeLista = onSnapshot(qSimple, (snapshot) => {
         escalas = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
         renderLista('lista-escalas-publica', false);
-      }, (err) => console.error(err));
+      });
     }
 
     function iniciarListenerAdmin() {
@@ -134,7 +118,7 @@
       unsubscribeLista = onSnapshot(q, (snapshot) => {
         escalas = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
         renderLista('lista-escalas-admin', true);
-      }, (err) => {
+      }, () => {
         const qFallback = query(colEscalas, orderBy("dataISO", "asc"));
         onSnapshot(qFallback, (snap) => {
           escalas = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(e => e.igrejaId === usuarioLogado.uid);
@@ -177,22 +161,22 @@
     function renderCamposFuncoesAtivas() {
       const container = document.getElementById('campos-funcoes-dinamicas');
       if(funcoesSelecionadas.length === 0) {
-        container.innerHTML = `<p style="font-size:13px; color:var(--text-muted); font-style:italic;">Nenhuma função ativa. Toque nos botões acima para escalar integrantes.</p>`;
+        container.innerHTML = `<p style="font-size:13px; color:var(--text-muted); font-style:italic;">Clique nos botões acima para selecionar as funções deste culto.</p>`;
         return;
       }
       container.innerHTML = funcoesSelecionadas.map(f => `
         <div class="row-funcao-ativa">
           <span class="lbl-funcao-ativa">${f.label}:</span>
-          <input type="text" placeholder="Nome do voluntário" value="${f.integrante}" oninput="atualizarIntegrante('${f.idTemp}', this.value)">
+          <input type="text" placeholder="Nome do integrante" value="${f.integrante}" oninput="atualizarIntegrante('${f.idTemp}', this.value)">
           <button type="button" class="btn-remove-funcao" onclick="removerFuncao('${f.idTemp}')">❌</button>
         </div>
       `).join('');
     }
 
     window.deletarEscala = async function(id) {
-      if(confirm('Excluir esta escala definitivamente?')) {
+      if(confirm('Remover esta escala permanentemente?')) {
         await deleteDoc(doc(db, "escalas", id));
-        showToast('✓ Escala removida!', 'success');
+        showToast('✓ Escala excluída!', 'success');
       }
     };
 
@@ -202,7 +186,7 @@
       const hinos = document.getElementById('hinos').value;
       const recados = document.getElementById('recados').value;
 
-      if (!data || !horario) { showToast('⚠️ Escolha data e horário do culto', 'danger'); return; }
+      if (!data || !horario) { showToast('⚠️ Defina a data e o horário', 'danger'); return; }
       
       const btn = document.getElementById('btn-salvar');
       btn.disabled = true;
@@ -213,21 +197,21 @@
           equipeMembros: funcoesSelecionadas.map(f => ({ tipo: f.tipo, label: f.label, integrante: f.integrante })),
           igrejaId: usuarioLogado.uid, createdAt: serverTimestamp()
         });
-        showToast('✓ Escala publicada!', 'success');
+        showToast('✓ Escala salva com sucesso!', 'success');
         document.getElementById('data').value = '';
         document.getElementById('horario').value = '';
         document.getElementById('hinos').value = '';
         document.getElementById('recados').value = '';
         funcoesSelecionadas = [];
         switchTabAdmin('lista');
-      } catch (e) { showToast('❌ Erro ao salvar.', 'danger'); }
+      } catch (e) { showToast('❌ Erro ao publicar escala.', 'danger'); }
       finally { btn.disabled = false; }
     };
 
     function renderLista(containerId, isAdmin = false) {
       const container = document.getElementById(containerId);
       if (escalas.length === 0) {
-        container.innerHTML = `<div class="empty-state"><h3>Nenhuma escala cadastrada</h3></div>`;
+        container.innerHTML = `<div class="empty-state"><h3>Nenhuma escala encontrada</h3></div>`;
         return;
       }
       container.innerHTML = escalas.map(e => {
@@ -241,9 +225,9 @@
             <div class="louve-meta">
               <span class="badge-date">📅 ${dia}/${mes}/${ano}</span>
               <span class="badge-time">🕐 ${e.horario}h</span>
-              ${isAdmin ? `<button class="btn-delete-sm" onclick="deletarEscala('${e.id}')">Excluir 🗑️</button>` : ''}
+              ${isAdmin ? `<button class="btn-delete-sm" onclick="deletarEscala('${e.id}')">Remover 🗑️</button>` : ''}
             </div>
-            <div class="team-section">${equipeHtml || '<p style="color:var(--text-muted);font-size:13px;">Sem músicos escalados</p>'}</div>
+            <div class="team-section">${equipeHtml || '<p style="color:var(--text-muted);font-size:13px;">Sem integrantes definidos</p>'}</div>
             ${e.hinos ? `<div class="songs-box"><div class="box-title">🎵 Repertório</div><div class="box-text">${e.hinos.replace(/\n/g, '<br>')}</div></div>` : ''}
             ${e.recados ? `<div class="alert-box"><div class="box-title">⚠️ Orientações</div><div class="box-text">${e.recados.replace(/\n/g, '<br>')}</div></div>` : ''}
           </div>`;
@@ -267,7 +251,6 @@
     body { font-family: 'DM Sans', sans-serif; background: var(--bg-dark); color: var(--text-white); min-height: 100vh; }
     .main { padding: 16px; max-width: 540px; margin: 0 auto; }
     
-    /* ABAS DE AUTENTICAÇÃO */
     .auth-tabs { display: flex; gap: 4px; background: rgba(0,0,0,0.2); padding: 4px; border-radius: 8px; margin-bottom: 20px; }
     .auth-tab { flex: 1; padding: 10px; background: transparent; border: none; color: var(--text-muted); font-weight: bold; cursor: pointer; border-radius: 6px; font-size: 13px; }
     .auth-tab.active { background: var(--primary); color: #0f172a; }
@@ -281,155 +264,4 @@
     .field-group label { display: block; font-size: 13px; color: var(--text-muted); margin-bottom: 6px; }
     .field-group input, .field-group textarea { width: 100%; background: var(--bg-input); border: 1px solid var(--border); border-radius: 8px; padding: 12px; color: white; font-size: 15px; outline: none; font-family: inherit; }
     
-    .btn { display: block; width: 100%; padding: 12px; border: none; border-radius: 8px; font-size: 15px; font-weight: 700; cursor: pointer; text-align: center; transition: all 0.2s; }
-    .btn-primary { background: var(--primary); color: #0f172a; }
-    .btn-primary:disabled { opacity: 0.5; }
-    .btn-public-access { background: #10b981; color: white; margin-top: 16px; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2); }
-    .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-muted); padding: 8px 16px; border-radius: 30px; cursor: pointer; font-size: 13px; }
-    
-    .lnk-forgot { display: block; text-align: right; font-size: 12px; color: var(--primary); background: transparent; border: none; cursor: pointer; margin-bottom: 14px; width: 100%; }
-    .seletor-botoes-container { display: flex; flex-wrap: wrap; gap: 6px; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 12px; }
-    .btn-add-funcao { background: var(--bg-input); border: 1px solid var(--border); color: white; padding: 6px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; }
-    
-    .row-funcao-ativa { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.02); padding: 6px; border-radius: 6px; margin-bottom: 6px; }
-    .lbl-funcao-ativa { font-size: 13px; font-weight: 700; color: var(--primary); width: 130px; }
-    .row-funcao-ativa input { flex: 1; background: var(--bg-input); border: 1px solid var(--border); border-radius: 6px; padding: 8px; color: white; font-size: 14px; }
-    .btn-remove-funcao { background: transparent; border: none; cursor: pointer; font-size: 14px; }
-
-    .louve-card { background: var(--bg-card); border-radius: var(--radius); margin-bottom: 16px; padding: 16px; border: 1px solid var(--border); }
-    .louve-meta { display: flex; gap: 8px; margin-bottom: 12px; align-items: center; }
-    .badge-date { background: rgba(56, 189, 248, 0.15); color: var(--primary); padding: 4px 10px; border-radius: 50px; font-size: 12px; font-weight: 700; }
-    .badge-time { background: rgba(255, 255, 255, 0.08); padding: 4px 10px; border-radius: 50px; font-size: 12px; }
-    .btn-delete-sm { margin-left: auto; background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; color: #ef4444; padding: 3px 8px; border-radius: 6px; font-size: 11px; cursor: pointer; }
-
-    .team-section { background: rgba(0,0,0,0.15); padding: 12px; border-radius: 8px; margin-bottom: 12px; }
-    .team-row { display: flex; margin-bottom: 5px; font-size: 14px; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 3px; }
-    .team-label { color: var(--text-muted); width: 130px; }
-    .team-value { font-weight: 700; color: white; }
-    
-    .songs-box, .alert-box { border-radius: 8px; padding: 12px; margin-top: 8px; border-left: 3px solid; font-size: 14px; }
-    .songs-box { background: rgba(16, 185, 129, 0.05); border-left-color: #10b981; }
-    .alert-box { background: rgba(245, 158, 11, 0.05); border-left-color: #f59e0b; }
-    .box-title { font-size: 11px; font-weight: 700; text-transform: uppercase; margin-bottom: 4px; }
-    .songs-box .box-title { color: #10b981; }
-    .alert-box .box-title { color: #f59e0b; }
-
-    .welcome-container { background: linear-gradient(135deg, #1e3a8a 0%, #0f172a 100%); padding: 24px 16px; text-align: center; border-radius: 0 0 20px 20px; }
-    .app-header { background: var(--bg-card); padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); }
-    .nav-tabs { display: flex; background: var(--bg-card); padding: 4px; margin: 12px auto; max-width: 480px; border-radius: 8px; border: 1px solid var(--border); }
-    .nav-tab { flex: 1; padding: 10px; background: transparent; border: none; font-weight: 700; cursor: pointer; font-size: 13px; color: var(--text-muted); border-radius: 6px; }
-    .nav-tab.active { color: #0f172a; background: var(--primary); }
-    
-    .panel { display: none; }
-    .panel.active { display: block; }
-    .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); padding: 12px 24px; border-radius: 50px; display: none; z-index: 9999; font-weight: 700; }
-    .toast.show { display: block; }
-    .toast.success { background: #10b981; color: white; }
-    .toast.danger { background: #ef4444; color: white; }
-    .empty-state { text-align: center; color: var(--text-muted); padding: 30px 10px; }
-  </style>
-</head>
-<body>
-
-<div id="auth-screen" class="auth-container">
-  <div class="auth-card">
-    <h2>Escala de Louvor</h2>
-    <p class="auth-subtitle">Gestão de Ministérios e Repertórios</p>
-    
-    <div class="auth-tabs">
-      <button id="tab-login" class="auth-tab active" onclick="toggleModoAuth('login')">Já sou Cadastrado</button>
-      <button id="tab-cadastro" class="auth-tab" onclick="toggleModoAuth('cadastro')">Cadastrar Nova Igreja</button>
-    </div>
-
-    <form onsubmit="handleAuthForm(event)">
-      <input type="hidden" id="auth-action-mode" value="login">
-      
-      <div class="field-group" id="container-nome-igreja" style="display: none;">
-        <label>Nome da Congregação / Igreja *</label>
-        <input type="text" id="auth-nome-igreja" placeholder="Ex: IMO KM 32">
-      </div>
-
-      <div class="field-group">
-        <label>E-mail do Administrador *</label>
-        <input type="email" id="auth-email" placeholder="seu-email@gmail.com" required>
-      </div>
-
-      <div class="field-group">
-        <label>Senha *</label>
-        <input type="password" id="auth-senha" placeholder="••••••••" required>
-      </div>
-
-      <button type="button" class="lnk-forgot" onclick="recuperarSenha()">Esqueceu a senha?</button>
-      <button type="submit" id="btn-auth-submit" class="btn btn-primary">Entrar no Painel</button>
-    </form>
-
-    <hr style="border: 0; border-top: 1px solid var(--border); margin: 20px 0;">
-    <button class="btn btn-public-access" onclick="mostrarTela('public-screen')">👁️ Visualizar Escalas (Acesso Rápido)</button>
-  </div>
-</div>
-
-<div id="public-screen" style="display: none;">
-  <div class="welcome-container">
-    <h1>Escalas de Culto</h1>
-    <p style="color: var(--primary); font-size: 14px; margin-top: 4px;">Quadro Geral de Ministrações</p>
-  </div>
-  <main class="main">
-    <div id="lista-escalas-publica"></div>
-    <div style="text-align: center; margin-top: 20px;">
-      <button class="btn-outline" onclick="mostrarTela('auth-screen')">⚙️ Voltar ao Login Admin</button>
-    </div>
-  </main>
-</div>
-
-<div id="admin-panel" style="display: none;">
-  <header class="app-header">
-    <div>
-      <span style="font-size:11px; color:var(--primary); font-weight:bold; display:block; text-transform:uppercase;">Painel Administrativo</span>
-      <h1 id="nome-igreja-header-admin">Líder</h1>
-    </div>
-    <button class="btn-outline" style="padding: 6px 12px;" onclick="logout()">Sair 🚪</button>
-  </header>
-  
-  <nav class="nav-tabs">
-    <button id="tab-lista" class="nav-tab active" onclick="switchTabAdmin('lista')">Escalas Ativas</button>
-    <button id="tab-form" class="nav-tab" onclick="switchTabAdmin('form')">+ Montar Nova Escala</button>
-  </nav>
-
-  <main class="main">
-    <div id="panel-lista" class="panel active">
-      <div id="lista-escalas-admin"></div>
-    </div>
-
-    <div id="panel-form" class="panel">
-      <div class="field-group"><label>Data do Culto *</label><input type="date" id="data"></div>
-      <div class="field-group"><label>Horário de Início *</label><input type="time" id="horario"></div>
-      
-      <div class="field-group">
-        <label style="color:var(--primary); font-weight:700;">Selecione quem vai atuar neste dia:</label>
-        <div id="botoes-seletor-funcoes" class="seletor-botoes-container"></div>
-      </div>
-
-      <div class="field-group">
-        <label>Voluntários Escalados nas Funções:</label>
-        <div id="campos-funcoes-dinamicas"></div>
-      </div>
-
-      <div class="field-group">
-        <label>Repertório de Louvores (Músicas e Tons)</label>
-        <textarea id="hinos" rows="4" placeholder="Ex:&#10;1. Grandioso És Tu - Tom: E&#10;2. Alvo Mais Que a Neve - Tom: G"></textarea>
-      </div>
-
-      <div class="field-group">
-        <label>Avisos / Horário do Ensaio</label>
-        <textarea id="recados" rows="2" placeholder="Ex: Ensaio com a equipe às 18:30h no altar."></textarea>
-      </div>
-
-      <button id="btn-salvar" class="btn btn-primary" onclick="salvarEscala()">Publicar Escala Oficial</button>
-    </div>
-  </main>
-</div>
-
-<div id="toast" class="toast"></div>
-
-</body>
-</html>
+    .btn { display: block; width: 100%; padding: 12px
