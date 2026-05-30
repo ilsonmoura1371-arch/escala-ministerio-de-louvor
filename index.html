@@ -29,7 +29,7 @@
   } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
   import {
     getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword,
-    signOut, onAuthStateChanged, updateProfile
+    signOut, onAuthStateChanged, updateProfile, sendPasswordResetEmail
   } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
 
   const firebaseConfig = {
@@ -115,6 +115,18 @@
     if (confirm('Deseja sair do painel?')) {
       await signOut(auth);
       showToast('Desconectado','');
+    }
+  };
+
+  window.recuperarSenha = async function() {
+    const email = document.getElementById('auth-email').value.trim();
+    if (!email) { showToast('⚠️ Digite seu email primeiro', 'danger'); document.getElementById('auth-email').focus(); return; }
+    try {
+      await sendPasswordResetEmail(auth, email);
+      showToast('📧 Email de recuperação enviado! Verifique sua caixa de entrada.', 'success');
+    } catch(err) {
+      if (err.code === 'auth/user-not-found') showToast('❌ Email não cadastrado.', 'danger');
+      else showToast('❌ Erro ao enviar email: ' + err.message, 'danger');
     }
   };
 
@@ -493,6 +505,9 @@
   .switch-container { display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:18px; background:var(--bg-input); padding:8px; border-radius:var(--radius-sm); font-size:13px; font-weight:700; }
   .switch-container input { cursor:pointer; width:16px; height:16px; }
 
+  .btn-recuperar { display:block; width:100%; padding:10px; margin-top:8px; background:transparent; border:none; color:var(--accent); font-family:'DM Sans',sans-serif; font-size:13px; font-weight:700; cursor:pointer; text-align:center; }
+  .btn-recuperar:hover { text-decoration:underline; }
+
   /* HEADER */
   .app-header { background:var(--bg-header); padding:12px 16px; position:sticky; top:0; z-index:100; box-shadow:0 2px 10px rgba(0,0,0,0.15); }
   .header-top { display:flex; align-items:center; gap:12px; }
@@ -649,6 +664,7 @@
           <input type="password" id="auth-senha" placeholder="Mínimo 6 caracteres" autocomplete="current-password">
         </div>
         <button type="submit" id="btn-auth" class="btn btn-primary">Entrar no Painel</button>
+        <button type="button" id="btn-recuperar" class="btn-recuperar" onclick="recuperarSenha()">Esqueci minha senha</button>
       </form>
     </div>
   </div>
