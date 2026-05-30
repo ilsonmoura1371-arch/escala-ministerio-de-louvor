@@ -8,23 +8,15 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Escala Louvor">
-
 <meta property="og:type" content="website">
 <meta property="og:title" content="Escala do Louvor">
 <meta property="og:description" content="Acesse a escala do ministério de música.">
 <meta property="og:image" content="guitarra-512.png">
-<meta property="og:image:type" content="image/png">
-<meta property="og:image:width" content="512">
-<meta property="og:image:height" content="512">
-
 <title>Escala do Louvor</title>
-
 <link rel="manifest" href="manifest2.json">
 <link rel="apple-touch-icon" sizes="144x144" href="guitarra-144.png">
 <link rel="apple-touch-icon" sizes="192x192" href="guitarra-192.png">
 <link rel="icon" type="image/png" sizes="48x48" href="guitarra-48.png">
-<link rel="icon" type="image/png" sizes="96x96" href="guitarra-96.png">
-
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
@@ -35,9 +27,9 @@
     getFirestore, collection, addDoc, updateDoc, deleteDoc,
     doc, onSnapshot, query, where, orderBy, serverTimestamp
   } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
-  import { 
-    getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, 
-    signOut, onAuthStateChanged, updateProfile 
+  import {
+    getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword,
+    signOut, onAuthStateChanged, updateProfile
   } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
 
   const firebaseConfig = {
@@ -54,59 +46,103 @@
   const auth = getAuth(app);
   const col  = collection(db, "escalas");
 
-  let escalas         = [];
-  let editDocId       = null;
-  let pendingDeleteId = null;
-  let usuarioLogado   = null;
+  let escalas          = [];
+  let editDocId        = null;
+  let pendingDeleteId  = null;
+  let usuarioLogado    = null;
   let unsubscribeLista = null;
+  let filtro           = 'futuras'; // 'futuras' | 'passadas'
 
   const MESES  = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
   const SEMANA = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
 
-  // Monitora o estado de login do usuário
+  /* ── AUTH ── */
   onAuthStateChanged(auth, (user) => {
     if (user) {
       usuarioLogado = user;
-      document.getElementById('auth-screen').style.display = 'none';
-      document.getElementById('app-content').style.display = 'block';
-      document.getElementById('nome-igreja-header').textContent = user.displayName || "Minha Igreja";
+      document.getElementById('auth-screen').style.display  = 'none';
+      document.getElementById('app-content').style.display  = 'block';
+      document.getElementById('nome-igreja-header').textContent = user.displayName || 'Minha Igreja';
       iniciarListener();
     } else {
       usuarioLogado = null;
       if (unsubscribeLista) { unsubscribeLista(); unsubscribeLista = null; }
-      document.getElementById('app-content').style.display = 'none';
-      document.getElementById('auth-screen').style.display = 'flex';
+      document.getElementById('app-content').style.display  = 'none';
+      document.getElementById('auth-screen').style.display  = 'flex';
       setStatus('offline');
     }
   });
 
+  window.handleAuth = async function(e) {
+    if (e) e.preventDefault();
+    const modoCadastro = document.getElementById('auth-mode-check').checked;
+    const email      = document.getElementById('auth-email').value.trim();
+    const senha      = document.getElementById('auth-senha').value.trim();
+    const nomeIgreja = document.getElementById('auth-nome-igreja').value.trim();
+    const btn        = document.getElementById('btn-auth');
+
+    if (!email || !senha) { showToast('⚠️ Preencha email e senha','danger'); return; }
+    if (modoCadastro && !nomeIgreja) { showToast('⚠️ Informe o nome da Igreja','danger'); return; }
+
+    btn.disabled = true;
+    btn.textContent = modoCadastro ? 'Criando Igreja...' : 'Entrando...';
+
+    try {
+      if (modoCadastro) {
+        const cred = await createUserWithEmailAndPassword(auth, email, senha);
+        await updateProfile(cred.user, { displayName: nomeIgreja });
+        showToast('✓ Igreja cadastrada!','success');
+      } else {
+        await signInWithEmailAndPassword(auth, email, senha);
+        showToast('✓ Bem-vindo de volta!','success');
+      }
+      document.getElementById('auth-form-element').reset();
+      document.getElementById('group-nome-igreja').style.display = 'none';
+    } catch (err) {
+      console.error(err);
+      if (err.code === 'auth/email-already-in-use')      showToast('❌ Email já cadastrado.','danger');
+      else if (err.code === 'auth/wrong-password' ||
+               err.code === 'auth/user-not-found' ||
+               err.code === 'auth/invalid-credential')   showToast('❌ Email ou senha incorretos.','danger');
+      else showToast('❌ Erro: ' + err.message,'danger');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = modoCadastro ? 'Cadastrar Nova Igreja' : 'Entrar no Painel';
+    }
+  };
+
+  window.logout = async function() {
+    if (confirm('Deseja sair do painel?')) {
+      await signOut(auth);
+      showToast('Desconectado','');
+    }
+  };
+
+  window.toggleAuthMode = function() {
+    const modo = document.getElementById('auth-mode-check').checked;
+    document.getElementById('group-nome-igreja').style.display = modo ? 'block' : 'none';
+    document.getElementById('auth-title').textContent  = modo ? 'Cadastrar sua Igreja' : 'Painel do Administrador';
+    document.getElementById('btn-auth').textContent    = modo ? 'Cadastrar Nova Igreja' : 'Entrar no Painel';
+  };
+
+  /* ── LISTENER FIRESTORE ── */
   function iniciarListener() {
     if (!usuarioLogado) return;
     setStatus('connecting');
-    
-    // Filtra buscando apenas as escalas pertencentes à igreja logada
-    const q = query(
-      col, 
-      where("igrejaId", "==", usuarioLogado.uid),
-      orderBy("dataISO", "asc"), 
-      orderBy("horario", "asc")
+    const q = query(col,
+      where("igrejaId","==", usuarioLogado.uid),
+      orderBy("dataISO","asc"),
+      orderBy("horario","asc")
     );
-
     if (unsubscribeLista) unsubscribeLista();
-
     unsubscribeLista = onSnapshot(q,
-      (snapshot) => {
-        escalas = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      snap => {
+        escalas = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         setStatus('online');
         renderLista();
         atualizarBadge();
       },
-      (error) => { 
-        console.error("Erro no Firestore Listener:", error); 
-        setStatus('error'); 
-        // Se o erro for falta de índice, o link aparecerá no console F12 do navegador
-        showToast('Erro ao carregar dados. Verifique o console do navegador.', 'danger');
-      }
+      err => { console.error(err); setStatus('error'); showToast('Erro ao carregar dados.','danger'); }
     );
   }
 
@@ -115,85 +151,40 @@
     const tx = document.getElementById('status-text');
     if (el && tx) {
       el.className = 'status-dot ' + s;
-      tx.textContent = s === 'online' ? 'Ao vivo' : s === 'connecting' ? 'Conectando...' : 'Desconectado';
+      tx.textContent = s==='online'?'Ao vivo':s==='connecting'?'Conectando...':'Desconectado';
     }
   }
 
-  // Ações de Autenticação
-  window.handleAuth = async function(e) {
-    if (e) e.preventDefault();
-    const modoCadastro = document.getElementById('auth-mode-check').checked;
-    const email = document.getElementById('auth-email').value.trim();
-    const senha = document.getElementById('auth-senha').value.trim();
-    const nomeIgreja = document.getElementById('auth-nome-igreja').value.trim();
-    const btn = document.getElementById('btn-auth');
-
-    if (!email || !senha) { showToast('⚠️ Preencha email e senha', 'danger'); return; }
-    if (modoCadastro && !nomeIgreja) { showToast('⚠️ Informe o nome da Igreja', 'danger'); return; }
-
-    btn.disabled = true;
-    btn.textContent = modoCadastro ? 'Criando Igreja...' : 'Entrando...';
-
-    try {
-      if (modoCadastro) {
-        const userCredential = await createUserWithEmailAndPassword(auth, email, senha);
-        await updateProfile(userCredential.user, { displayName: nomeIgreja });
-        showToast('✓ Igreja cadastrada com sucesso!', 'success');
-        document.getElementById('nome-igreja-header').textContent = nomeIgreja;
-      } else {
-        await signInWithEmailAndPassword(auth, email, senha);
-        showToast('✓ Bem-vindo de volta!', 'success');
-      }
-      document.getElementById('auth-form-element').reset();
-    } catch (error) {
-      console.error(error);
-      if (error.code === 'auth/email-already-in-use') showToast('❌ Este email já está cadastrado.', 'danger');
-      else if (error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found') showToast('❌ Email ou senha incorretos.', 'danger');
-      else showToast('❌ Falha na autenticação: ' + error.message, 'danger');
-    } finally {
-      btn.disabled = false;
-      btn.textContent = modoCadastro ? 'Cadastrar Nova Igreja' : 'Entrar no Painel';
-    }
-  };
-
-  window.logout = async function() {
-    if (confirm('Deseja realmente sair do painel de administração?')) {
-      try {
-        await signOut(auth);
-        showToast('Desconectado com sucesso', 'success');
-      } catch (e) { showToast('Erro ao deslogar', 'danger'); }
-    }
-  };
-
-  window.toggleAuthMode = function() {
-    const modoCadastro = document.getElementById('auth-mode-check').checked;
-    document.getElementById('group-nome-igreja').style.display = modoCadastro ? 'block' : 'none';
-    document.getElementById('auth-title').textContent = modoCadastro ? 'Cadastrar sua Igreja' : 'Painel do Administrator';
-    document.getElementById('btn-auth').textContent = modoCadastro ? 'Cadastrar Nova Igreja' : 'Entrar no Painel';
-  };
-
+  /* ── TABS ── */
   window.switchTab = function(tab) {
-    document.getElementById('panel-form').classList.toggle('active',  tab === 'form');
-    document.getElementById('panel-lista').classList.toggle('active', tab === 'lista');
-    document.getElementById('tab-form').classList.toggle('active',    tab === 'form');
-    document.getElementById('tab-lista').classList.toggle('active',   tab === 'lista');
+    ['form','lista'].forEach(t => {
+      document.getElementById('panel-'+t).classList.toggle('active', t===tab);
+      document.getElementById('tab-'+t).classList.toggle('active',   t===tab);
+    });
   };
 
+  /* ── FILTRO ── */
+  window.setFiltro = function(f) {
+    filtro = f;
+    document.getElementById('btn-futuras').classList.toggle('ativo',  f==='futuras');
+    document.getElementById('btn-passadas').classList.toggle('ativo', f==='passadas');
+    renderLista();
+  };
+
+  /* ── TOAST ── */
   let toastTimer;
-  window.showToast = function(msg, tipo = '') {
+  window.showToast = function(msg, tipo='') {
     const el = document.getElementById('toast');
-    el.innerHTML = msg;
-    el.className = 'toast ' + tipo;
-    clearTimeout(toastTimer);
-    el.classList.add('show');
+    el.innerHTML = msg; el.className = 'toast '+tipo;
+    clearTimeout(toastTimer); el.classList.add('show');
     toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
   };
 
+  /* ── FORM ── */
   window.resetForm = function() {
     editDocId = null;
     ['data','horario','vocal','back','hinos','links','recados'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.value = '';
+      const el = document.getElementById(id); if (el) el.value = '';
     });
     document.getElementById('form-title-text').textContent = 'Agendar nova data';
     document.getElementById('btn-salvar').textContent = 'Salvar na Escala';
@@ -210,86 +201,67 @@
     const links   = document.getElementById('links').value.trim();
     const recados = document.getElementById('recados').value.trim();
 
-    if (!data)    { showToast('⚠️ Informe a data',            'danger'); document.getElementById('data').focus();    return; }
-    if (!horario) { showToast('⚠️ Informe o horário',         'danger'); document.getElementById('horario').focus(); return; }
-    if (!vocal)   { showToast('⚠️ Informe o vocal principal', 'danger'); document.getElementById('vocal').focus();   return; }
-    if (!back)    { showToast('⚠️ Informe os backing vocals', 'danger'); document.getElementById('back').focus();    return; }
-    if (!usuarioLogado) { showToast('⚠️ Sessão expirada. Faça login novamente.', 'danger'); return; }
+    if (!data)    { showToast('⚠️ Informe a data','danger');            document.getElementById('data').focus();    return; }
+    if (!horario) { showToast('⚠️ Informe o horário','danger');         document.getElementById('horario').focus(); return; }
+    if (!vocal)   { showToast('⚠️ Informe o vocal principal','danger'); document.getElementById('vocal').focus();   return; }
+    if (!back)    { showToast('⚠️ Informe os backing vocals','danger'); document.getElementById('back').focus();    return; }
+    if (!usuarioLogado) { showToast('⚠️ Sessão expirada.','danger'); return; }
 
     const btn = document.getElementById('btn-salvar');
-    btn.disabled = true;
-    btn.textContent = 'Salvando...';
+    btn.disabled = true; btn.textContent = 'Salvando...';
 
-    const obj = { 
-      dataISO: data, 
-      horario, 
-      vocal, 
-      back, 
-      hinos, 
-      links, 
-      recados, 
-      igrejaId: usuarioLogado.uid,
-      updatedAt: serverTimestamp() 
-    };
-
+    const obj = { dataISO:data, horario, vocal, back, hinos, links, recados,
+                  igrejaId: usuarioLogado.uid, updatedAt: serverTimestamp() };
     try {
       if (editDocId) {
-        await updateDoc(doc(db, "escalas", editDocId), obj);
-        showToast('✓ Escala atualizada', 'success');
+        await updateDoc(doc(db,"escalas",editDocId), obj);
+        showToast('✓ Escala atualizada','success');
       } else {
         obj.createdAt = serverTimestamp();
         await addDoc(col, obj);
-        showToast('✓ Escala salva', 'success');
+        showToast('✓ Escala salva','success');
       }
-      resetForm();
-      switchTab('lista');
-    } catch (e) {
-      console.error(e);
-      showToast('❌ Erro ao salvar.', 'danger');
+      resetForm(); switchTab('lista');
+    } catch(err) {
+      console.error(err);
+      showToast('❌ Erro ao salvar.','danger');
       btn.disabled = false;
       btn.textContent = editDocId ? 'Atualizar Escala' : 'Salvar na Escala';
     }
   };
 
   window.salvarApenasRecado = async function(id) {
-    const textarea = document.getElementById('recado-input-' + id);
-    if (!textarea) return;
-    const novoRecado = textarea.value.trim();
-    const btn = document.getElementById('btn-recado-' + id);
-    if (btn) { btn.disabled = true; btn.textContent = 'Salvando...'; }
+    const ta  = document.getElementById('recado-input-'+id); if (!ta) return;
+    const btn = document.getElementById('btn-recado-'+id);
+    if (btn) { btn.disabled=true; btn.textContent='Salvando...'; }
     try {
-      await updateDoc(doc(db, "escalas", id), { recados: novoRecado, updatedAt: serverTimestamp() });
-      showToast('💬 Recado atualizado!', 'success');
-    } catch (e) {
-      console.error(e);
-      showToast('❌ Erro ao salvar recado.', 'danger');
-    }
-    if (btn) { btn.disabled = false; btn.textContent = '💾 Salvar Recado'; }
+      await updateDoc(doc(db,"escalas",id), { recados: ta.value.trim(), updatedAt: serverTimestamp() });
+      showToast('💬 Recado atualizado!','success');
+    } catch(err) { showToast('❌ Erro ao salvar recado.','danger'); }
+    if (btn) { btn.disabled=false; btn.textContent='💾 Salvar Recado'; }
   };
 
   window.editarEscala = function(id) {
-    const e = escalas.find(x => x.id === id);
-    if (!e) return;
+    const e = escalas.find(x=>x.id===id); if (!e) return;
     editDocId = id;
     document.getElementById('data').value    = e.dataISO;
     document.getElementById('horario').value = e.horario;
     document.getElementById('vocal').value   = e.vocal;
     document.getElementById('back').value    = e.back;
-    document.getElementById('hinos').value   = e.hinos  || '';
-    document.getElementById('links').value   = e.links  || '';
-    document.getElementById('recados').value = e.recados|| '';
+    document.getElementById('hinos').value   = e.hinos   || '';
+    document.getElementById('links').value   = e.links   || '';
+    document.getElementById('recados').value = e.recados || '';
     document.getElementById('form-title-text').textContent = 'Editar / Substituir escala';
     document.getElementById('btn-salvar').textContent = 'Atualizar Escala';
     document.getElementById('btn-cancelar').classList.add('visible');
     switchTab('form');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top:0, behavior:'smooth' });
   };
 
   window.abrirDialog = function(id) {
     pendingDeleteId = id;
-    const e = escalas.find(x => x.id === id);
-    if (!e) return;
-    const [ano, mes, dia] = e.dataISO.split('-');
+    const e = escalas.find(x=>x.id===id); if (!e) return;
+    const [ano,mes,dia] = e.dataISO.split('-');
     document.getElementById('dialog-desc').textContent =
       `Você vai remover a escala do dia ${dia}/${mes}/${ano} às ${e.horario}. Esta ação não pode ser desfeita.`;
     document.getElementById('overlay').classList.add('active');
@@ -304,90 +276,111 @@
   window.confirmarExclusao = async function() {
     if (!pendingDeleteId) return;
     const btn = document.querySelector('.btn-dialog-confirm');
-    btn.textContent = 'Removendo...'; btn.disabled = true;
+    btn.textContent='Removendo...'; btn.disabled=true;
     try {
-      await deleteDoc(doc(db, "escalas", pendingDeleteId));
-      if (editDocId === pendingDeleteId) resetForm();
-      showToast('🗑 Escala removida', 'danger');
-    } catch (e) { showToast('❌ Erro ao remover', 'danger'); }
-    btn.textContent = 'Remover'; btn.disabled = false;
+      await deleteDoc(doc(db,"escalas",pendingDeleteId));
+      if (editDocId===pendingDeleteId) resetForm();
+      showToast('🗑 Escala removida','danger');
+    } catch(err) { showToast('❌ Erro ao remover','danger'); }
+    btn.textContent='Remover'; btn.disabled=false;
     document.getElementById('overlay').classList.remove('active');
     pendingDeleteId = null;
   };
 
-  function atualizarBadge() {
-    const el = document.getElementById('badge-count');
-    if (el) {
-      el.textContent = escalas.length;
-      el.style.display = escalas.length > 0 ? 'inline-flex' : 'none';
+  /* ── WHATSAPP ── */
+  window.compartilharWhatsApp = function(id) {
+    const e = escalas.find(x=>x.id===id); if (!e) return;
+    const [ano,mes,dia] = e.dataISO.split('-');
+    const diaSemana = SEMANA[new Date(e.dataISO+'T00:00:00').getDay()];
+    const nomeIgreja = usuarioLogado?.displayName || 'Igreja';
+    let msg = `🎵 *ESCALA DO LOUVOR — ${nomeIgreja.toUpperCase()}*\n\n`;
+    msg += `📅 *${diaSemana}, ${dia}/${mes}/${ano}* às ${e.horario}\n\n`;
+    msg += `🎤 *Vocal Principal:* ${e.vocal}\n`;
+    msg += `👥 *Backing Vocals:* ${e.back}\n`;
+    if (e.hinos && e.hinos.trim()) {
+      msg += `\n🎵 *Hinos do Dia:*\n${e.hinos}\n`;
     }
+    if (e.links && e.links.trim()) {
+      msg += `\n🔗 *Links das Músicas:*\n${e.links}\n`;
+    }
+    msg += `\n🙏 Contamos com a presença de todos!\n`;
+    msg += `\n_Enviado pelo App Escala do Louvor_`;
+    window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
+  };
+
+  /* ── BADGE ── */
+  function atualizarBadge() {
+    const hoje = new Date(); hoje.setHours(0,0,0,0);
+    const futuras = escalas.filter(e => new Date(e.dataISO+'T00:00:00') >= hoje).length;
+    const el = document.getElementById('badge-count');
+    if (el) { el.textContent = futuras; el.style.display = futuras>0 ? 'inline-flex' : 'none'; }
   }
 
   function calcDiasBadge(dataISO) {
     const hoje = new Date(); hoje.setHours(0,0,0,0);
-    const d    = new Date(dataISO + 'T00:00:00');
-    const diff = Math.round((d - hoje) / 86400000);
-    if (diff === 0)            return { label: 'Hoje',                     cls: 'hoje'   };
-    if (diff === 1)            return { label: 'Amanhã',                    cls: 'breve'  };
-    if (diff > 1 && diff <= 7) return { label: `Em ${diff} dias`,          cls: 'breve'  };
-    if (diff > 7)              return { label: `Em ${diff} dias`,           cls: 'normal' };
-    if (diff === -1)           return { label: 'Ontem',                     cls: 'passado'};
-    return                             { label: `Há ${Math.abs(diff)} dias`, cls: 'passado'};
+    const d    = new Date(dataISO+'T00:00:00');
+    const diff = Math.round((d-hoje)/86400000);
+    if (diff===0)            return { label:'Hoje',                      cls:'hoje'   };
+    if (diff===1)            return { label:'Amanhã',                    cls:'breve'  };
+    if (diff>1 && diff<=7)  return { label:`Em ${diff} dias`,           cls:'breve'  };
+    if (diff>7)              return { label:`Em ${diff} dias`,           cls:'normal' };
+    if (diff===-1)           return { label:'Ontem',                     cls:'passado'};
+    return                          { label:`Há ${Math.abs(diff)} dias`, cls:'passado'};
   }
 
   function formatarLinksHtml(textoLinks) {
-    if (!textoLinks || !textoLinks.trim()) {
-      return '<span class="sem-conteudo">Nenhum link adicionado</span>';
-    }
-    const linhas = textoLinks.trim().split('\n');
-    return linhas.map(linha => {
-      linha = esc(linha.trim());
-      if (!linha) return '';
-      const urlRegex = /(https?:\/\/[^\s]+)/g;
-      const temUrl = urlRegex.test(linha);
-      urlRegex.lastIndex = 0;
-      if (temUrl) {
-        return '<div class="link-item">' +
-          linha.replace(urlRegex, url =>
-            `<a href="${url}" target="_blank" rel="noopener noreferrer" class="musica-link">` +
-            `<span class="link-icon">▶</span> Ouvir / Assistir</a>`) +
-          '</div>';
+    if (!textoLinks||!textoLinks.trim()) return '<span class="sem-conteudo">Nenhum link adicionado</span>';
+    return textoLinks.trim().split('\n').map(linha => {
+      linha = linha.trim(); if (!linha) return '';
+      const rx = /(https?:\/\/[^\s]+)/g;
+      if (rx.test(linha)) {
+        rx.lastIndex=0;
+        return '<div class="link-item">'+linha.replace(rx, url=>
+          `<a href="${url}" target="_blank" rel="noopener noreferrer" class="musica-link"><span class="link-icon">▶</span> Ouvir / Assistir</a>`
+        )+'</div>';
       }
-      return `<div class="link-item link-texto">${linha}</div>`;
+      return `<div class="link-item link-texto">${esc(linha)}</div>`;
     }).filter(Boolean).join('');
   }
 
+  /* ── RENDER ── */
   function renderLista() {
     const container = document.getElementById('lista-escalas');
     if (!container) return;
 
-    if (escalas.length === 0) {
+    const hoje = new Date(); hoje.setHours(0,0,0,0);
+    let lista = escalas.filter(e => {
+      const d = new Date(e.dataISO+'T00:00:00');
+      return filtro==='futuras' ? d>=hoje : d<hoje;
+    });
+    if (filtro==='passadas') lista = [...lista].reverse();
+
+    if (lista.length===0) {
       container.innerHTML = `
         <div class="empty-state">
-          <div class="empty-icon">🎶</div>
-          <h3>Nenhuma escala ainda</h3>
-          <p>Toque em "Nova Escala" para<br>começar a organizar a equipe.</p>
-        </div>`;
-      return;
+          <div class="empty-icon">${filtro==='futuras'?'🎶':'📖'}</div>
+          <h3>${filtro==='futuras'?'Nenhuma escala futura':'Nenhum histórico ainda'}</h3>
+          <p>${filtro==='futuras'?'Toque em "Nova Escala" para<br>começar a organizar a equipe.':'As escalas passadas aparecerão aqui.'}</p>
+        </div>`; return;
     }
 
-    const html = escalas.map(e => {
-      const [ano, mes, dia] = e.dataISO.split('-');
+    const html = lista.map(e => {
+      const [ano,mes,dia] = e.dataISO.split('-');
       const dataBR    = `${dia}/${mes}/${ano}`;
-      const mesAbrev  = MESES[parseInt(mes) - 1];
-      const diaSemana = SEMANA[new Date(e.dataISO + 'T00:00:00').getDay()];
+      const mesAbrev  = MESES[parseInt(mes)-1];
+      const diaSemana = SEMANA[new Date(e.dataISO+'T00:00:00').getDay()];
       const badge     = calcDiasBadge(e.dataISO);
+      const isPassada = new Date(e.dataISO+'T00:00:00') < hoje;
 
       const hinosExibicao = e.hinos
         ? `<div class="hinos-lista" style="white-space:pre-wrap;">${esc(e.hinos)}</div>`
         : '<span class="sem-conteudo">Nenhum hino adicionado</span>';
-
-      const linksHtml  = formatarLinksHtml(e.links);
-      const recadoVal  = e.recados || '';
-      const temRecado  = recadoVal.trim().length > 0;
+      const linksHtml = formatarLinksHtml(e.links);
+      const recadoVal = e.recados||'';
+      const temRecado = recadoVal.trim().length>0;
 
       return `
-        <div class="escala-card">
+        <div class="escala-card${isPassada?' passada':''}">
           <div class="escala-card-header">
             <div class="escala-date-block">
               <div class="escala-date-num">
@@ -410,7 +403,6 @@
                 <div class="escala-row-value">${esc(e.vocal)}</div>
               </div>
             </div>
-
             <div class="escala-row">
               <span class="escala-row-icon">👥</span>
               <div class="escala-row-content">
@@ -418,7 +410,6 @@
                 <div class="escala-row-value">${esc(e.back)}</div>
               </div>
             </div>
-
             <div class="escala-row">
               <span class="escala-row-icon">🎵</span>
               <div class="escala-row-content">
@@ -426,7 +417,6 @@
                 <div class="escala-row-value-hinos">${hinosExibicao}</div>
               </div>
             </div>
-
             <div class="escala-row">
               <span class="escala-row-icon">🔗</span>
               <div class="escala-row-content">
@@ -434,31 +424,24 @@
                 <div class="links-container">${linksHtml}</div>
               </div>
             </div>
-
             <div class="recados-section">
               <div class="recados-header">
                 <span class="recados-icon">📢</span>
                 <span class="recados-title">Avisos &amp; Justificativas</span>
-                ${temRecado ? `<span class="recados-badge">Há mensagem</span>` : ''}
+                ${temRecado?'<span class="recados-badge">Há mensagem</span>':''}
               </div>
-              ${temRecado ? `<div class="recado-exibido">${esc(recadoVal)}</div>` : ''}
-              <textarea
-                id="recado-input-${e.id}"
-                class="recado-textarea"
-                placeholder="Deixe aqui seu aviso ou justificativa de ausência&#10;Ex: Não poderei ir este domingo — João"
+              ${temRecado?`<div class="recado-exibido">${esc(recadoVal)}</div>`:''}
+              <textarea id="recado-input-${e.id}" class="recado-textarea"
+                placeholder="Deixe aqui seu aviso ou justificativa&#10;Ex: Não poderei ir este domingo — João"
               >${esc(recadoVal)}</textarea>
-              <button
-                id="btn-recado-${e.id}"
-                class="btn-salvar-recado"
-                onclick="salvarApenasRecado('${e.id}')">
-                💾 Salvar Recado
-              </button>
+              <button id="btn-recado-${e.id}" class="btn-salvar-recado" onclick="salvarApenasRecado('${e.id}')">💾 Salvar Recado</button>
             </div>
           </div>
 
           <div class="escala-card-footer">
-            <button class="btn-edit-card" onclick="editarEscala('${e.id}')">✏️ Editar</button>
-            <button class="btn-del-card"  onclick="abrirDialog('${e.id}')">🗑 Excluir</button>
+            <button class="btn-whats-card" onclick="compartilharWhatsApp('${e.id}')">📲 WhatsApp</button>
+            <button class="btn-edit-card"  onclick="editarEscala('${e.id}')">✏️ Editar</button>
+            <button class="btn-del-card"   onclick="abrirDialog('${e.id}')">🗑</button>
           </div>
         </div>`;
     }).join('');
@@ -467,15 +450,14 @@
   }
 
   function esc(str) {
-    return String(str || '')
-      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('service-worker.js')
-        .then(reg => console.log('PWA pronto!', reg.scope))
-        .catch(err => console.log('Erro SW:', err));
+        .then(r=>console.log('PWA pronto!',r.scope))
+        .catch(e=>console.log('Erro SW:',e));
     });
   }
 </script>
@@ -498,114 +480,272 @@
     --radius-sm:  8px;
     --shadow-sm:  0 2px 8px rgba(15,23,42,0.08);
   }
+  *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+  html { font-size:16px; scroll-behavior:smooth; }
+  body { font-family:'DM Sans',sans-serif; background:var(--bg-main); color:var(--text-main); min-height:100vh; -webkit-tap-highlight-color:transparent; }
 
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  html { font-size: 16px; scroll-behavior: smooth; }
-  body {
-    font-family: 'DM Sans', sans-serif;
-    background: var(--bg-main);
-    color: var(--text-main);
-    min-height: 100vh;
-    -webkit-tap-highlight-color: transparent;
-  }
+  /* AUTH */
+  .auth-container { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px; background:linear-gradient(135deg,#1e3a8a 0%,#0f172a 100%); }
+  .auth-card { background:#fff; width:100%; max-width:400px; border-radius:var(--radius); padding:30px 24px; box-shadow:0 10px 25px rgba(0,0,0,0.3); }
+  .auth-logo { text-align:center; font-size:48px; margin-bottom:12px; }
+  .auth-card h2 { font-family:'Playfair Display',serif; font-size:22px; color:var(--primary); text-align:center; margin-bottom:6px; }
+  .auth-card p  { font-size:13px; color:var(--text-muted); text-align:center; margin-bottom:20px; }
+  .switch-container { display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:18px; background:var(--bg-input); padding:8px; border-radius:var(--radius-sm); font-size:13px; font-weight:700; }
+  .switch-container input { cursor:pointer; width:16px; height:16px; }
 
-  /* ── TELA DE AUTH ── */
-  .auth-container {
-    min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px;
-    background: linear-gradient(135deg, #1e3a8a 0%, #0f172a 100%);
-  }
-  .auth-card {
-    background: #ffffff; width: 100%; max-width: 400px; border-radius: var(--radius);
-    padding: 30px 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.3);
-  }
-  .auth-card h2 { font-family: 'Playfair Display', serif; font-size: 24px; color: var(--primary); text-align: center; margin-bottom: 8px; }
-  .auth-card p { font-size: 14px; color: var(--text-muted); text-align: center; margin-bottom: 24px; }
-  
-  .switch-container {
-    display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 20px;
-    background: var(--bg-input); padding: 8px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 700;
-  }
-  .switch-container input { cursor: pointer; width: 16px; height: 16px; }
+  /* HEADER */
+  .app-header { background:var(--bg-header); padding:12px 16px; position:sticky; top:0; z-index:100; box-shadow:0 2px 10px rgba(0,0,0,0.15); }
+  .header-top { display:flex; align-items:center; gap:12px; }
+  .header-text h1 { font-family:'Playfair Display',serif; font-size:20px; font-weight:700; color:#fff; }
+  .header-text p  { font-size:11px; color:#93c5fd; font-weight:500; letter-spacing:1px; text-transform:uppercase; margin-top:1px; }
+  #nome-igreja-header { font-size:11px; color:#fbbf24; font-weight:700; letter-spacing:0.5px; text-transform:uppercase; }
+  .header-right { margin-left:auto; display:flex; align-items:center; gap:8px; }
+  .header-status { display:flex; align-items:center; gap:6px; background:rgba(0,0,0,0.2); padding:4px 10px; border-radius:20px; }
+  .status-dot { width:8px; height:8px; border-radius:50%; }
+  .status-dot.online     { background:#4ade80; }
+  .status-dot.connecting { background:#fbbf24; }
+  .status-dot.error      { background:#f87171; }
+  .status-dot.offline    { background:#94a3b8; }
+  #status-text { font-size:11px; font-weight:700; color:#fff; }
+  .btn-logout { background:transparent; border:1px solid rgba(248,113,113,0.4); color:#f87171; font-size:12px; font-weight:700; cursor:pointer; padding:5px 10px; border-radius:20px; }
 
-  /* ── APP CONTENT ── */
-  .app-header {
-    background: var(--bg-header); padding: 16px 16px 14px;
-    position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 10px rgba(0,0,0,0.15);
-  }
-  .header-top { display: flex; align-items: center; gap: 14px; }
-  .header-text h1 { font-family: 'Playfair Display', serif; font-size: 21px; font-weight: 700; color: #ffffff; }
-  .header-text p { font-size: 11px; color: #93c5fd; font-weight: 500; letter-spacing: 1px; text-transform: uppercase; margin-top: 1px; }
-  
-  .header-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
-  .header-status { display: flex; align-items: center; gap: 6px; background: rgba(0,0,0,0.2); padding: 4px 10px; border-radius: 20px; }
-  .status-dot { width: 8px; height: 8px; border-radius: 50%; }
-  .status-dot.online     { background: #4ade80; }
-  .status-dot.connecting { background: #fbbf24; }
-  .status-dot.error      { background: #f87171; }
-  #status-text { font-size: 11px; font-weight: 700; color: #ffffff; }
-  .btn-logout { background: transparent; border: none; color: #f87171; font-size: 18px; cursor: pointer; padding: 4px; }
+  /* ABAS */
+  .nav-tabs { display:flex; background:#fff; border-bottom:2px solid var(--border); position:sticky; top:68px; z-index:99; }
+  .nav-tab { flex:1; padding:13px 10px; background:transparent; border:none; color:var(--text-muted); font-family:'DM Sans',sans-serif; font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; cursor:pointer; border-bottom:3px solid transparent; transition:all 0.2s; display:flex; align-items:center; justify-content:center; gap:5px; }
+  .nav-tab.active { color:var(--primary); border-bottom-color:var(--primary); }
+  .badge { display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; background:var(--primary); color:#fff; font-size:11px; font-weight:700; border-radius:50%; }
 
-  /* ── ABAS ── */
-  .nav-tabs { display: flex; background: #ffffff; border-bottom: 2px solid var(--border); position: sticky; top: 67px; z-index: 99; }
-  .nav-tab {
-    flex: 1; padding: 14px 10px; background: transparent; border: none; color: var(--text-muted);
-    font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
-    cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.2s;
-  }
-  .nav-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
-  .nav-tab .badge {
-    display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px;
-    background: var(--primary); color: #ffffff; font-size: 11px; font-weight: 700; border-radius: 50%; margin-left: 4px;
-  }
+  /* FILTRO */
+  .filtro-bar { display:flex; gap:8px; padding:12px 16px 4px; }
+  .btn-filtro { flex:1; padding:9px; border-radius:var(--radius-sm); border:1.5px solid var(--border); background:#fff; font-family:'DM Sans',sans-serif; font-size:13px; font-weight:700; color:var(--text-muted); cursor:pointer; transition:all 0.2s; }
+  .btn-filtro.ativo { background:var(--primary); color:#fff; border-color:var(--primary); }
 
-  /* ── PAINÉIS & FORMS ── */
-  .main { padding: 16px; padding-bottom: 40px; }
-  .panel { display: none; }
-  .panel.active { display: block; }
+  /* PAINÉIS */
+  .main { padding:8px 16px 40px; }
+  .panel { display:none; }
+  .panel.active { display:block; }
 
-  .form-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow-sm); }
-  .form-card-title { font-family: 'Playfair Display', serif; font-size: 18px; font-weight: 700; color: var(--primary); margin-bottom: 16px; padding-bottom: 8px; border-bottom: 2px solid var(--bg-input); }
-  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
-  .field-group { margin-bottom: 14px; }
-  .field-group label { display: block; font-size: 12px; font-weight: 700; color: var(--text-main); margin-bottom: 6px; }
-  .field-group input, .field-group textarea {
-    width: 100%; background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-sm);
-    color: var(--text-main); font-family: 'DM Sans', sans-serif; font-size: 16px; padding: 12px; outline: none;
-  }
-  .field-group input:focus, .field-group textarea:focus { border-color: var(--primary); background: #ffffff; box-shadow: 0 0 0 3px rgba(30,58,138,0.1); }
-  .field-group textarea { resize: vertical; min-height: 90px; font-weight: 500; }
-  .field-hint { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+  /* FORM */
+  .form-card { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:20px; box-shadow:var(--shadow-sm); }
+  .form-card-title { font-family:'Playfair Display',serif; font-size:18px; font-weight:700; color:var(--primary); margin-bottom:16px; padding-bottom:8px; border-bottom:2px solid var(--bg-input); }
+  .field-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px; }
+  .field-group { margin-bottom:14px; }
+  .field-group label { display:block; font-size:12px; font-weight:700; color:var(--text-main); margin-bottom:6px; }
+  .field-group input, .field-group textarea { width:100%; background:var(--bg-input); border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--text-main); font-family:'DM Sans',sans-serif; font-size:16px; padding:12px; outline:none; }
+  .field-group input:focus, .field-group textarea:focus { border-color:var(--primary); background:#fff; box-shadow:0 0 0 3px rgba(30,58,138,0.1); }
+  .field-group textarea { resize:vertical; min-height:90px; font-weight:500; }
+  .field-hint { font-size:11px; color:var(--text-muted); margin-top:4px; }
+  .btn { display:block; width:100%; padding:14px; border:none; border-radius:var(--radius-sm); font-family:'DM Sans',sans-serif; font-size:16px; font-weight:700; cursor:pointer; }
+  .btn-primary   { background:var(--primary); color:#fff; margin-top:16px; box-shadow:0 4px 12px rgba(30,58,138,0.2); }
+  .btn-secondary { background:#e2e8f0; color:var(--text-muted); margin-top:10px; display:none; }
+  .btn-secondary.visible { display:block; }
 
-  .btn { display: block; width: 100%; padding: 14px; border: none; border-radius: var(--radius-sm); font-family: 'DM Sans', sans-serif; font-size: 16px; font-weight: 700; cursor: pointer; }
-  .btn-primary { background: var(--primary); color: #ffffff; margin-top: 16px; box-shadow: 0 4px 12px rgba(30,58,138,0.2); }
-  .btn-secondary { background: #e2e8f0; color: var(--text-muted); margin-top: 10px; display: none; }
-  .btn-secondary.visible { display: block; }
+  /* CARDS */
+  .escala-list { display:flex; flex-direction:column; gap:16px; margin-top:12px; }
+  .escala-card { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; box-shadow:var(--shadow-sm); transition:opacity 0.2s; }
+  .escala-card.passada { opacity:0.65; }
+  .escala-card.passada .escala-date-num { background:#64748b; }
+  .escala-card-header { background:#f1f5f9; padding:12px 16px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--border); }
+  .escala-date-block { display:flex; align-items:center; gap:10px; }
+  .escala-date-num { background:var(--primary); border-radius:8px; width:44px; height:44px; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  .escala-date-num .day   { font-family:'Playfair Display',serif; font-size:19px; font-weight:700; color:#fff; line-height:1; }
+  .escala-date-num .month { font-size:9px; font-weight:700; text-transform:uppercase; color:#93c5fd; }
+  .escala-date-info  { display:flex; flex-direction:column; }
+  .escala-date-full  { font-size:15px; font-weight:700; color:var(--text-main); }
+  .escala-time-badge { font-size:12px; font-weight:700; color:var(--primary); margin-top:2px; }
+  .dias-badge { font-size:11px; font-weight:700; padding:4px 10px; border-radius:20px; text-transform:uppercase; }
+  .dias-badge.hoje    { background:#dcfce7; color:#15803d; border:1px solid #bbf7d0; }
+  .dias-badge.breve   { background:#fef3c7; color:#b45309; border:1px solid #fde68a; }
+  .dias-badge.normal  { background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; }
+  .dias-badge.passado { background:#f1f5f9; color:#64748b; border:1px solid #cbd5e1; }
 
-  /* ── CARDS DA LISTA ── */
-  .escala-list { display: flex; flex-direction: column; gap: 16px; }
-  .escala-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow-sm); }
-  .escala-card-header { background: #f1f5f9; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); }
-  .escala-date-block { display: flex; align-items: center; gap: 10px; }
-  .escala-date-num { background: var(--primary); border-radius: 8px; width: 44px; height: 44px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-  .escala-date-num .day   { font-family: 'Playfair Display', serif; font-size: 19px; font-weight: 700; color: #ffffff; line-height: 1; }
-  .escala-date-num .month { font-size: 9px; font-weight: 700; text-transform: uppercase; color: #93c5fd; }
-  .escala-date-info  { display: flex; flex-direction: column; }
-  .escala-date-full  { font-size: 15px; font-weight: 700; color: var(--text-main); }
-  .escala-time-badge { font-size: 12px; font-weight: 700; color: var(--primary); margin-top: 2px; }
+  .escala-card-body { padding:16px; }
+  .escala-row { display:flex; align-items:flex-start; gap:12px; padding:10px 0; border-bottom:1px solid #f1f5f9; }
+  .escala-row:last-of-type { border-bottom:none; }
+  .escala-row-icon    { font-size:18px; flex-shrink:0; width:24px; text-align:center; }
+  .escala-row-content { flex:1; min-width:0; }
+  .escala-row-label   { font-size:11px; font-weight:700; text-transform:uppercase; color:var(--text-muted); letter-spacing:0.5px; margin-bottom:2px; }
+  .escala-row-value   { font-size:16px; font-weight:700; color:var(--text-main); line-height:1.4; }
+  .escala-row-label-hinos { font-size:11px; font-weight:700; text-transform:uppercase; color:#78350f; letter-spacing:0.5px; margin-bottom:4px; }
+  .escala-row-value-hinos { background:#fffbeb; padding:10px; border-radius:6px; border-left:4px solid #d97706; }
+  .hinos-lista { font-size:15px; font-weight:700; color:var(--text-hinos); line-height:1.6; }
+  .escala-row-label-links { font-size:11px; font-weight:700; text-transform:uppercase; color:#1d4ed8; letter-spacing:0.5px; margin-bottom:6px; }
+  .links-container { display:flex; flex-direction:column; gap:6px; }
+  .link-item { display:flex; align-items:center; flex-wrap:wrap; gap:6px; }
+  .link-texto { font-size:14px; color:var(--text-muted); font-style:italic; }
+  .musica-link { display:inline-flex; align-items:center; gap:6px; background:#1e3a8a; color:#fff; padding:6px 14px; border-radius:20px; font-size:13px; font-weight:700; text-decoration:none; }
+  .link-icon { font-size:10px; }
 
-  .dias-badge { font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px; text-transform: uppercase; }
-  .dias-badge.hoje    { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
-  .dias-badge.breve   { background: #fef3c7; color: #b45309; border: 1px solid #fde68a; }
-  .dias-badge.normal  { background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; }
-  .dias-badge.passado { background: #f1f5f9; color: #64748b; border: 1px solid #cbd5e1; }
+  /* RECADOS */
+  .recados-section { margin-top:14px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:var(--radius-sm); padding:14px; }
+  .recados-header  { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+  .recados-icon    { font-size:16px; }
+  .recados-title   { font-size:13px; font-weight:700; text-transform:uppercase; color:var(--text-main); letter-spacing:0.5px; }
+  .recados-badge   { margin-left:auto; font-size:10px; font-weight:700; background:#fef3c7; color:#b45309; border:1px solid #fde68a; padding:2px 8px; border-radius:10px; text-transform:uppercase; }
+  .recado-exibido  { font-size:14px; color:#7c3aed; font-weight:500; background:#f5f3ff; border-left:3px solid #7c3aed; padding:8px 10px; border-radius:4px; margin-bottom:10px; white-space:pre-wrap; line-height:1.5; }
+  .recado-textarea { width:100%; background:#fff; border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--text-main); font-family:'DM Sans',sans-serif; font-size:14px; padding:10px; outline:none; resize:vertical; min-height:80px; line-height:1.5; }
+  .recado-textarea:focus { border-color:#7c3aed; box-shadow:0 0 0 3px rgba(124,58,237,0.1); }
+  .btn-salvar-recado { margin-top:8px; width:100%; padding:10px; background:#7c3aed; color:#fff; border:none; border-radius:var(--radius-sm); font-family:'DM Sans',sans-serif; font-size:13px; font-weight:700; cursor:pointer; }
 
-  .escala-card-body { padding: 16px; }
-  .escala-row { display: flex; align-items: flex-start; gap: 12px; padding: 10px 0; border-bottom: 1px solid #f1f5f9; }
-  .escala-row:last-of-type { border-bottom: none; }
-  .escala-row-icon   { font-size: 18px; flex-shrink: 0; width: 24px; text-align: center; }
-  .escala-row-content { flex: 1; min-width: 0; }
-  .escala-row-label { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px; margin-bottom: 2px; }
-  .escala-row-value { font-size: 16px; font-weight: 700; color: var(--text-main); line-height: 1.4; }
+  /* RODAPÉ CARD — 3 colunas */
+  .escala-card-footer { display:grid; grid-template-columns:2fr 1.2fr 0.6fr; border-top:1px solid var(--border); background:#f8fafc; }
+  .escala-card-footer button { padding:13px 8px; background:transparent; border:none; font-family:'DM Sans',sans-serif; font-size:13px; font-weight:700; text-transform:uppercase; cursor:pointer; }
+  .btn-whats-card { color:#15803d; border-right:1px solid var(--border); }
+  .btn-edit-card  { color:#b45309; border-right:1px solid var(--border); }
+  .btn-del-card   { color:var(--danger); }
 
-  .escala-row-label-hinos { font-size: 11px; font-weight: 700; text-transform: uppercase; color: #78350f; letter-spacing: 0.5px; margin-bottom: 4px; }
-  .escala-row-value-hinos { background: #fffbeb; padding: 10
+  .sem-conteudo { color:#94a3b8; font-style:italic; font-size:13px; }
+
+  /* TOAST */
+  .toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(80px); background:#0f172a; color:#fff; padding:12px 24px; border-radius:50px; font-size:14px; font-weight:700; box-shadow:0 10px 25px rgba(0,0,0,0.3); opacity:0; transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1); z-index:999; white-space:nowrap; }
+  .toast.show    { opacity:1; transform:translateX(-50%) translateY(0); }
+  .toast.success { background:#16a34a; }
+  .toast.danger  { background:#dc2626; }
+
+  /* DIALOG */
+  .overlay { position:fixed; inset:0; background:rgba(15,23,42,0.6); z-index:200; display:none; align-items:flex-end; }
+  .overlay.active { display:flex; }
+  .dialog { background:#fff; border-radius:var(--radius) var(--radius) 0 0; padding:24px 20px; width:100%; }
+  .dialog h3 { font-family:'Playfair Display',serif; font-size:19px; font-weight:700; margin-bottom:8px; }
+  .dialog p  { font-size:15px; color:var(--text-muted); line-height:1.5; margin-bottom:20px; }
+  .dialog-actions { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .dialog-actions button { padding:14px; border-radius:var(--radius-sm); font-family:'DM Sans',sans-serif; font-size:15px; font-weight:700; cursor:pointer; border:none; }
+  .btn-dialog-cancel  { background:#e2e8f0; color:var(--text-muted); }
+  .btn-dialog-confirm { background:var(--danger); color:#fff; }
+
+  /* EMPTY */
+  .empty-state { text-align:center; padding:60px 24px; color:var(--text-muted); }
+  .empty-icon  { font-size:56px; margin-bottom:12px; }
+  .empty-state h3 { font-family:'Playfair Display',serif; font-size:20px; font-weight:700; color:var(--text-main); margin-bottom:6px; }
+</style>
+</head>
+<body>
+
+<!-- TELA DE LOGIN -->
+<div id="auth-screen" style="display:flex;">
+  <div class="auth-container">
+    <div class="auth-card">
+      <div class="auth-logo">🎼</div>
+      <h2 id="auth-title">Painel do Administrador</h2>
+      <p>Gerencie a escala do ministério de música da sua igreja</p>
+
+      <div class="switch-container">
+        <span>Já tenho cadastro</span>
+        <input type="checkbox" id="auth-mode-check" onchange="toggleAuthMode()">
+        <span>Cadastrar nova Igreja</span>
+      </div>
+
+      <form id="auth-form-element" onsubmit="handleAuth(event)">
+        <div id="group-nome-igreja" class="field-group" style="display:none;">
+          <label for="auth-nome-igreja">Nome da Igreja</label>
+          <input type="text" id="auth-nome-igreja" placeholder="Ex: Igreja Batista Central">
+        </div>
+        <div class="field-group">
+          <label for="auth-email">Email</label>
+          <input type="email" id="auth-email" placeholder="seu@email.com" autocomplete="email">
+        </div>
+        <div class="field-group">
+          <label for="auth-senha">Senha</label>
+          <input type="password" id="auth-senha" placeholder="Mínimo 6 caracteres" autocomplete="current-password">
+        </div>
+        <button type="submit" id="btn-auth" class="btn btn-primary">Entrar no Painel</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- APP PRINCIPAL -->
+<div id="app-content" style="display:none;">
+
+  <header class="app-header">
+    <div class="header-top">
+      <div class="header-text">
+        <h1>Escala do Louvor</h1>
+        <p id="nome-igreja-header">Ministério de Música</p>
+      </div>
+      <div class="header-right">
+        <div class="header-status">
+          <div id="status-dot" class="status-dot connecting"></div>
+          <span id="status-text">Conectando...</span>
+        </div>
+        <button class="btn-logout" onclick="logout()">Sair</button>
+      </div>
+    </div>
+  </header>
+
+  <nav class="nav-tabs">
+    <button id="tab-lista" class="nav-tab active" onclick="switchTab('lista')">
+      Escalas <span id="badge-count" class="badge" style="display:none;">0</span>
+    </button>
+    <button id="tab-form" class="nav-tab" onclick="switchTab('form')">Nova Escala</button>
+  </nav>
+
+  <main class="main">
+
+    <div id="panel-lista" class="panel active">
+      <div class="filtro-bar">
+        <button id="btn-futuras"  class="btn-filtro ativo" onclick="setFiltro('futuras')">📅 Próximas</button>
+        <button id="btn-passadas" class="btn-filtro"        onclick="setFiltro('passadas')">📖 Histórico</button>
+      </div>
+      <div id="lista-escalas"></div>
+    </div>
+
+    <div id="panel-form" class="panel">
+      <div class="form-card">
+        <div class="form-card-title"><span id="form-title-text">Agendar nova data</span></div>
+        <div class="field-row">
+          <div class="field-group">
+            <label for="data">Data</label>
+            <input type="date" id="data">
+          </div>
+          <div class="field-group">
+            <label for="horario">Horário</label>
+            <input type="time" id="horario">
+          </div>
+        </div>
+        <div class="field-group">
+          <label for="vocal">Vocal Principal</label>
+          <input type="text" id="vocal" placeholder="Ex: Ana Clara">
+        </div>
+        <div class="field-group">
+          <label for="back">Backing Vocals</label>
+          <input type="text" id="back" placeholder="Ex: Lucas, Mariana, Davi">
+        </div>
+        <div class="field-group">
+          <label for="hinos">Hinos do Dia</label>
+          <textarea id="hinos" placeholder="1. Grandioso És Tu&#10;2. Porque Ele Vive&#10;3. Oceanos"></textarea>
+        </div>
+        <div class="field-group">
+          <label for="links">🔗 Links das Músicas</label>
+          <textarea id="links" placeholder="Cole os links do YouTube ou Spotify&#10;Ex: Grandioso És Tu https://youtu.be/..."></textarea>
+          <div class="field-hint">Um link por linha. Pode escrever o nome antes do link.</div>
+        </div>
+        <div class="field-group">
+          <label for="recados">📢 Avisos / Justificativas</label>
+          <textarea id="recados" placeholder="Avisos gerais ou ausências&#10;Ex: João não poderá vir neste domingo."></textarea>
+          <div class="field-hint">Os membros também podem editar este campo diretamente no card.</div>
+        </div>
+        <button id="btn-salvar" class="btn btn-primary" onclick="salvar()">Salvar na Escala</button>
+        <button id="btn-cancelar" class="btn btn-secondary" onclick="resetForm(); switchTab('lista');">Cancelar Edição</button>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- DIALOG EXCLUSÃO -->
+  <div id="overlay" class="overlay" onclick="fecharDialog(event)">
+    <div class="dialog">
+      <h3>Remover Escala?</h3>
+      <p id="dialog-desc">Esta ação não pode ser desfeita.</p>
+      <div class="dialog-actions">
+        <button class="btn-dialog-cancel"  onclick="fecharDialog()">Cancelar</button>
+        <button class="btn-dialog-confirm" onclick="confirmarExclusao()">Remover</button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- fim app-content -->
+
+<div id="toast" class="toast"></div>
+</body>
+</html>
