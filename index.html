@@ -1,767 +1,489 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no">
-<meta name="theme-color" content="#1e3a8a">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Escala Louvor">
-<meta property="og:type" content="website">
-<meta property="og:title" content="Escala do Louvor">
-<meta property="og:description" content="Acesse a escala do ministério de música.">
-<meta property="og:image" content="guitarra-512.png">
-<title>Escala do Louvor</title>
-<link rel="manifest" href="manifest2.json">
-<link rel="apple-touch-icon" sizes="144x144" href="guitarra-144.png">
-<link rel="apple-touch-icon" sizes="192x192" href="guitarra-192.png">
-<link rel="icon" type="image/png" sizes="48x48" href="guitarra-48.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no">
+  <meta name="theme-color" content="#0f172a">
+  <title>Escala do Louvor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
 
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
-  import {
-    getFirestore, collection, addDoc, updateDoc, deleteDoc,
-    doc, onSnapshot, query, where, orderBy, serverTimestamp
-  } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
-  import {
-    getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword,
-    signOut, onAuthStateChanged, updateProfile, sendPasswordResetEmail
-  } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
-
-  const firebaseConfig = {
-    apiKey: "AIzaSyABNJEfKqvbTawlgQGPoIXMvYWRmH9kCZY",
-    authDomain: "louvor-escala-5d26f.firebaseapp.com",
-    projectId: "louvor-escala-5d26f",
-    storageBucket: "louvor-escala-5d26f.firebasestorage.app",
-    messagingSenderId: "144171388952",
-    appId: "1:144171388952:web:54f59fa3dd9a149ab0f36d"
-  };
-
-  const app  = initializeApp(firebaseConfig);
-  const db   = getFirestore(app);
-  const auth = getAuth(app);
-  const col  = collection(db, "escalas");
-
-  let escalas          = [];
-  let editDocId        = null;
-  let pendingDeleteId  = null;
-  let usuarioLogado    = null;
-  let unsubscribeLista = null;
-  let filtro           = 'futuras'; // 'futuras' | 'passadas'
-
-  const MESES  = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
-  const SEMANA = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
-
-  /* ── AUTH ── */
-  onAuthStateChanged(auth, (user) => {
-    if (user) {
-      usuarioLogado = user;
-      document.getElementById('auth-screen').style.display  = 'none';
-      document.getElementById('app-content').style.display  = 'block';
-      document.getElementById('nome-igreja-header').textContent = user.displayName || 'Minha Igreja';
-      iniciarListener();
-    } else {
-      usuarioLogado = null;
-      if (unsubscribeLista) { unsubscribeLista(); unsubscribeLista = null; }
-      document.getElementById('app-content').style.display  = 'none';
-      document.getElementById('auth-screen').style.display  = 'flex';
-      setStatus('offline');
-    }
-  });
-
-  window.handleAuth = async function(e) {
-    if (e) e.preventDefault();
-    const modoCadastro = document.getElementById('auth-mode-check').checked;
-    const email      = document.getElementById('auth-email').value.trim();
-    const senha      = document.getElementById('auth-senha').value.trim();
-    const nomeIgreja = document.getElementById('auth-nome-igreja').value.trim();
-    const btn        = document.getElementById('btn-auth');
-
-    if (!email || !senha) { showToast('⚠️ Preencha email e senha','danger'); return; }
-    if (modoCadastro && !nomeIgreja) { showToast('⚠️ Informe o nome da Igreja','danger'); return; }
-
-    btn.disabled = true;
-    btn.textContent = modoCadastro ? 'Criando Igreja...' : 'Entrando...';
-
+  <script type="module">
     try {
-      if (modoCadastro) {
-        const cred = await createUserWithEmailAndPassword(auth, email, senha);
-        await updateProfile(cred.user, { displayName: nomeIgreja });
-        showToast('✓ Igreja cadastrada!','success');
-      } else {
-        await signInWithEmailAndPassword(auth, email, senha);
-        showToast('✓ Bem-vindo de volta!','success');
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
+      import { getFirestore, collection, addDoc, updateDoc, doc, onSnapshot, query, where, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
+      import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
+
+      const firebaseConfig = {
+        apiKey: "AIzaSyABNJEfKqvbTawlgQGPoIXMvYWRmH9kCZY",
+        authDomain: "louvor-escala-5d26f.firebaseapp.com",
+        projectId: "louvor-escala-5d26f",
+        storageBucket: "louvor-escala-5d26f.firebasestorage.app",
+        messagingSenderId: "144171388952",
+        appId: "1:144171388952:web:54f59fa3dd9a149ab0f36d"
+      };
+
+      const app  = initializeApp(firebaseConfig);
+      const db   = getFirestore(app);
+      const auth = getAuth(app);
+      const col  = collection(db, "escalas");
+
+      let escalas = [];
+      let usuarioLogado = null;
+      let unsubscribeLista = null;
+      let currentEditCardId = null;
+      
+      // Lista dinâmica de funções adicionadas no formulário atual
+      let funcoesSelecionadas = [];
+
+      const DICIONARIO_FUNCOES = {
+        vocal: { label: "🎤 Vocal Principal", icon: "🎤" },
+        back: { label: "👥 Backing Vocal", icon: "👥" },
+        violao: { label: "🎸 Violão", icon: "🎸" },
+        guitarra: { label: "🎸 Guitarra", icon: "🎸" },
+        baixo: { label: "🎸 Baixo", icon: "🎸" },
+        bateria: { label: "🥁 Bateria", icon: "🥁" },
+        teclado: { label: "🎹 Teclado", icon: "🎹" },
+        sax: { label: "🎷 Sax", icon: "🎷" },
+        flauta: { label: "🎵 Flauta", icon: "🎵" },
+        pandeiro: { label: "🪘 Pandeiro", icon: "🪘" },
+        percurssao: { label: "🪘 Percussão", icon: "🪘" },
+        mesa: { label: "🎛️ Mesa de Som", icon: "🎛️" },
+        computador: { label: "💻 Computador", icon: "💻" }
+      };
+
+      const IGREJA_PADRAO_ID = "pM7gN1R4GgVlGvExAmPlO1D2EsA3"; 
+      let nomeIgrejaAtual = "Minha Igreja";
+
+      document.addEventListener("DOMContentLoaded", () => {
+        document.getElementById('public-screen').style.display = 'block';
+        document.getElementById('auth-screen').style.display = 'none';
+        document.getElementById('admin-panel').style.display = 'none';
+        carregarEscalasPublicas();
+        renderBotoesSelecaoFuncao();
+      });
+
+      onAuthStateChanged(auth, (user) => {
+        if (user) {
+          usuarioLogado = user;
+          nomeIgrejaAtual = user.displayName || "Minha Igreja";
+          document.getElementById('auth-screen').style.display = 'none';
+          document.getElementById('public-screen').style.display = 'none';
+          document.getElementById('admin-panel').style.display = 'block';
+          atualizarNomesIgreja(nomeIgrejaAtual);
+          iniciarListenerAdmin();
+        } else {
+          usuarioLogado = null;
+          if (unsubscribeLista) { unsubscribeLista(); unsubscribeLista = null; }
+          document.getElementById('admin-panel').style.display = 'none';
+          document.getElementById('auth-screen').style.display = 'none';
+          document.getElementById('public-screen').style.display = 'block';
+          carregarEscalasPublicas();
+        }
+      });
+
+      function atualizarNomesIgreja(nome) {
+        document.getElementById('nome-igreja-header-admin').textContent = "Ministério de Louvor - " + nome;
+        document.getElementById('nome-igreja-header-publico').textContent = "Ministério de Louvor";
+        document.getElementById('sub-igreja-publico').textContent = nome;
       }
-      document.getElementById('auth-form-element').reset();
-      document.getElementById('group-nome-igreja').style.display = 'none';
-    } catch (err) {
-      console.error(err);
-      if (err.code === 'auth/email-already-in-use')      showToast('❌ Email já cadastrado.','danger');
-      else if (err.code === 'auth/wrong-password' ||
-               err.code === 'auth/user-not-found' ||
-               err.code === 'auth/invalid-credential')   showToast('❌ Email ou senha incorretos.','danger');
-      else showToast('❌ Erro: ' + err.message,'danger');
-    } finally {
-      btn.disabled = false;
-      btn.textContent = modoCadastro ? 'Cadastrar Nova Igreja' : 'Entrar no Painel';
-    }
-  };
 
-  window.logout = async function() {
-    if (confirm('Deseja sair do painel?')) {
-      await signOut(auth);
-      showToast('Desconectado','');
-    }
-  };
-
-  window.recuperarSenha = async function() {
-    const email = document.getElementById('auth-email').value.trim();
-    if (!email) { showToast('⚠️ Digite seu email primeiro', 'danger'); document.getElementById('auth-email').focus(); return; }
-    try {
-      await sendPasswordResetEmail(auth, email);
-      showToast('📧 Email de recuperação enviado! Verifique sua caixa de entrada.', 'success');
-    } catch(err) {
-      if (err.code === 'auth/user-not-found') showToast('❌ Email não cadastrado.', 'danger');
-      else showToast('❌ Erro ao enviar email: ' + err.message, 'danger');
-    }
-  };
-
-  window.toggleAuthMode = function() {
-    const modo = document.getElementById('auth-mode-check').checked;
-    document.getElementById('group-nome-igreja').style.display = modo ? 'block' : 'none';
-    document.getElementById('auth-title').textContent  = modo ? 'Cadastrar sua Igreja' : 'Painel do Administrador';
-    document.getElementById('btn-auth').textContent    = modo ? 'Cadastrar Nova Igreja' : 'Entrar no Painel';
-  };
-
-  /* ── LISTENER FIRESTORE ── */
-  function iniciarListener() {
-    if (!usuarioLogado) return;
-    setStatus('connecting');
-    const q = query(col,
-      where("igrejaId","==", usuarioLogado.uid),
-      orderBy("dataISO","asc"),
-      orderBy("horario","asc")
-    );
-    if (unsubscribeLista) unsubscribeLista();
-    unsubscribeLista = onSnapshot(q,
-      snap => {
-        escalas = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        setStatus('online');
-        renderLista();
-        atualizarBadge();
-      },
-      err => { console.error(err); setStatus('error'); showToast('Erro ao carregar dados.','danger'); }
-    );
-  }
-
-  function setStatus(s) {
-    const el = document.getElementById('status-dot');
-    const tx = document.getElementById('status-text');
-    if (el && tx) {
-      el.className = 'status-dot ' + s;
-      tx.textContent = s==='online'?'Ao vivo':s==='connecting'?'Conectando...':'Desconectado';
-    }
-  }
-
-  /* ── TABS ── */
-  window.switchTab = function(tab) {
-    ['form','lista'].forEach(t => {
-      document.getElementById('panel-'+t).classList.toggle('active', t===tab);
-      document.getElementById('tab-'+t).classList.toggle('active',   t===tab);
-    });
-  };
-
-  /* ── FILTRO ── */
-  window.setFiltro = function(f) {
-    filtro = f;
-    document.getElementById('btn-futuras').classList.toggle('ativo',  f==='futuras');
-    document.getElementById('btn-passadas').classList.toggle('ativo', f==='passadas');
-    renderLista();
-  };
-
-  /* ── TOAST ── */
-  let toastTimer;
-  window.showToast = function(msg, tipo='') {
-    const el = document.getElementById('toast');
-    el.innerHTML = msg; el.className = 'toast '+tipo;
-    clearTimeout(toastTimer); el.classList.add('show');
-    toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
-  };
-
-  /* ── FORM ── */
-  window.resetForm = function() {
-    editDocId = null;
-    ['data','horario','vocal','back','hinos','links','recados'].forEach(id => {
-      const el = document.getElementById(id); if (el) el.value = '';
-    });
-    document.getElementById('form-title-text').textContent = 'Agendar nova data';
-    document.getElementById('btn-salvar').textContent = 'Salvar na Escala';
-    document.getElementById('btn-cancelar').classList.remove('visible');
-    document.getElementById('btn-salvar').disabled = false;
-  };
-
-  window.salvar = async function() {
-    const data    = document.getElementById('data').value.trim();
-    const horario = document.getElementById('horario').value.trim();
-    const vocal   = document.getElementById('vocal').value.trim();
-    const back    = document.getElementById('back').value.trim();
-    const hinos   = document.getElementById('hinos').value.trim();
-    const links   = document.getElementById('links').value.trim();
-    const recados = document.getElementById('recados').value.trim();
-
-    if (!data)    { showToast('⚠️ Informe a data','danger');            document.getElementById('data').focus();    return; }
-    if (!horario) { showToast('⚠️ Informe o horário','danger');         document.getElementById('horario').focus(); return; }
-    if (!vocal)   { showToast('⚠️ Informe o vocal principal','danger'); document.getElementById('vocal').focus();   return; }
-    if (!back)    { showToast('⚠️ Informe os backing vocals','danger'); document.getElementById('back').focus();    return; }
-    if (!usuarioLogado) { showToast('⚠️ Sessão expirada.','danger'); return; }
-
-    const btn = document.getElementById('btn-salvar');
-    btn.disabled = true; btn.textContent = 'Salvando...';
-
-    const obj = { dataISO:data, horario, vocal, back, hinos, links, recados,
-                  igrejaId: usuarioLogado.uid, updatedAt: serverTimestamp() };
-    try {
-      if (editDocId) {
-        await updateDoc(doc(db,"escalas",editDocId), obj);
-        showToast('✓ Escala atualizada','success');
-      } else {
-        obj.createdAt = serverTimestamp();
-        await addDoc(col, obj);
-        showToast('✓ Escala salva','success');
+      async function carregarEscalasPublicas() {
+        const targetId = usuarioLogado ? usuarioLogado.uid : IGREJA_PADRAO_ID;
+        const q = query(col, where("igrejaId", "in", [targetId, "geral"]), orderBy("dataISO", "asc"), orderBy("horario", "asc"));
+        
+        if (unsubscribeLista) unsubscribeLista();
+        unsubscribeLista = onSnapshot(q, (snapshot) => {
+          escalas = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+          if(escalas.length > 0 && !usuarioLogado && farmIgrejaName(escalas[0])) {
+             atualizarNomesIgreja(farmIgrejaName(escalas[0]));
+          }
+          renderLista('lista-escalas-publica', false);
+        }, (error) => {
+          const qSimples = query(col, orderBy("dataISO", "asc"));
+          onSnapshot(qSimples, (snapshot) => {
+            escalas = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+            renderLista('lista-escalas-publica', false);
+          });
+        });
       }
-      resetForm(); switchTab('lista');
-    } catch(err) {
-      console.error(err);
-      showToast('❌ Erro ao salvar.','danger');
-      btn.disabled = false;
-      btn.textContent = editDocId ? 'Atualizar Escala' : 'Salvar na Escala';
-    }
-  };
 
-  window.salvarApenasRecado = async function(id) {
-    const ta  = document.getElementById('recado-input-'+id); if (!ta) return;
-    const btn = document.getElementById('btn-recado-'+id);
-    if (btn) { btn.disabled=true; btn.textContent='Salvando...'; }
-    try {
-      await updateDoc(doc(db,"escalas",id), { recados: ta.value.trim(), updatedAt: serverTimestamp() });
-      showToast('💬 Recado atualizado!','success');
-    } catch(err) { showToast('❌ Erro ao salvar recado.','danger'); }
-    if (btn) { btn.disabled=false; btn.textContent='💾 Salvar Recado'; }
-  };
-
-  window.editarEscala = function(id) {
-    const e = escalas.find(x=>x.id===id); if (!e) return;
-    editDocId = id;
-    document.getElementById('data').value    = e.dataISO;
-    document.getElementById('horario').value = e.horario;
-    document.getElementById('vocal').value   = e.vocal;
-    document.getElementById('back').value    = e.back;
-    document.getElementById('hinos').value   = e.hinos   || '';
-    document.getElementById('links').value   = e.links   || '';
-    document.getElementById('recados').value = e.recados || '';
-    document.getElementById('form-title-text').textContent = 'Editar / Substituir escala';
-    document.getElementById('btn-salvar').textContent = 'Atualizar Escala';
-    document.getElementById('btn-cancelar').classList.add('visible');
-    switchTab('form');
-    window.scrollTo({ top:0, behavior:'smooth' });
-  };
-
-  window.abrirDialog = function(id) {
-    pendingDeleteId = id;
-    const e = escalas.find(x=>x.id===id); if (!e) return;
-    const [ano,mes,dia] = e.dataISO.split('-');
-    document.getElementById('dialog-desc').textContent =
-      `Você vai remover a escala do dia ${dia}/${mes}/${ano} às ${e.horario}. Esta ação não pode ser desfeita.`;
-    document.getElementById('overlay').classList.add('active');
-  };
-
-  window.fecharDialog = function(e) {
-    if (e && e.target !== document.getElementById('overlay')) return;
-    document.getElementById('overlay').classList.remove('active');
-    pendingDeleteId = null;
-  };
-
-  window.confirmarExclusao = async function() {
-    if (!pendingDeleteId) return;
-    const btn = document.querySelector('.btn-dialog-confirm');
-    btn.textContent='Removendo...'; btn.disabled=true;
-    try {
-      await deleteDoc(doc(db,"escalas",pendingDeleteId));
-      if (editDocId===pendingDeleteId) resetForm();
-      showToast('🗑 Escala removida','danger');
-    } catch(err) { showToast('❌ Erro ao remover','danger'); }
-    btn.textContent='Remover'; btn.disabled=false;
-    document.getElementById('overlay').classList.remove('active');
-    pendingDeleteId = null;
-  };
-
-  /* ── WHATSAPP ── */
-  window.compartilharWhatsApp = function(id) {
-    const e = escalas.find(x=>x.id===id); if (!e) return;
-    const [ano,mes,dia] = e.dataISO.split('-');
-    const diaSemana = SEMANA[new Date(e.dataISO+'T00:00:00').getDay()];
-    const nomeIgreja = usuarioLogado?.displayName || 'Igreja';
-    let msg = `🎵 *ESCALA DO LOUVOR — ${nomeIgreja.toUpperCase()}*\n\n`;
-    msg += `📅 *${diaSemana}, ${dia}/${mes}/${ano}* às ${e.horario}\n\n`;
-    msg += `🎤 *Vocal Principal:* ${e.vocal}\n`;
-    msg += `👥 *Backing Vocals:* ${e.back}\n`;
-    if (e.hinos && e.hinos.trim()) {
-      msg += `\n🎵 *Hinos do Dia:*\n${e.hinos}\n`;
-    }
-    if (e.links && e.links.trim()) {
-      msg += `\n🔗 *Links das Músicas:*\n${e.links}\n`;
-    }
-    msg += `\n🙏 Contamos com a presença de todos!\n`;
-    msg += `\n_Enviado pelo App Escala do Louvor_`;
-    window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
-  };
-
-  /* ── BADGE ── */
-  function atualizarBadge() {
-    const hoje = new Date(); hoje.setHours(0,0,0,0);
-    const futuras = escalas.filter(e => new Date(e.dataISO+'T00:00:00') >= hoje).length;
-    const el = document.getElementById('badge-count');
-    if (el) { el.textContent = futuras; el.style.display = futuras>0 ? 'inline-flex' : 'none'; }
-  }
-
-  function calcDiasBadge(dataISO) {
-    const hoje = new Date(); hoje.setHours(0,0,0,0);
-    const d    = new Date(dataISO+'T00:00:00');
-    const diff = Math.round((d-hoje)/86400000);
-    if (diff===0)            return { label:'Hoje',                      cls:'hoje'   };
-    if (diff===1)            return { label:'Amanhã',                    cls:'breve'  };
-    if (diff>1 && diff<=7)  return { label:`Em ${diff} dias`,           cls:'breve'  };
-    if (diff>7)              return { label:`Em ${diff} dias`,           cls:'normal' };
-    if (diff===-1)           return { label:'Ontem',                     cls:'passado'};
-    return                          { label:`Há ${Math.abs(diff)} dias`, cls:'passado'};
-  }
-
-  function formatarLinksHtml(textoLinks) {
-    if (!textoLinks||!textoLinks.trim()) return '<span class="sem-conteudo">Nenhum link adicionado</span>';
-    return textoLinks.trim().split('\n').map(linha => {
-      linha = linha.trim(); if (!linha) return '';
-      const rx = /(https?:\/\/[^\s]+)/g;
-      if (rx.test(linha)) {
-        rx.lastIndex=0;
-        return '<div class="link-item">'+linha.replace(rx, url=>
-          `<a href="${url}" target="_blank" rel="noopener noreferrer" class="musica-link"><span class="link-icon">▶</span> Ouvir / Assistir</a>`
-        )+'</div>';
+      function farmIgrejaName(escalaItem) {
+         return usuarioLogado ? usuarioLogado.displayName : "Sua Congregação";
       }
-      return `<div class="link-item link-texto">${esc(linha)}</div>`;
-    }).filter(Boolean).join('');
-  }
 
-  /* ── RENDER ── */
-  function renderLista() {
-    const container = document.getElementById('lista-escalas');
-    if (!container) return;
+      function iniciarListenerAdmin() {
+        if (!usuarioLogado) return;
+        const q = query(col, where("igrejaId", "==", usuarioLogado.uid), orderBy("dataISO", "asc"), orderBy("horario", "asc"));
+        if (unsubscribeLista) unsubscribeLista();
+        unsubscribeLista = onSnapshot(q, (snapshot) => {
+          escalas = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+          renderLista('lista-escalas-admin', true);
+        });
+      }
 
-    const hoje = new Date(); hoje.setHours(0,0,0,0);
-    let lista = escalas.filter(e => {
-      const d = new Date(e.dataISO+'T00:00:00');
-      return filtro==='futuras' ? d>=hoje : d<hoje;
-    });
-    if (filtro==='passadas') lista = [...lista].reverse();
+      window.handleAuth = async function(e) {
+        if (e) e.preventDefault();
+        const modoCadastro = document.getElementById('auth-mode-check').checked;
+        const email = document.getElementById('auth-email').value.trim();
+        const senha = document.getElementById('auth-senha').value.trim();
+        const nomeIgreja = document.getElementById('auth-nome-igreja').value.trim();
+        const btn = document.getElementById('btn-auth');
 
-    if (lista.length===0) {
-      container.innerHTML = `
-        <div class="empty-state">
-          <div class="empty-icon">${filtro==='futuras'?'🎶':'📖'}</div>
-          <h3>${filtro==='futuras'?'Nenhuma escala futura':'Nenhum histórico ainda'}</h3>
-          <p>${filtro==='futuras'?'Toque em "Nova Escala" para<br>começar a organizar a equipe.':'As escalas passadas aparecerão aqui.'}</p>
-        </div>`; return;
+        if (!email || !senha) { showToast('⚠️ Preencha os campos', 'danger'); return; }
+        btn.disabled = true;
+
+        try {
+          if (modoCadastro) {
+            const userCredential = await createUserWithEmailAndPassword(auth, email, senha);
+            await updateProfile(userCredential.user, { displayName: nomeIgreja });
+            showToast('✓ Ministério cadastrado!', 'success');
+          } else {
+            await signInWithEmailAndPassword(auth, email, senha);
+            showToast('✓ Bem-vindo!', 'success');
+          }
+        } catch (error) {
+          showToast('❌ Verifique os dados.', 'danger');
+        } finally {
+          btn.disabled = false;
+        }
+      };
+
+      window.logout = async function() {
+        if (confirm('Deseja sair do painel administrativo?')) { await signOut(auth); }
+      };
+
+      window.toggleAuthMode = function() {
+        const modoCadastro = document.getElementById('auth-mode-check').checked;
+        document.getElementById('group-nome-igreja').style.display = modoCadastro ? 'block' : 'none';
+        document.getElementById('btn-auth').textContent = modoCadastro ? 'Criar Conta do Ministério' : 'Entrar no Painel';
+      };
+
+      window.showLoginScreen = function() {
+        document.getElementById('public-screen').style.display = 'none';
+        document.getElementById('auth-screen').style.display = 'flex';
+      };
+
+      window.voltarParaPublico = function() {
+        document.getElementById('auth-screen').style.display = 'none';
+        document.getElementById('public-screen').style.display = 'block';
+      };
+
+      window.switchTab = function(tab) {
+        document.getElementById('panel-lista').classList.toggle('active', tab === 'lista');
+        document.getElementById('panel-form').classList.toggle('active',  tab === 'form');
+        document.getElementById('tab-lista').classList.toggle('active',   tab === 'lista');
+        document.getElementById('tab-form').classList.toggle('active',    tab === 'form');
+      };
+
+      // Gerenciador de funções adicionadas dinamicamente no painel do administrador
+      function renderBotoesSelecaoFuncao() {
+        const container = document.getElementById('botoes-seletor-funcoes');
+        if(!container) return;
+        container.innerHTML = Object.keys(DICIONARIO_FUNCOES).map(key => {
+          return `<button type="button" class="btn-add-funcao" onclick="adicionarFuncaoAoFormulario('${key}')">${DICIONARIO_FUNCOES[key].label}</button>`;
+        }).join('');
+      }
+
+      window.adicionarFuncaoAoFormulario = function(key) {
+        // Gera um ID temporário único para controle de exclusão na tela
+        const idTemp = Date.now() + Math.random().toString(36).substr(2, 5);
+        funcoesSelecionadas.push({
+          idTemp: idTemp,
+          tipo: key,
+          label: DICIONARIO_FUNCOES[key].label,
+          icon: DICIONARIO_FUNCOES[key].icon,
+          integrante: ""
+        });
+        renderCamposFuncoesAtivas();
+      };
+
+      window.removerFuncaoDoFormulario = function(idTemp) {
+        funcoesSelecionadas = funcoesSelecionadas.filter(f => f.idTemp !== idTemp);
+        renderCamposFuncoesAtivas();
+      };
+
+      window.atualizarNomeIntegrante = function(idTemp, valor) {
+        const f = funcoesSelecionadas.find(item => item.idTemp === idTemp);
+        if(f) f.integrante = valor;
+      };
+
+      function renderCamposFuncoesAtivas() {
+        const container = document.getElementById('campos-funcoes-dinamicas');
+        if(!container) return;
+        if(funcoesSelecionadas.length === 0) {
+          container.innerHTML = `<p style="font-size:13px; color:var(--text-muted); font-style:italic;">Nenhum integrante ou instrumento adicionado. Clique nos botões acima para montar a equipe.</p>`;
+          return;
+        }
+        container.innerHTML = funcoesSelecionadas.map(f => {
+          return `
+            <div class="row-funcao-ativa">
+              <span class="lbl-funcao-ativa">${f.label}:</span>
+              <input type="text" placeholder="Nome do voluntário" value="${f.integrante}" oninput="atualizarNomeIntegrante('${f.idTemp}', this.value)">
+              <button type="button" class="btn-remove-funcao" onclick="removerFuncaoDoFormulario('${f.idTemp}')">❌ Remover</button>
+            </div>
+          `;
+        }).join('');
+      }
+
+      window.abrirModalMusicas = function(id) {
+        currentEditCardId = id;
+        const escala = escalas.find(e => e.id === id);
+        if (escala) {
+          document.getElementById('modal-hinos').value = escala.hinos || '';
+          document.getElementById('modal-links').value = escala.links || '';
+          document.getElementById('musica-modal').style.display = 'flex';
+        }
+      };
+
+      window.fecharModal = function() {
+        document.getElementById('musica-modal').style.display = 'none';
+        currentEditCardId = null;
+      };
+
+      window.salvarMusicasVocal = async function() {
+        if (!currentEditCardId) return;
+        const hinos = document.getElementById('modal-hinos').value.trim();
+        const links = document.getElementById('modal-links').value.trim();
+        const btn = document.getElementById('btn-salvar-modal');
+
+        btn.disabled = true;
+        try {
+          await updateDoc(doc(db, "escalas", currentEditCardId), { hinos, links, updatedAt: serverTimestamp() });
+          showToast('✓ Repertório atualizado!', 'success');
+          fecharModal();
+        } catch (error) {
+          showToast('❌ Erro ao atualizar.', 'danger');
+        } finally {
+          btn.disabled = false;
+        }
+      };
+
+      window.salvar = async function() {
+        const data    = document.getElementById('data').value.trim();
+        const horario = document.getElementById('horario').value.trim();
+        const recados = document.getElementById('recados').value.trim();
+
+        if (!data || !horario) { showToast('⚠️ Escolha data e horário', 'danger'); return; }
+        if (funcoesSelecionadas.length === 0) { showToast('⚠️ Adicione pelo menos um integrante na escala', 'danger'); return; }
+
+        const btn = document.getElementById('btn-salvar');
+        btn.disabled = true;
+
+        const obj = { 
+          dataISO: data, 
+          horario, 
+          equipeMembros: funcoesSelecionadas.map(f => ({ tipo: f.tipo, label: f.label, icon: f.icon, integrante: f.integrante })),
+          hinos: "", 
+          links: "", 
+          recados, 
+          igrejaId: usuarioLogado.uid, 
+          updatedAt: serverTimestamp() 
+        };
+
+        try {
+          obj.createdAt = serverTimestamp();
+          await addDoc(col, obj);
+          showToast('✓ Nova escala criada!', 'success');
+          document.getElementById('data').value = '';
+          document.getElementById('horario').value = '';
+          document.getElementById('recados').value = '';
+          funcoesSelecionadas = [];
+          renderCamposFuncoesAtivas();
+          switchTab('lista');
+        } catch (e) {
+          showToast('❌ Erro ao salvar dados.', 'danger');
+        } finally {
+          btn.disabled = false;
+        }
+      };
+
+      function renderLista(containerId, isAdmin = false) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        if (escalas.length === 0) {
+          container.innerHTML = `<div class="empty-state"><h3>Nenhuma escala agendada</h3><p>As escalas e ensaios criados pelo líder aparecerão nesta área.</p></div>`;
+          return;
+        }
+        container.innerHTML = escalas.map(e => {
+          const [ano, mes, dia] = e.dataISO.split('-');
+          
+          let equipeHtml = "";
+          if (e.equipeMembros && e.equipeMembros.length > 0) {
+            equipeHtml = e.equipeMembros.map(m => `
+              <div class="team-row"><span class="team-label">${m.label}:</span> <span class="team-value">${m.integrante || 'A definir'}</span></div>
+            `).join('');
+          } else {
+            // Compatibilidade com registros antigos antigos se houver
+            equipeHtml = `
+              <div class="team-row"><span class="team-label">🎸 Direção / Banda:</span> <span class="team-value">${e.lider || 'Não definido'}</span></div>
+              <div class="team-row"><span class="team-label">🎤 Vocal Principal:</span> <span class="team-value">${e.vocal || 'Não definido'}</span></div>
+            `;
+          }
+
+          return `
+            <div class="louve-card">
+              <div class="louve-card-edge"></div>
+              <div class="louve-card-content">
+                <div class="louve-meta">
+                  <span class="badge-date">📅 ${dia}/${mes}/${ano}</span>
+                  <span class="badge-time">🕐 ${e.horario}h</span>
+                </div>
+                
+                <div class="team-section">
+                  ${equipeHtml}
+                </div>
+
+                <div class="songs-box">
+                  <div class="box-header-action">
+                    <span class="box-title">🎵 Repertório e Links</span>
+                    ${!isAdmin ? `<button class="btn-action-sm" onclick="abrirModalMusicas('${e.id}')">✏️ Alimentar Repertório</button>` : ''}
+                  </div>
+                  <div class="box-text">${e.hinos ? e.hinos.replace(/\n/g, '<br>') : '<span style="color:var(--text-muted); font-style:italic;">Nenhuma música listada. Toque no botão acima para incluir.</span>'}</div>
+                  
+                  ${e.links ? `
+                  <div class="links-area" style="margin-top:10px; padding-top:10px; border-top:1px dashed rgba(16, 185, 129, 0.2);">
+                    <div class="box-title" style="font-size:11px; color:#10b981;">🔗 Links de Estudo:</div>
+                    <div class="box-text" style="word-break: break-all; color:#38bdf8;">${e.links.replace(/\n/g, '<br>')}</div>
+                  </div>` : ''}
+                </div>
+
+                ${e.recados ? `
+                <div class="alert-box">
+                  <div class="box-title">⚠️ Orientações e Ensaios</div>
+                  <div class="box-text">${e.recados.replace(/\n/g, '<br>')}</div>
+                </div>` : ''}
+              </div>
+            </div>`;
+        }).join('');
+      }
+
+      let toastTimer;
+      window.showToast = function(msg, tipo = '') {
+        const el = document.getElementById('toast');
+        if(!el) return;
+        el.innerHTML = msg; el.className = 'toast ' + tipo;
+        clearTimeout(toastTimer); el.classList.add('show');
+        toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
+      };
+
+    } catch (error) {
+      console.error(error);
     }
+  </script>
 
-    const html = lista.map(e => {
-      const [ano,mes,dia] = e.dataISO.split('-');
-      const dataBR    = `${dia}/${mes}/${ano}`;
-      const mesAbrev  = MESES[parseInt(mes)-1];
-      const diaSemana = SEMANA[new Date(e.dataISO+'T00:00:00').getDay()];
-      const badge     = calcDiasBadge(e.dataISO);
-      const isPassada = new Date(e.dataISO+'T00:00:00') < hoje;
+  <style>
+    :root {
+      --bg-dark: #0f172a; --bg-card: #1e293b; --bg-input: #334155;
+      --primary: #38bdf8; --primary-hover: #0ea5e9; --text-white: #f8fafc;
+      --text-muted: #94a3b8; --border: #334155; --radius: 14px;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'DM Sans', sans-serif; background: var(--bg-dark); color: var(--text-white); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+    
+    .main { padding: 16px; max-width: 540px; margin: 0 auto; padding-bottom: 80px; }
+    
+    /* Página de Boas Vindas Pública */
+    .welcome-container { background: linear-gradient(135deg, #1e3a8a 0%, #0f172a 100%); padding: 30px 20px; text-align: center; border-radius: 0 0 24px 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); }
+    .welcome-container h1 { font-size: 24px; font-weight: 700; color: white; margin-bottom: 6px; }
+    .welcome-container p { font-size: 15px; color: var(--primary); font-weight: 500; }
+    .welcome-intro-box { background: rgba(255,255,255,0.05); padding: 14px; border-radius: 10px; margin-top: 14px; font-size: 13px; color: #cbd5e1; line-height: 1.5; border: 1px solid rgba(255,255,255,0.05); }
 
-      const hinosExibicao = e.hinos
-        ? `<div class="hinos-lista" style="white-space:pre-wrap;">${esc(e.hinos)}</div>`
-        : '<span class="sem-conteudo">Nenhum hino adicionado</span>';
-      const linksHtml = formatarLinksHtml(e.links);
-      const recadoVal = e.recados||'';
-      const temRecado = recadoVal.trim().length>0;
+    /* Seletor Dinâmico de Funções no Administrador */
+    .seletor-botoes-container { display: flex; flex-wrap: wrap; gap: 8px; background: rgba(0,0,0,0.2); padding: 12px; border-radius: 10px; border: 1px solid var(--border); margin-bottom: 16px; }
+    .btn-add-funcao { background: var(--bg-input); border: 1px solid var(--border); color: white; padding: 8px 12px; border-radius: 6px; font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.2s; }
+    .btn-add-funcao:hover { border-color: var(--primary); background: rgba(56, 189, 248, 0.1); }
+    
+    .row-funcao-ativa { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.02); padding: 10px; border-radius: 8px; margin-bottom: 8px; border: 1px solid rgba(255,255,255,0.05); }
+    .lbl-funcao-ativa { font-size: 13px; font-weight: 700; color: var(--primary); width: 140px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .row-funcao-ativa input { flex: 1; background: var(--bg-input); border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; color: white; font-size: 14px; }
+    .btn-remove-funcao { background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; color: #ef4444; padding: 8px 12px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; }
+    .btn-remove-funcao:hover { background: #ef4444; color: white; }
 
-      return `
-        <div class="escala-card${isPassada?' passada':''}">
-          <div class="escala-card-header">
-            <div class="escala-date-block">
-              <div class="escala-date-num">
-                <span class="day">${dia}</span>
-                <span class="month">${mesAbrev}</span>
-              </div>
-              <div class="escala-date-info">
-                <span class="escala-date-full">${diaSemana}, ${dataBR}</span>
-                <span class="escala-time-badge">🕐 ${e.horario}</span>
-              </div>
-            </div>
-            <span class="dias-badge ${badge.cls}">${badge.label}</span>
-          </div>
+    /* Cards e Listagens */
+    .louve-card { background: var(--bg-card); border-radius: var(--radius); margin-bottom: 20px; overflow: hidden; display: flex; box-shadow: 0 8px 16px rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.03); }
+    .louve-card-edge { width: 6px; background: var(--primary); }
+    .louve-card-content { flex: 1; padding: 20px; }
+    
+    .louve-meta { display: flex; gap: 10px; margin-bottom: 16px; }
+    .badge-date { background: rgba(56, 189, 248, 0.15); color: var(--primary); padding: 6px 12px; border-radius: 50px; font-size: 13px; font-weight: 700; }
+    .badge-time { background: rgba(255, 255, 255, 0.08); color: white; padding: 6px 12px; border-radius: 50px; font-size: 13px; font-weight: 700; }
+    
+    .team-section { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; background: rgba(0,0,0,0.15); padding: 14px; border-radius: 8px; }
+    .team-row { display: flex; flex-direction: column; gap: 2px; }
+    .team-label { font-size: 11px; color: var(--text-muted); font-weight: 500; text-transform: uppercase; }
+    .team-value { font-size: 15px; color: var(--text-white); font-weight: 700; }
+    
+    .songs-box, .alert-box { border-radius: 8px; padding: 14px; margin-top: 12px; border-left: 3px solid; }
+    .songs-box { background: rgba(16, 185, 129, 0.08); border-left-color: #10b981; }
+    .alert-box { background: rgba(245, 158, 11, 0.08); border-left-color: #f59e0b; }
+    
+    .box-header-action { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap: 10px; }
+    .box-title { font-size: 12px; font-weight: 700; text-transform: uppercase; }
+    .songs-box .box-title { color: #10b981; }
+    .alert-box .box-title { color: #f59e0b; }
+    .box-text { font-size: 14px; line-height: 1.5; color: #e2e8f0; }
 
-          <div class="escala-card-body">
-            <div class="escala-row">
-              <span class="escala-row-icon">🎤</span>
-              <div class="escala-row-content">
-                <div class="escala-row-label">Vocal Principal</div>
-                <div class="escala-row-value">${esc(e.vocal)}</div>
-              </div>
-            </div>
-            <div class="escala-row">
-              <span class="escala-row-icon">👥</span>
-              <div class="escala-row-content">
-                <div class="escala-row-label">Backing Vocals</div>
-                <div class="escala-row-value">${esc(e.back)}</div>
-              </div>
-            </div>
-            <div class="escala-row">
-              <span class="escala-row-icon">🎵</span>
-              <div class="escala-row-content">
-                <div class="escala-row-label-hinos">Hinos do Dia</div>
-                <div class="escala-row-value-hinos">${hinosExibicao}</div>
-              </div>
-            </div>
-            <div class="escala-row">
-              <span class="escala-row-icon">🔗</span>
-              <div class="escala-row-content">
-                <div class="escala-row-label-links">Links das Músicas</div>
-                <div class="links-container">${linksHtml}</div>
-              </div>
-            </div>
-            <div class="recados-section">
-              <div class="recados-header">
-                <span class="recados-icon">📢</span>
-                <span class="recados-title">Avisos &amp; Justificativas</span>
-                ${temRecado?'<span class="recados-badge">Há mensagem</span>':''}
-              </div>
-              ${temRecado?`<div class="recado-exibido">${esc(recadoVal)}</div>`:''}
-              <textarea id="recado-input-${e.id}" class="recado-textarea"
-                placeholder="Deixe aqui seu aviso ou justificativa&#10;Ex: Não poderei ir este domingo — João"
-              >${esc(recadoVal)}</textarea>
-              <button id="btn-recado-${e.id}" class="btn-salvar-recado" onclick="salvarApenasRecado('${e.id}')">💾 Salvar Recado</button>
-            </div>
-          </div>
+    .btn-action-sm { background: rgba(16, 185, 129, 0.2); border: 1px solid #10b981; color: #10b981; padding: 5px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; }
 
-          <div class="escala-card-footer">
-            <button class="btn-whats-card" onclick="compartilharWhatsApp('${e.id}')">📲 WhatsApp</button>
-            <button class="btn-edit-card"  onclick="editarEscala('${e.id}')">✏️ Editar</button>
-            <button class="btn-del-card"   onclick="abrirDialog('${e.id}')">🗑</button>
-          </div>
-        </div>`;
-    }).join('');
+    /* Modal Estilo Popup */
+    .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.75); display: none; align-items: center; justify-content: center; z-index: 10000; padding: 16px; }
+    .modal-body { background: var(--bg-card); width: 100%; max-width: 460px; border-radius: var(--radius); padding: 24px; border: 1px solid var(--border); }
+    .modal-body h3 { font-size: 18px; margin-bottom: 16px; color: white; }
 
-    container.innerHTML = `<div class="escala-list">${html}</div>`;
-  }
+    .footer-access { text-align: center; padding: 20px; margin-top: 20px; }
+    .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-muted); padding: 10px 20px; border-radius: 30px; cursor: pointer; font-size: 13px; font-weight: 500; }
 
-  function esc(str) {
-    return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  }
-
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('service-worker.js')
-        .then(r=>console.log('PWA pronto!',r.scope))
-        .catch(e=>console.log('Erro SW:',e));
-    });
-  }
-</script>
-
-<style>
-  :root {
-    --bg-main:    #f8fafc;
-    --bg-header:  #1e3a8a;
-    --bg-card:    #ffffff;
-    --bg-input:   #f1f5f9;
-    --primary:    #1e3a8a;
-    --accent:     #3b82f6;
-    --text-main:  #0f172a;
-    --text-muted: #475569;
-    --text-hinos: #b45309;
-    --border:     #cbd5e1;
-    --danger:     #dc2626;
-    --success:    #16a34a;
-    --radius:     12px;
-    --radius-sm:  8px;
-    --shadow-sm:  0 2px 8px rgba(15,23,42,0.08);
-  }
-  *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
-  html { font-size:16px; scroll-behavior:smooth; }
-  body { font-family:'DM Sans',sans-serif; background:var(--bg-main); color:var(--text-main); min-height:100vh; -webkit-tap-highlight-color:transparent; }
-
-  /* AUTH */
-  .auth-container { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px; background:linear-gradient(135deg,#1e3a8a 0%,#0f172a 100%); }
-  .auth-card { background:#fff; width:100%; max-width:400px; border-radius:var(--radius); padding:30px 24px; box-shadow:0 10px 25px rgba(0,0,0,0.3); }
-  .auth-logo { text-align:center; font-size:48px; margin-bottom:12px; }
-  .auth-card h2 { font-family:'Playfair Display',serif; font-size:22px; color:var(--primary); text-align:center; margin-bottom:6px; }
-  .auth-card p  { font-size:13px; color:var(--text-muted); text-align:center; margin-bottom:20px; }
-  .switch-container { display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:18px; background:var(--bg-input); padding:8px; border-radius:var(--radius-sm); font-size:13px; font-weight:700; }
-  .switch-container input { cursor:pointer; width:16px; height:16px; }
-
-  .btn-recuperar { display:block; width:100%; padding:10px; margin-top:8px; background:transparent; border:none; color:var(--accent); font-family:'DM Sans',sans-serif; font-size:13px; font-weight:700; cursor:pointer; text-align:center; }
-  .btn-recuperar:hover { text-decoration:underline; }
-
-  /* HEADER */
-  .app-header { background:var(--bg-header); padding:12px 16px; position:sticky; top:0; z-index:100; box-shadow:0 2px 10px rgba(0,0,0,0.15); }
-  .header-top { display:flex; align-items:center; gap:12px; }
-  .header-text h1 { font-family:'Playfair Display',serif; font-size:20px; font-weight:700; color:#fff; }
-  .header-text p  { font-size:11px; color:#93c5fd; font-weight:500; letter-spacing:1px; text-transform:uppercase; margin-top:1px; }
-  #nome-igreja-header { font-size:11px; color:#fbbf24; font-weight:700; letter-spacing:0.5px; text-transform:uppercase; }
-  .header-right { margin-left:auto; display:flex; align-items:center; gap:8px; }
-  .header-status { display:flex; align-items:center; gap:6px; background:rgba(0,0,0,0.2); padding:4px 10px; border-radius:20px; }
-  .status-dot { width:8px; height:8px; border-radius:50%; }
-  .status-dot.online     { background:#4ade80; }
-  .status-dot.connecting { background:#fbbf24; }
-  .status-dot.error      { background:#f87171; }
-  .status-dot.offline    { background:#94a3b8; }
-  #status-text { font-size:11px; font-weight:700; color:#fff; }
-  .btn-logout { background:transparent; border:1px solid rgba(248,113,113,0.4); color:#f87171; font-size:12px; font-weight:700; cursor:pointer; padding:5px 10px; border-radius:20px; }
-
-  /* ABAS */
-  .nav-tabs { display:flex; background:#fff; border-bottom:2px solid var(--border); position:sticky; top:68px; z-index:99; }
-  .nav-tab { flex:1; padding:13px 10px; background:transparent; border:none; color:var(--text-muted); font-family:'DM Sans',sans-serif; font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; cursor:pointer; border-bottom:3px solid transparent; transition:all 0.2s; display:flex; align-items:center; justify-content:center; gap:5px; }
-  .nav-tab.active { color:var(--primary); border-bottom-color:var(--primary); }
-  .badge { display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; background:var(--primary); color:#fff; font-size:11px; font-weight:700; border-radius:50%; }
-
-  /* FILTRO */
-  .filtro-bar { display:flex; gap:8px; padding:12px 16px 4px; }
-  .btn-filtro { flex:1; padding:9px; border-radius:var(--radius-sm); border:1.5px solid var(--border); background:#fff; font-family:'DM Sans',sans-serif; font-size:13px; font-weight:700; color:var(--text-muted); cursor:pointer; transition:all 0.2s; }
-  .btn-filtro.ativo { background:var(--primary); color:#fff; border-color:var(--primary); }
-
-  /* PAINÉIS */
-  .main { padding:8px 16px 40px; }
-  .panel { display:none; }
-  .panel.active { display:block; }
-
-  /* FORM */
-  .form-card { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:20px; box-shadow:var(--shadow-sm); }
-  .form-card-title { font-family:'Playfair Display',serif; font-size:18px; font-weight:700; color:var(--primary); margin-bottom:16px; padding-bottom:8px; border-bottom:2px solid var(--bg-input); }
-  .field-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px; }
-  .field-group { margin-bottom:14px; }
-  .field-group label { display:block; font-size:12px; font-weight:700; color:var(--text-main); margin-bottom:6px; }
-  .field-group input, .field-group textarea { width:100%; background:var(--bg-input); border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--text-main); font-family:'DM Sans',sans-serif; font-size:16px; padding:12px; outline:none; }
-  .field-group input:focus, .field-group textarea:focus { border-color:var(--primary); background:#fff; box-shadow:0 0 0 3px rgba(30,58,138,0.1); }
-  .field-group textarea { resize:vertical; min-height:90px; font-weight:500; }
-  .field-hint { font-size:11px; color:var(--text-muted); margin-top:4px; }
-  .btn { display:block; width:100%; padding:14px; border:none; border-radius:var(--radius-sm); font-family:'DM Sans',sans-serif; font-size:16px; font-weight:700; cursor:pointer; }
-  .btn-primary   { background:var(--primary); color:#fff; margin-top:16px; box-shadow:0 4px 12px rgba(30,58,138,0.2); }
-  .btn-secondary { background:#e2e8f0; color:var(--text-muted); margin-top:10px; display:none; }
-  .btn-secondary.visible { display:block; }
-
-  /* CARDS */
-  .escala-list { display:flex; flex-direction:column; gap:16px; margin-top:12px; }
-  .escala-card { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; box-shadow:var(--shadow-sm); transition:opacity 0.2s; }
-  .escala-card.passada { opacity:0.65; }
-  .escala-card.passada .escala-date-num { background:#64748b; }
-  .escala-card-header { background:#f1f5f9; padding:12px 16px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--border); }
-  .escala-date-block { display:flex; align-items:center; gap:10px; }
-  .escala-date-num { background:var(--primary); border-radius:8px; width:44px; height:44px; display:flex; flex-direction:column; align-items:center; justify-content:center; }
-  .escala-date-num .day   { font-family:'Playfair Display',serif; font-size:19px; font-weight:700; color:#fff; line-height:1; }
-  .escala-date-num .month { font-size:9px; font-weight:700; text-transform:uppercase; color:#93c5fd; }
-  .escala-date-info  { display:flex; flex-direction:column; }
-  .escala-date-full  { font-size:15px; font-weight:700; color:var(--text-main); }
-  .escala-time-badge { font-size:12px; font-weight:700; color:var(--primary); margin-top:2px; }
-  .dias-badge { font-size:11px; font-weight:700; padding:4px 10px; border-radius:20px; text-transform:uppercase; }
-  .dias-badge.hoje    { background:#dcfce7; color:#15803d; border:1px solid #bbf7d0; }
-  .dias-badge.breve   { background:#fef3c7; color:#b45309; border:1px solid #fde68a; }
-  .dias-badge.normal  { background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; }
-  .dias-badge.passado { background:#f1f5f9; color:#64748b; border:1px solid #cbd5e1; }
-
-  .escala-card-body { padding:16px; }
-  .escala-row { display:flex; align-items:flex-start; gap:12px; padding:10px 0; border-bottom:1px solid #f1f5f9; }
-  .escala-row:last-of-type { border-bottom:none; }
-  .escala-row-icon    { font-size:18px; flex-shrink:0; width:24px; text-align:center; }
-  .escala-row-content { flex:1; min-width:0; }
-  .escala-row-label   { font-size:11px; font-weight:700; text-transform:uppercase; color:var(--text-muted); letter-spacing:0.5px; margin-bottom:2px; }
-  .escala-row-value   { font-size:16px; font-weight:700; color:var(--text-main); line-height:1.4; }
-  .escala-row-label-hinos { font-size:11px; font-weight:700; text-transform:uppercase; color:#78350f; letter-spacing:0.5px; margin-bottom:4px; }
-  .escala-row-value-hinos { background:#fffbeb; padding:10px; border-radius:6px; border-left:4px solid #d97706; }
-  .hinos-lista { font-size:15px; font-weight:700; color:var(--text-hinos); line-height:1.6; }
-  .escala-row-label-links { font-size:11px; font-weight:700; text-transform:uppercase; color:#1d4ed8; letter-spacing:0.5px; margin-bottom:6px; }
-  .links-container { display:flex; flex-direction:column; gap:6px; }
-  .link-item { display:flex; align-items:center; flex-wrap:wrap; gap:6px; }
-  .link-texto { font-size:14px; color:var(--text-muted); font-style:italic; }
-  .musica-link { display:inline-flex; align-items:center; gap:6px; background:#1e3a8a; color:#fff; padding:6px 14px; border-radius:20px; font-size:13px; font-weight:700; text-decoration:none; }
-  .link-icon { font-size:10px; }
-
-  /* RECADOS */
-  .recados-section { margin-top:14px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:var(--radius-sm); padding:14px; }
-  .recados-header  { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
-  .recados-icon    { font-size:16px; }
-  .recados-title   { font-size:13px; font-weight:700; text-transform:uppercase; color:var(--text-main); letter-spacing:0.5px; }
-  .recados-badge   { margin-left:auto; font-size:10px; font-weight:700; background:#fef3c7; color:#b45309; border:1px solid #fde68a; padding:2px 8px; border-radius:10px; text-transform:uppercase; }
-  .recado-exibido  { font-size:14px; color:#7c3aed; font-weight:500; background:#f5f3ff; border-left:3px solid #7c3aed; padding:8px 10px; border-radius:4px; margin-bottom:10px; white-space:pre-wrap; line-height:1.5; }
-  .recado-textarea { width:100%; background:#fff; border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--text-main); font-family:'DM Sans',sans-serif; font-size:14px; padding:10px; outline:none; resize:vertical; min-height:80px; line-height:1.5; }
-  .recado-textarea:focus { border-color:#7c3aed; box-shadow:0 0 0 3px rgba(124,58,237,0.1); }
-  .btn-salvar-recado { margin-top:8px; width:100%; padding:10px; background:#7c3aed; color:#fff; border:none; border-radius:var(--radius-sm); font-family:'DM Sans',sans-serif; font-size:13px; font-weight:700; cursor:pointer; }
-
-  /* RODAPÉ CARD — 3 colunas */
-  .escala-card-footer { display:grid; grid-template-columns:2fr 1.2fr 0.6fr; border-top:1px solid var(--border); background:#f8fafc; }
-  .escala-card-footer button { padding:13px 8px; background:transparent; border:none; font-family:'DM Sans',sans-serif; font-size:13px; font-weight:700; text-transform:uppercase; cursor:pointer; }
-  .btn-whats-card { color:#15803d; border-right:1px solid var(--border); }
-  .btn-edit-card  { color:#b45309; border-right:1px solid var(--border); }
-  .btn-del-card   { color:var(--danger); }
-
-  .sem-conteudo { color:#94a3b8; font-style:italic; font-size:13px; }
-
-  /* TOAST */
-  .toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(80px); background:#0f172a; color:#fff; padding:12px 24px; border-radius:50px; font-size:14px; font-weight:700; box-shadow:0 10px 25px rgba(0,0,0,0.3); opacity:0; transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1); z-index:999; white-space:nowrap; }
-  .toast.show    { opacity:1; transform:translateX(-50%) translateY(0); }
-  .toast.success { background:#16a34a; }
-  .toast.danger  { background:#dc2626; }
-
-  /* DIALOG */
-  .overlay { position:fixed; inset:0; background:rgba(15,23,42,0.6); z-index:200; display:none; align-items:flex-end; }
-  .overlay.active { display:flex; }
-  .dialog { background:#fff; border-radius:var(--radius) var(--radius) 0 0; padding:24px 20px; width:100%; }
-  .dialog h3 { font-family:'Playfair Display',serif; font-size:19px; font-weight:700; margin-bottom:8px; }
-  .dialog p  { font-size:15px; color:var(--text-muted); line-height:1.5; margin-bottom:20px; }
-  .dialog-actions { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-  .dialog-actions button { padding:14px; border-radius:var(--radius-sm); font-family:'DM Sans',sans-serif; font-size:15px; font-weight:700; cursor:pointer; border:none; }
-  .btn-dialog-cancel  { background:#e2e8f0; color:var(--text-muted); }
-  .btn-dialog-confirm { background:var(--danger); color:#fff; }
-
-  /* EMPTY */
-  .empty-state { text-align:center; padding:60px 24px; color:var(--text-muted); }
-  .empty-icon  { font-size:56px; margin-bottom:12px; }
-  .empty-state h3 { font-family:'Playfair Display',serif; font-size:20px; font-weight:700; color:var(--text-main); margin-bottom:6px; }
-</style>
+    /* Login & Admin Layouts */
+    .auth-container { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; background: radial-gradient(circle at top, #1e3a8a 0%, #0f172a 100%); }
+    .auth-card { background: var(--bg-card); width: 100%; max-width: 420px; border-radius: var(--radius); padding: 32px 24px; }
+    .auth-card h2 { font-size: 24px; font-weight: 700; text-align: center; margin-bottom: 24px; }
+    
+    .switch-container { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 24px; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; font-size: 14px; }
+    .field-group { margin-bottom: 16px; }
+    .field-group label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: var(--text-muted); }
+    .field-group input, .field-group textarea { width: 100%; background: var(--bg-input); border: 1px solid var(--border); border-radius: 8px; padding: 14px; font-size: 16px; color: white; outline: none; }
+    
+    .btn { display: block; width: 100%; padding: 14px; border: none; border-radius: 8px; font-size: 16px; font-weight: 700; cursor: pointer; text-align: center; }
+    .btn-primary { background: var(--primary); color: #0f172a; }
+    
+    .app-header { background: var(--bg-card); padding: 18px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); }
+    .app-header h1 { font-size: 18px; font-weight: 700; color: white; }
+    .app-header button { background: rgba(255,255,255,0.08); border: none; color: var(--text-white); padding: 8px 14px; border-radius: 6px; cursor: pointer; }
+    
+    .nav-tabs { display: flex; background: var(--bg-card); padding: 4px; margin: 16px auto; max-width: 500px; border-radius: 10px; border: 1px solid var(--border); }
+    .nav-tab { flex: 1; padding: 12px; background: transparent; border: none; font-weight: 700; cursor: pointer; font-size: 15px; color: var(--text-muted); border-radius: 8px; }
+    .nav-tab.active { color: #0f172a; background: var(--primary); }
+    
+    .panel { display: none; }
+    .panel.active { display: block; }
+    
+    .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #ffffff; color: #0f172a; padding: 12px 24px; border-radius: 50px; display: none; z-index: 9999; font-weight: 700; }
+    .toast.show { display: block; }
+  </style>
 </head>
 <body>
 
-<!-- TELA DE LOGIN -->
-<div id="auth-screen" style="display:flex;">
-  <div class="auth-container">
-    <div class="auth-card">
-      <div class="auth-logo">🎼</div>
-      <h2 id="auth-title">Painel do Administrador</h2>
-      <p>Gerencie a escala do ministério de música da sua igreja</p>
-
-      <div class="switch-container">
-        <span>Já tenho cadastro</span>
-        <input type="checkbox" id="auth-mode-check" onchange="toggleAuthMode()">
-        <span>Cadastrar nova Igreja</span>
-      </div>
-
-      <form id="auth-form-element" onsubmit="handleAuth(event)">
-        <div id="group-nome-igreja" class="field-group" style="display:none;">
-          <label for="auth-nome-igreja">Nome da Igreja</label>
-          <input type="text" id="auth-nome-igreja" placeholder="Ex: Igreja Batista Central">
-        </div>
-        <div class="field-group">
-          <label for="auth-email">Email</label>
-          <input type="email" id="auth-email" placeholder="seu@email.com" autocomplete="email">
-        </div>
-        <div class="field-group">
-          <label for="auth-senha">Senha</label>
-          <input type="password" id="auth-senha" placeholder="Mínimo 6 caracteres" autocomplete="current-password">
-        </div>
-        <button type="submit" id="btn-auth" class="btn btn-primary">Entrar no Painel</button>
-        <button type="button" id="btn-recuperar" class="btn-recuperar" onclick="recuperarSenha()">Esqueci minha senha</button>
-      </form>
+<div id="public-screen">
+  <div class="welcome-container">
+    <h1 id="nome-igreja-header-publico">Ministério de Louvor</h1>
+    <p id="sub-igreja-publico">Carregando Congregação...</p>
+    <div class="welcome-intro-box">
+      Olá, seja bem-vindo ao nosso painel de organização! Aqui você acompanha os dias das ministrações, equipes escaladas e pode acessar os links de estudo das canções.
     </div>
   </div>
+  <main class="main">
+    <div id="lista-escalas-publica"></div>
+    <div class="footer-access">
+      <button class="btn-outline" onclick="showLoginScreen()">🔐 Acesso Administrativo (Líder)</button>
+    </div>
+  </main>
 </div>
 
-<!-- APP PRINCIPAL -->
-<div id="app-content" style="display:none;">
-
-  <header class="app-header">
-    <div class="header-top">
-      <div class="header-text">
-        <h1>Escala do Louvor</h1>
-        <p id="nome-igreja-header">Ministério de Música</p>
-      </div>
-      <div class="header-right">
-        <div class="header-status">
-          <div id="status-dot" class="status-dot connecting"></div>
-          <span id="status-text">Conectando...</span>
-        </div>
-        <button class="btn-logout" onclick="logout()">Sair</button>
-      </div>
-    </div>
-  </header>
-
-  <nav class="nav-tabs">
-    <button id="tab-lista" class="nav-tab active" onclick="switchTab('lista')">
-      Escalas <span id="badge-count" class="badge" style="display:none;">0</span>
-    </button>
-    <button id="tab-form" class="nav-tab" onclick="switchTab('form')">Nova Escala</button>
-  </nav>
-
-  <main class="main">
-
-    <div id="panel-lista" class="panel active">
-      <div class="filtro-bar">
-        <button id="btn-futuras"  class="btn-filtro ativo" onclick="setFiltro('futuras')">📅 Próximas</button>
-        <button id="btn-passadas" class="btn-filtro"        onclick="setFiltro('passadas')">📖 Histórico</button>
-      </div>
-      <div id="lista-escalas"></div>
-    </div>
-
-    <div id="panel-form" class="panel">
-      <div class="form-card">
-        <div class="form-card-title"><span id="form-title-text">Agendar nova data</span></div>
-        <div class="field-row">
-          <div class="field-group">
-            <label for="data">Data</label>
-            <input type="date" id="data">
-          </div>
-          <div class="field-group">
-            <label for="horario">Horário</label>
-            <input type="time" id="horario">
-          </div>
-        </div>
-        <div class="field-group">
-          <label for="vocal">Vocal Principal</label>
-          <input type="text" id="vocal" placeholder="Ex: Ana Clara">
-        </div>
-        <div class="field-group">
-          <label for="back">Backing Vocals</label>
-          <input type="text" id="back" placeholder="Ex: Lucas, Mariana, Davi">
-        </div>
-        <div class="field-group">
-          <label for="hinos">Hinos do Dia</label>
-          <textarea id="hinos" placeholder="1. Grandioso És Tu&#10;2. Porque Ele Vive&#10;3. Oceanos"></textarea>
-        </div>
-        <div class="field-group">
-          <label for="links">🔗 Links das Músicas</label>
-          <textarea id="links" placeholder="Cole os links do YouTube ou Spotify&#10;Ex: Grandioso És Tu https://youtu.be/..."></textarea>
-          <div class="field-hint">Um link por linha. Pode escrever o nome antes do link.</div>
-        </div>
-        <div class="field-group">
-          <label for="recados">📢 Avisos / Justificativas</label>
-          <textarea id="recados" placeholder="Avisos gerais ou ausências&#10;Ex: João não poderá vir neste domingo."></textarea>
-          <div class="field-hint">Os membros também podem editar este campo diretamente no card.</div>
-        </div>
-        <button id="btn-salvar" class="btn btn-primary" onclick="salvar()">Salvar na Escala</button>
-        <button id="btn-cancelar" class="btn btn-secondary" onclick="resetForm(); switchTab('lista');">Cancelar Edição</button>
-      </div>
-    </div>
-
-  </main>
-
-  <!-- DIALOG EXCLUSÃO -->
-  <div id="overlay" class="overlay" onclick="fecharDialog(event)">
-    <div class="dialog">
-      <h3>Remover Escala?</h3>
-      <p id="dialog-desc">Esta ação não pode ser desfeita.</p>
-      <div class="dialog-actions">
-        <button class="btn-dialog-cancel"  onclick="fecharDialog()">Cancelar</button>
-        <button class="btn-dialog-confirm" onclick="confirmarExclusao()">Remover</button>
-      </div>
-    </div>
-  </div>
-
-</div><!-- fim app-content -->
-
-<div id="toast" class="toast"></div>
-</body>
-</html>
+<div id="musica-modal" class="modal-overlay">
+  <div class="modal-body">
+    <h3>🎵 Definir Repertório do Dia</h3>
+    <div class="field-group">
+      <label>Músicas / Hinos (Um por linha)</label>
+      <textarea id="modal-hinos" rows="5" placeholder="1. Nome da Música - Tom&#
