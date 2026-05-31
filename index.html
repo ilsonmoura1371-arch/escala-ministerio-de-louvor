@@ -55,7 +55,6 @@
   const MESES      = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
   const SEMANA     = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
   const CODIGO_ATIVACAO = "LOUVOR@2026";
-  // MELHORIA: Senha padrão alterada para 1234
   const SENHA_MEMBRO_PADRAO = "1234";
 
   const FUNCOES = [
@@ -191,50 +190,73 @@
   };
 
   /* ══════════════════════════════════════
-     MELHORIA 1: Login membro por NOME DO MEMBRO + senha 1234
+     LOGIN MEMBRO — CORRIGIDO
+     Busca TODOS os músicos sem índice composto,
+     filtra no cliente por nome (case-insensitive).
   ══════════════════════════════════════ */
   window.handleAuthMembro = async function(e) {
     if (e) e.preventDefault();
     const nomeMembro = document.getElementById('membro-nome').value.trim();
     const senha      = document.getElementById('membro-senha').value.trim();
     const btn        = document.getElementById('btn-membro-auth');
+    const erroEl     = document.getElementById('membro-erro');
+
+    erroEl.style.display = 'none';
+    erroEl.textContent   = '';
+
     if (!nomeMembro) { showToast('⚠️ Digite seu nome','danger'); return; }
     if (!senha)      { showToast('⚠️ Digite a senha','danger'); return; }
-    btn.disabled=true; btn.textContent='Verificando...';
+
+    btn.disabled = true;
+    btn.textContent = 'Verificando...';
+
     try {
-      const snapMusicos = await getDocs(query(
-        collection(db,'musicos'),
-        where('nome','>=', nomeMembro),
-        where('nome','<=', nomeMembro + '\uf8ff')
-      ));
-      let membroDoc = null;
+      // ── CORREÇÃO PRINCIPAL: busca simples sem índice composto ──
+      // Traz todos os músicos e filtra no cliente pelo nome
+      const snapMusicos = await getDocs(collection(db, 'musicos'));
+
+      let membroDoc         = null;
       let igrejaIdEncontrado = null;
+
       snapMusicos.forEach(d => {
         const dados = d.data();
-        if (dados.nome.toLowerCase() === nomeMembro.toLowerCase()) {
-          membroDoc = dados;
+        if (dados.nome && dados.nome.trim().toLowerCase() === nomeMembro.toLowerCase()) {
+          membroDoc          = dados;
           igrejaIdEncontrado = dados.igrejaId;
         }
       });
-      if (!membroDoc) throw new Error('Nome não encontrado. Verifique como foi cadastrado pelo líder.');
-      const snapIgreja = await getDoc(doc(db,'igrejas', igrejaIdEncontrado));
-      if (!snapIgreja.exists()) throw new Error('Igreja não encontrada.');
+
+      if (!membroDoc) {
+        throw new Error('Nome não encontrado. Verifique como foi cadastrado pelo líder.');
+      }
+      if (!igrejaIdEncontrado) {
+        throw new Error('Membro sem igreja associada. Fale com o líder.');
+      }
+
+      const snapIgreja = await getDoc(doc(db, 'igrejas', igrejaIdEncontrado));
+      if (!snapIgreja.exists()) throw new Error('Igreja não encontrada no sistema.');
+
       const dadosIgreja = snapIgreja.data();
-      // Aceita senha padrão 1234 OU senha cadastrada pela igreja
-      if (senha !== SENHA_MEMBRO_PADRAO && senha !== dadosIgreja.senhaMembro) {
+      const senhaIgreja = dadosIgreja.senhaMembro || SENHA_MEMBRO_PADRAO;
+
+      if (senha !== SENHA_MEMBRO_PADRAO && senha !== senhaIgreja) {
         throw new Error('Senha incorreta. A senha padrão é: 1234');
       }
-      igrejaId      = igrejaIdEncontrado;
+
+      igrejaId        = igrejaIdEncontrado;
       nomeIgrejaAtual = dadosIgreja.nome || 'Ministério';
-      membroLogado  = true;
-      usuarioLogado = null;
+      membroLogado    = true;
+      usuarioLogado   = null;
+
       entrarNoApp(dadosIgreja.nome || 'Ministério', false);
-      showToast('✓ Bem-vindo, '+membroDoc.nome+'!','success');
+      showToast('✓ Bem-vindo, ' + membroDoc.nome + '!', 'success');
+
     } catch(err) {
-      document.getElementById('membro-erro').style.display='block';
-      document.getElementById('membro-erro').textContent = '❌ '+err.message;
+      erroEl.style.display = 'block';
+      erroEl.textContent   = '❌ ' + err.message;
     } finally {
-      btn.disabled=false; btn.textContent='Entrar';
+      btn.disabled    = false;
+      btn.textContent = 'Entrar';
     }
   };
 
@@ -242,7 +264,8 @@
     if (usuarioLogado) {
       if (confirm('Deseja sair?')) { await signOut(auth); }
     } else {
-      membroLogado=false; igrejaId=null;
+      membroLogado = false;
+      igrejaId     = null;
       mostrarTelaInicio();
     }
   };
@@ -302,7 +325,7 @@
   };
 
   /* ══════════════════════════════════════
-     MELHORIA 2: Salvar Tudo de uma vez
+     FORM ESCALA
   ══════════════════════════════════════ */
   window.resetForm = function() {
     editDocId=null;
@@ -374,7 +397,6 @@
     document.getElementById('overlay').classList.remove('active'); pendingDeleteId=null;
   };
 
-  /* MELHORIA 2: Salvar TUDO de uma escala em um único botão */
   window.salvarEscalaCompleta = async function(id) {
     const btn = document.getElementById('btn-salvar-escala-'+id);
     if(btn){ btn.disabled=true; btn.textContent='Salvando...'; }
@@ -458,9 +480,6 @@
     container.innerHTML=html;
   }
 
-  /* ══════════════════════════════════════
-     ANIVERSÁRIOS
-  ══════════════════════════════════════ */
   function verificarAniversarios() {
     const mesAtual = new Date().getMonth() + 1;
     const diaAtual = new Date().getDate();
@@ -489,9 +508,6 @@
     banner.style.display='block';
   }
 
-  /* ══════════════════════════════════════
-     BADGE
-  ══════════════════════════════════════ */
   function atualizarBadge() {
     const hoje=new Date(); hoje.setHours(0,0,0,0);
     const n=escalas.filter(e=>{
@@ -502,9 +518,6 @@
     if(el){el.textContent=n; el.style.display=n>0?'inline-flex':'none';}
   }
 
-  /* ══════════════════════════════════════
-     RENDER LISTA
-  ══════════════════════════════════════ */
   function renderLista() {
     document.getElementById('mes-nav-label').textContent = `${MESES_FULL[filtroMes]} ${filtroAno}`;
     const hoje=new Date(); hoje.setHours(0,0,0,0);
@@ -551,7 +564,6 @@
       const hinosVal=e.hinos||'', linksVal=e.links||'', recadoVal=e.recados||'';
       const temRecado=recadoVal.trim().length>0;
 
-      /* MELHORIA 2: Um único botão "💾 Salvar Escala" salva hinos + links + recado */
       return `<div class="escala-card${isPassada?' passada':''}" data-id="${e.id}">
         <div class="escala-card-header">
           <div class="escala-date-block">
@@ -567,26 +579,21 @@
         </div>
         <div class="escala-card-body">
           ${funcHtml||'<p class="sem-conteudo" style="padding:10px 0">Nenhum músico escalado.</p>'}
-
           <div class="campo-editavel">
             <div class="campo-editavel-titulo">🎵 Hinos do Dia</div>
             <div>${hinosVal?`<div class="hinos-txt">${esc(hinosVal)}</div>`:'<span class="sem-conteudo">Nenhum hino adicionado</span>'}</div>
             <textarea id="hinos-input-${e.id}" class="campo-textarea" placeholder="1. Grandioso És Tu&#10;2. Porque Ele Vive">${esc(hinosVal)}</textarea>
           </div>
-
           <div class="campo-editavel" style="margin-top:10px;">
             <div class="campo-editavel-titulo">🔗 Links das Músicas</div>
             <div>${formatarLinksHtml(linksVal)}</div>
             <textarea id="links-input-${e.id}" class="campo-textarea" placeholder="Cole os links do YouTube ou Spotify">${esc(linksVal)}</textarea>
           </div>
-
           <div class="campo-editavel roxo" style="margin-top:10px;">
             <div class="campo-editavel-titulo">📢 Avisos &amp; Justificativas ${temRecado?'<span class="recados-badge">Há mensagem</span>':''}</div>
             ${temRecado?`<div class="recado-exibido">${esc(recadoVal)}</div>`:''}
             <textarea id="recados-input-${e.id}" class="campo-textarea" placeholder="Deixe seu aviso ou justificativa">${esc(recadoVal)}</textarea>
           </div>
-
-          <!-- MELHORIA 2: Botão único que salva TUDO -->
           <button id="btn-salvar-escala-${e.id}" class="btn-salvar-unico" onclick="salvarEscalaCompleta('${e.id}')">
             💾 Salvar Escala
           </button>
@@ -611,9 +618,6 @@
     renderLista();
   };
 
-  /* ══════════════════════════════════════
-     PRÓXIMA ESCALA
-  ══════════════════════════════════════ */
   function renderProxima() {
     const container=document.getElementById('proxima-escala-content'); if(!container) return;
     const hoje=new Date(); hoje.setHours(0,0,0,0);
@@ -695,9 +699,6 @@
 </script>
 
 <style>
-/* ══════════════════════════════════════════
-   VARIÁVEIS & RESET
-══════════════════════════════════════════ */
 :root{
   --bg-main:#070d1a;
   --bg-header:#04080f;
@@ -720,8 +721,6 @@
   --radius-sm:9px;
   --shadow-neon:0 0 24px rgba(0,229,255,0.1);
   --shadow-sm:0 2px 16px rgba(0,0,0,0.5);
-
-  /* MELHORIA 3: Variáveis neon para relógio */
   --neon-digit:#00e5ff;
   --neon-digit-glow: 0 0 8px #00e5ff, 0 0 20px #00e5ff, 0 0 40px rgba(0,229,255,0.6), 0 0 80px rgba(0,229,255,0.3);
 }
@@ -729,9 +728,7 @@
 html{font-size:16px;scroll-behavior:smooth;}
 body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text-main);min-height:100vh;-webkit-tap-highlight-color:transparent;}
 
-/* ══════════════════════════════════════════
-   TELA INÍCIO
-══════════════════════════════════════════ */
+/* ══ TELA INÍCIO ══ */
 .tela-inicio{
   min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;
   padding:32px 24px;
@@ -740,6 +737,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
     radial-gradient(ellipse 60% 40% at 80% 110%, rgba(124,58,237,0.12) 0%, transparent 60%),
     linear-gradient(180deg,#04080f 0%,#070d1a 100%);
 }
+
+/* ── LOGO com SVG de guitarra ── */
 .logo-wrap{
   width:130px;height:130px;border-radius:50%;
   display:flex;align-items:center;justify-content:center;
@@ -761,7 +760,12 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
   background:radial-gradient(ellipse at 35% 30%, rgba(0,229,255,0.22) 0%, rgba(7,13,26,0.98) 65%);
   box-shadow:inset 0 0 30px rgba(0,229,255,0.15), 0 0 40px rgba(0,229,255,0.35), 0 0 80px rgba(0,229,255,0.15);
 }
-.logo-emoji{font-size:52px;line-height:1;filter:drop-shadow(0 0 12px rgba(0,229,255,0.9)) drop-shadow(0 0 24px rgba(0,229,255,0.5));}
+/* SVG de guitarra dentro do logo */
+.logo-guitar{
+  width:62px;height:62px;
+  filter:drop-shadow(0 0 10px rgba(0,229,255,0.9)) drop-shadow(0 0 22px rgba(0,229,255,0.5));
+}
+
 .inicio-titulo{
   font-family:'Playfair Display',serif;font-size:30px;font-weight:700;
   color:#fff;text-align:center;margin-bottom:6px;
@@ -770,7 +774,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
 .inicio-sub{font-size:12px;color:var(--accent);text-align:center;margin-bottom:36px;text-transform:uppercase;letter-spacing:2.5px;font-weight:700;}
 .inicio-botoes{display:flex;flex-direction:column;gap:14px;width:100%;max-width:340px;}
 
-/* ── Caixa Acesso Equipe ── */
 .membro-box{
   background:rgba(0,229,255,0.04);border:1px solid rgba(0,229,255,0.2);
   border-radius:var(--radius);padding:20px;box-shadow:0 0 30px rgba(0,229,255,0.08);
@@ -786,14 +789,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
 .btn-inicio{padding:15px;border:none;border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:15px;font-weight:700;cursor:pointer;text-align:center;transition:all 0.2s;width:100%;}
 .btn-inicio-membro{background:linear-gradient(135deg,#00acc1,#006064);color:#fff;box-shadow:0 4px 24px rgba(0,229,255,0.3);}
 .btn-inicio-membro:active{transform:scale(0.98);}
-/* MELHORIA 4: Botão líder renomeado para "Cadastrar Igreja" */
 .btn-inicio-lider{background:rgba(124,58,237,0.12);color:#a78bfa;border:1px solid rgba(124,58,237,0.35);}
 .erro-msg-inicio{font-size:12px;color:#f87171;text-align:center;margin-bottom:8px;display:none;}
 
-/* ══════════════════════════════════════════
-   MELHORIA 3: RELÓGIO NEON NO PICKER DE HORA
-══════════════════════════════════════════ */
-/* Container do time picker neon */
+/* ══ RELÓGIO NEON ══ */
 .neon-time-picker{
   display:flex;align-items:center;justify-content:center;gap:0;
   background:rgba(0,0,0,0.7);border:1px solid rgba(0,229,255,0.3);
@@ -805,77 +804,53 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
   display:flex;flex-direction:column;align-items:center;gap:0;
   position:relative;height:140px;overflow:hidden;width:60px;
 }
-.neon-time-col::before,
-.neon-time-col::after{
+.neon-time-col::before,.neon-time-col::after{
   content:'';position:absolute;left:0;right:0;height:40px;z-index:2;pointer-events:none;
 }
 .neon-time-col::before{top:0;background:linear-gradient(to bottom, rgba(0,0,0,0.85) 0%, transparent 100%);}
 .neon-time-col::after{bottom:0;background:linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 100%);}
-
-/* Linha de seleção central */
 .neon-time-col-inner{
   display:flex;flex-direction:column;align-items:center;
   transition:transform 0.3s cubic-bezier(0.25,0.46,0.45,0.94);
   cursor:ns-resize;user-select:none;
 }
 .neon-digit{
-  font-family:'Share Tech Mono', monospace;
-  font-size:28px;font-weight:700;
-  line-height:1;padding:8px 0;
-  color:rgba(0,229,255,0.25);
+  font-family:'Share Tech Mono', monospace;font-size:28px;font-weight:700;
+  line-height:1;padding:8px 0;color:rgba(0,229,255,0.25);
   transition:all 0.2s;text-align:center;width:60px;
 }
-.neon-digit.active{
-  color:var(--neon-digit);
-  text-shadow:var(--neon-digit-glow);
-  font-size:36px;
-  animation:neonPulse 2s ease-in-out infinite;
-}
-.neon-digit.near{
-  color:rgba(0,229,255,0.55);
-  text-shadow:0 0 8px rgba(0,229,255,0.4);
-  font-size:28px;
-}
+.neon-digit.active{color:var(--neon-digit);text-shadow:var(--neon-digit-glow);font-size:36px;animation:neonPulse 2s ease-in-out infinite;}
+.neon-digit.near{color:rgba(0,229,255,0.55);text-shadow:0 0 8px rgba(0,229,255,0.4);font-size:28px;}
 @keyframes neonPulse{
   0%,100%{text-shadow:0 0 8px #00e5ff, 0 0 20px #00e5ff, 0 0 40px rgba(0,229,255,0.6);}
   50%{text-shadow:0 0 12px #00e5ff, 0 0 30px #00e5ff, 0 0 60px rgba(0,229,255,0.8), 0 0 100px rgba(0,229,255,0.4);}
 }
-.neon-sep{
-  font-family:'Share Tech Mono',monospace;font-size:36px;font-weight:700;
-  color:#00e5ff;margin:0 4px;
-  text-shadow:var(--neon-digit-glow);
-  animation:neonPulse 1.5s ease-in-out infinite;
-  line-height:140px;
-}
-/* Indicador da linha central */
+.neon-sep{font-family:'Share Tech Mono',monospace;font-size:36px;font-weight:700;color:#00e5ff;margin:0 4px;text-shadow:var(--neon-digit-glow);animation:neonPulse 1.5s ease-in-out infinite;line-height:140px;}
 .neon-time-picker-wrap{position:relative;}
 .neon-select-line{
-  position:absolute;left:20px;right:20px;
-  top:50%;transform:translateY(-50%);
-  height:52px;border-top:1px solid rgba(0,229,255,0.35);
-  border-bottom:1px solid rgba(0,229,255,0.35);
-  pointer-events:none;z-index:1;border-radius:6px;
-  box-shadow:0 0 12px rgba(0,229,255,0.2);
+  position:absolute;left:20px;right:20px;top:50%;transform:translateY(-50%);
+  height:52px;border-top:1px solid rgba(0,229,255,0.35);border-bottom:1px solid rgba(0,229,255,0.35);
+  pointer-events:none;z-index:1;border-radius:6px;box-shadow:0 0 12px rgba(0,229,255,0.2);
 }
-/* Botões de navegação do picker */
-.neon-time-nav{display:flex;justify-content:center;gap:24px;margin-top:12px;}
-.neon-time-nav-btn{
-  background:rgba(0,229,255,0.08);border:1px solid rgba(0,229,255,0.25);
-  color:var(--accent);font-size:13px;font-weight:700;
-  padding:6px 16px;border-radius:20px;cursor:pointer;font-family:'DM Sans',sans-serif;
-  transition:all 0.15s;
-}
-.neon-time-nav-btn:hover{background:rgba(0,229,255,0.18);box-shadow:0 0 12px rgba(0,229,255,0.25);}
-
-/* Input time oculto (para compatibilidade) */
 #horario{ display:none; }
 
-/* ══════════════════════════════════════════
-   TELA LÍDER
-══════════════════════════════════════════ */
+/* ══ TELA LÍDER ══ */
 .tela-lider{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;
   background:radial-gradient(ellipse at 50% 0%,rgba(124,58,237,0.18) 0%,transparent 60%),linear-gradient(180deg,#04080f,#070d1a);}
-.auth-card{background:rgba(12,20,36,0.98);width:100%;max-width:380px;border-radius:var(--radius);padding:30px 24px;border:1px solid rgba(124,58,237,0.3);box-shadow:0 0 50px rgba(124,58,237,0.12);}
+.auth-card{background:rgba(12,20,36,0.98);width:100%;max-width:380px;border-radius:var(--radius);padding:30px 24px;border:1px solid rgba(124,58,237,0.3);box-shadow:0 0 50px rgba(124,58,237,0.12);position:relative;}
+
+/* ── BOTÃO FECHAR VERMELHO ── */
+.btn-fechar-card{
+  position:absolute;top:14px;right:14px;
+  width:32px;height:32px;border-radius:50%;
+  background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.5);
+  color:#f87171;font-size:16px;font-weight:700;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:all 0.2s;line-height:1;
+}
+.btn-fechar-card:hover{background:rgba(239,68,68,0.35);box-shadow:0 0 12px rgba(239,68,68,0.4);}
+.btn-fechar-card:active{transform:scale(0.92);}
+
 .auth-logo{text-align:center;font-size:44px;margin-bottom:10px;}
 .auth-card h2{font-family:'Playfair Display',serif;font-size:21px;color:#c4b5fd;text-align:center;margin-bottom:6px;}
 .auth-card p{font-size:13px;color:var(--text-muted);text-align:center;margin-bottom:20px;}
@@ -892,9 +867,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
 .field-group textarea{resize:vertical;min-height:80px;}
 .field-hint{font-size:11px;color:var(--text-muted);margin-top:3px;}
 
-/* ══════════════════════════════════════════
-   HEADER
-══════════════════════════════════════════ */
+/* ══ HEADER ══ */
 .app-header{background:var(--bg-header);padding:12px 16px;position:sticky;top:0;z-index:100;border-bottom:1px solid rgba(0,229,255,0.08);box-shadow:0 2px 20px rgba(0,0,0,0.6);}
 .header-top{display:flex;align-items:center;gap:10px;}
 .header-text h1{font-family:'Playfair Display',serif;font-size:17px;font-weight:700;color:#fff;display:flex;align-items:center;gap:6px;}
@@ -910,17 +883,13 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
 .btn-sair{background:transparent;border:1px solid rgba(239,68,68,0.4);color:#f87171;font-size:12px;font-weight:700;cursor:pointer;padding:5px 12px;border-radius:20px;}
 .badge-lider{background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;box-shadow:0 0 10px rgba(168,85,247,0.4);}
 
-/* ══════════════════════════════════════════
-   ABAS
-══════════════════════════════════════════ */
+/* ══ TABS ══ */
 .nav-tabs{display:flex;background:var(--bg-header);border-bottom:1px solid rgba(0,229,255,0.08);position:sticky;top:62px;z-index:99;overflow-x:auto;}
 .nav-tab{flex:1;min-width:80px;padding:13px 6px;background:transparent;border:none;color:var(--text-muted);font-family:'DM Sans',sans-serif;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;cursor:pointer;border-bottom:2px solid transparent;transition:all 0.2s;display:flex;align-items:center;justify-content:center;gap:4px;white-space:nowrap;}
 .nav-tab.active{color:var(--accent);border-bottom-color:var(--accent);text-shadow:0 0 10px rgba(0,229,255,0.5);}
 .badge{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;background:var(--accent);color:#000;font-size:10px;font-weight:700;border-radius:50%;}
 
-/* ══════════════════════════════════════════
-   MAIN / PANELS
-══════════════════════════════════════════ */
+/* ══ MAIN / PANELS ══ */
 .main{padding:8px 16px 40px;}
 .panel{display:none;} .panel.active{display:block;}
 .mes-nav{display:flex;align-items:center;justify-content:space-between;padding:10px 0 4px;}
@@ -928,9 +897,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
 .mes-nav-btn:hover{background:rgba(0,229,255,0.15);box-shadow:0 0 12px rgba(0,229,255,0.2);}
 #mes-nav-label{font-family:'Playfair Display',serif;font-size:16px;font-weight:700;color:var(--accent);text-shadow:0 0 12px rgba(0,229,255,0.4);}
 
-/* ══════════════════════════════════════════
-   BANNER ANIVERSÁRIOS
-══════════════════════════════════════════ */
+/* ══ BANNER ANIVERSÁRIOS ══ */
 .banner-aniversarios{background:linear-gradient(135deg,rgba(251,191,36,0.07),rgba(245,158,11,0.04));border:1px solid rgba(251,191,36,0.2);border-radius:var(--radius);padding:14px;margin:10px 0 4px;display:none;}
 .aniv-header{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#fbbf24;margin-bottom:10px;}
 .aniv-lista{display:flex;flex-direction:column;gap:6px;}
@@ -939,9 +906,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
 .aniv-icon{font-size:16px;} .aniv-nome{flex:1;color:var(--text-main);} .aniv-dia{font-size:12px;color:var(--text-muted);}
 .aniv-tag{background:#fbbf24;color:#000;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;text-transform:uppercase;}
 
-/* ══════════════════════════════════════════
-   PROXIMA ESCALA
-══════════════════════════════════════════ */
+/* ══ PROXIMA ESCALA ══ */
 .proxima-destaque{background:linear-gradient(135deg,rgba(0,229,255,0.07),rgba(0,229,255,0.03));border:1px solid rgba(0,229,255,0.2);border-radius:var(--radius);padding:24px;text-align:center;margin-top:12px;box-shadow:var(--shadow-neon);}
 .proxima-badge-dias{display:inline-block;background:rgba(0,229,255,0.12);border:1px solid rgba(0,229,255,0.3);color:var(--accent);font-size:12px;font-weight:700;padding:4px 14px;border-radius:20px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;box-shadow:0 0 15px rgba(0,229,255,0.15);}
 .proxima-data-grande{font-family:'Playfair Display',serif;font-size:22px;font-weight:700;color:#fff;margin-bottom:4px;}
@@ -953,9 +918,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
 .proxima-mini-data{font-size:14px;font-weight:700;color:var(--text-main);}
 .proxima-mini-seta{font-size:18px;color:var(--accent);}
 
-/* ══════════════════════════════════════════
-   FORM ESCALA (líder)
-══════════════════════════════════════════ */
+/* ══ FORM ESCALA ══ */
 .form-card{background:var(--bg-card);border:1px solid var(--border-neon);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow-neon);}
 .form-card-title{font-family:'Playfair Display',serif;font-size:17px;font-weight:700;color:var(--accent);margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid var(--border-neon);}
 .form-section-label{font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin:16px 0 8px;}
@@ -966,9 +929,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
 .btn-secondary{background:rgba(255,255,255,0.05);color:var(--text-muted);border:1px solid var(--border);margin-top:10px;display:none;}
 .btn-secondary.visible{display:block;}
 
-/* ══════════════════════════════════════════
-   EQUIPE
-══════════════════════════════════════════ */
+/* ══ EQUIPE ══ */
 .equipe-form{background:var(--bg-card);border:1px solid var(--border-neon);border-radius:var(--radius);padding:16px;margin-bottom:16px;box-shadow:var(--shadow-neon);}
 .equipe-form h3{font-family:'Playfair Display',serif;font-size:16px;color:var(--accent);margin-bottom:14px;}
 .musico-grupo{margin-bottom:16px;}
@@ -980,9 +941,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
 .equipe-lista-card{background:var(--bg-card);border:1px solid var(--border-neon);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow-neon);}
 .equipe-lista-card h3{font-family:'Playfair Display',serif;font-size:16px;color:var(--accent);margin-bottom:14px;}
 
-/* ══════════════════════════════════════════
-   CARDS DE ESCALA
-══════════════════════════════════════════ */
+/* ══ CARDS DE ESCALA ══ */
 .escala-list{display:flex;flex-direction:column;gap:16px;margin-top:12px;}
 .escala-card{background:var(--bg-card);border:1px solid var(--border-neon);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow-neon);}
 .escala-card.passada{opacity:0.5;}
@@ -1006,16 +965,12 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
 .escala-row-content{flex:1;min-width:0;}
 .escala-row-label{font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.5px;margin-bottom:2px;}
 .escala-row-value{font-size:15px;font-weight:700;color:var(--text-main);line-height:1.4;}
-
-/* Campos editáveis */
 .campo-editavel{background:rgba(0,0,0,0.25);border:1px solid rgba(255,255,255,0.05);border-radius:var(--radius-sm);padding:12px;}
 .campo-editavel.roxo{background:rgba(124,58,237,0.04);border-color:rgba(124,58,237,0.18);}
 .campo-editavel-titulo{font-size:12px;font-weight:700;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.5px;margin-bottom:8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
 .hinos-txt{white-space:pre-wrap;color:var(--text-hinos);font-weight:700;font-size:14px;margin-bottom:6px;}
 .campo-textarea{width:100%;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-main);font-family:'DM Sans',sans-serif;font-size:14px;padding:10px;outline:none;resize:vertical;min-height:72px;line-height:1.5;margin-top:6px;}
 .campo-textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,229,255,0.07);}
-
-/* MELHORIA 2: Botão único de salvar */
 .btn-salvar-unico{
   display:block;width:100%;margin-top:14px;padding:14px;border:none;
   border-radius:var(--radius-sm);
@@ -1028,7 +983,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
 .btn-salvar-unico:hover{box-shadow:0 4px 30px rgba(124,58,237,0.5);}
 .btn-salvar-unico:active{transform:scale(0.98);}
 .btn-salvar-unico:disabled{opacity:0.6;cursor:not-allowed;}
-
 .recados-badge{font-size:10px;font-weight:700;background:rgba(251,191,36,0.1);color:#fbbf24;border:1px solid rgba(251,191,36,0.22);padding:2px 7px;border-radius:10px;text-transform:uppercase;}
 .recado-exibido{font-size:14px;color:#c4b5fd;font-weight:500;background:rgba(124,58,237,0.07);border-left:2px solid #7c3aed;padding:8px 10px;border-radius:4px;margin-bottom:8px;white-space:pre-wrap;line-height:1.5;}
 .musica-link{display:inline-flex;align-items:center;gap:6px;background:rgba(0,229,255,0.08);border:1px solid rgba(0,229,255,0.22);color:var(--accent);padding:5px 12px;border-radius:20px;font-size:12px;font-weight:700;text-decoration:none;}
@@ -1043,9 +997,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
 .empty-icon{font-size:52px;margin-bottom:12px;}
 .empty-state h3{font-family:'Playfair Display',serif;font-size:19px;font-weight:700;color:var(--text-main);margin-bottom:6px;}
 
-/* ══════════════════════════════════════════
-   TOAST, DIALOG, OVERLAY
-══════════════════════════════════════════ */
+/* ══ TOAST / DIALOG ══ */
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:#0c1424;color:#fff;padding:12px 24px;border-radius:50px;font-size:14px;font-weight:700;box-shadow:0 10px 30px rgba(0,0,0,0.6);opacity:0;transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1);z-index:999;white-space:nowrap;border:1px solid var(--border);}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 .toast.success{background:#052e16;border-color:rgba(34,197,94,0.4);color:#22c55e;}
@@ -1069,15 +1021,40 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
   <div class="tela-inicio">
     <div class="logo-wrap">
       <div class="logo-inner">
-        <span class="logo-emoji">🎼</span>
+        <!-- CORREÇÃO 3: SVG de guitarra desenhado inline, sem depender de emoji -->
+        <svg class="logo-guitar" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- Corpo da guitarra -->
+          <ellipse cx="22" cy="44" rx="14" ry="11" fill="rgba(0,229,255,0.15)" stroke="#00e5ff" stroke-width="1.8"/>
+          <ellipse cx="22" cy="44" rx="9" ry="7" fill="rgba(0,229,255,0.08)" stroke="#00e5ff" stroke-width="1"/>
+          <!-- Cintura da guitarra -->
+          <path d="M16 36 Q10 33 12 28 Q14 23 20 24 Q26 25 28 28 Q30 33 24 36" fill="rgba(0,229,255,0.12)" stroke="#00e5ff" stroke-width="1.5" stroke-linejoin="round"/>
+          <!-- Braço -->
+          <rect x="27" y="10" width="6" height="26" rx="3" fill="rgba(0,229,255,0.12)" stroke="#00e5ff" stroke-width="1.5"/>
+          <!-- Cabeça -->
+          <rect x="26" y="5" width="8" height="8" rx="2" fill="rgba(0,229,255,0.18)" stroke="#00e5ff" stroke-width="1.5"/>
+          <!-- Cravelhas -->
+          <circle cx="24" cy="6.5" r="1.5" fill="#00e5ff"/>
+          <circle cx="24" cy="10.5" r="1.5" fill="#00e5ff"/>
+          <circle cx="36" cy="6.5" r="1.5" fill="#00e5ff"/>
+          <circle cx="36" cy="10.5" r="1.5" fill="#00e5ff"/>
+          <!-- Cordas -->
+          <line x1="28" y1="10" x2="16" y2="38" stroke="#00e5ff" stroke-width="0.7" opacity="0.6"/>
+          <line x1="30" y1="10" x2="20" y2="38" stroke="#00e5ff" stroke-width="0.7" opacity="0.6"/>
+          <line x1="32" y1="10" x2="24" y2="38" stroke="#00e5ff" stroke-width="0.7" opacity="0.6"/>
+          <!-- Buraco de som -->
+          <circle cx="22" cy="44" r="3.5" stroke="#00e5ff" stroke-width="1" fill="none" opacity="0.7"/>
+          <!-- Cavalete -->
+          <rect x="14" y="49" width="16" height="2" rx="1" fill="#00e5ff" opacity="0.6"/>
+          <!-- Estrela decorativa -->
+          <circle cx="48" cy="16" r="2" fill="#00e5ff" opacity="0.5"/>
+          <circle cx="52" cy="8" r="1.2" fill="#00e5ff" opacity="0.35"/>
+          <circle cx="55" cy="20" r="1" fill="#00e5ff" opacity="0.25"/>
+        </svg>
       </div>
     </div>
     <h1 class="inicio-titulo">Escala do Louvor</h1>
-    <!-- MELHORIA 4: Sub-label atualizado -->
     <p class="inicio-sub">Ministério de Música</p>
     <div class="inicio-botoes">
-
-      <!-- MELHORIA 1: Campo agora pede "Seu nome" e não nome da igreja -->
       <div class="membro-box">
         <div class="membro-box-label">Acesso da Equipe</div>
         <form onsubmit="handleAuthMembro(event)">
@@ -1087,8 +1064,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
           <button type="submit" id="btn-membro-auth" class="btn-inicio btn-inicio-membro">Entrar →</button>
         </form>
       </div>
-
-      <!-- MELHORIA 4: Botão agora diz "Cadastrar Igreja" -->
       <button class="btn-inicio btn-inicio-lider" onclick="mostrarTelaLider()">⛪ Cadastrar / Entrar como Líder</button>
     </div>
   </div>
@@ -1098,10 +1073,12 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
 <div id="tela-lider" style="display:none;">
   <div class="tela-lider">
     <div class="auth-card">
+      <!-- CORREÇÃO 2: Botão fechar vermelho -->
+      <button class="btn-fechar-card" onclick="voltarInicio()" title="Fechar">✕</button>
+
       <div class="auth-logo">🎼</div>
       <h2 id="lider-title">Entrar como Líder</h2>
       <p>Administre a escala da sua igreja</p>
-      <!-- MELHORIA 4: Switch agora diz "Já tenho cadastro" vs "Cadastrar Igreja" -->
       <div class="switch-container">
         <span>Já tenho cadastro</span>
         <input type="checkbox" id="lider-mode-check" onchange="toggleLiderMode()">
@@ -1136,11 +1113,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
 
 <!-- ══ APP PRINCIPAL ══ -->
 <div id="app-content" style="display:none;">
-
   <header class="app-header">
     <div class="header-top">
       <div class="header-text">
-        <h1>🎼 <span id="badge-lider" class="badge-lider" style="display:none;">LÍDER</span></h1>
+        <h1>🎸 <span id="badge-lider" class="badge-lider" style="display:none;">LÍDER</span></h1>
         <div id="nome-igreja-header">Ministério de Música</div>
       </div>
       <div class="header-right">
@@ -1163,7 +1139,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
   </nav>
 
   <main class="main">
-
     <!-- PANEL: ESCALA ATUAL -->
     <div id="panel-escala-atual" class="panel active">
       <div id="banner-aniversarios" class="banner-aniversarios"></div>
@@ -1180,13 +1155,12 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
       <div id="proxima-escala-content"></div>
     </div>
 
-    <!-- PANEL: NOVA ESCALA (líder) -->
+    <!-- PANEL: NOVA ESCALA -->
     <div id="panel-nova" class="panel">
       <div class="form-card">
         <div class="form-card-title"><span id="form-title-text">Agendar nova data</span></div>
         <div class="field-row">
           <div class="field-group"><label>Data</label><input type="date" id="data"></div>
-          <!-- MELHORIA 3: Relógio neon substitui o input time padrão -->
           <div class="field-group">
             <label>Horário</label>
             <input type="time" id="horario" style="display:none;">
@@ -1232,7 +1206,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
           <label>📢 Avisos</label>
           <textarea id="recados" placeholder="Avisos gerais para esta data."></textarea>
         </div>
-        <!-- MELHORIA 2: Botão único salva tudo -->
         <button id="btn-salvar" class="btn btn-primary" onclick="salvar()">💾 Salvar Escala</button>
         <button id="btn-cancelar" class="btn btn-secondary" onclick="resetForm();switchTab('escala-atual')">Cancelar</button>
       </div>
@@ -1276,7 +1249,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
         <div id="lista-equipe"></div>
       </div>
     </div>
-
   </main>
 
   <!-- DIALOG EXCLUSÃO -->
@@ -1290,8 +1262,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
       </div>
     </div>
   </div>
-
-</div><!-- fim app-content -->
+</div>
 
 <div id="panel-id-igreja" style="display:none;">
   <span style="color:#334155;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">ID da Igreja (para membros): </span>
@@ -1300,19 +1271,15 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
 
 <div id="toast" class="toast"></div>
 
-<!-- ══ RELÓGIO NEON: Script de controle ══ -->
+<!-- ══ RELÓGIO NEON ══ -->
 <script>
 (function() {
-  // Inicializa ao carregar e ao entrar no form
   let horaAtual = 8, minAtual = 0;
-
   function pad(n){ return String(n).padStart(2,'0'); }
-
   function buildCol(containerId, total, valorAtual) {
     const inner = document.getElementById(containerId);
     if (!inner) return;
     inner.innerHTML = '';
-    // Mostra vizinhos + valor atual
     for (let i = 0; i < total; i++) {
       const d = document.createElement('div');
       d.className = 'neon-digit';
@@ -1322,7 +1289,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
     }
     scrollToVal(containerId, valorAtual, false);
   }
-
   function scrollToVal(containerId, val, animate) {
     const inner = document.getElementById(containerId);
     if (!inner) return;
@@ -1333,25 +1299,20 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
       if (diff === 0) d.classList.add('active');
       else if (diff === 1) d.classList.add('near');
     });
-    // Scroll para centralizar o ativo
-    const itemH = 52; // altura do dígito ativo + padding
+    const itemH = 52;
     const containerH = 140;
     const offset = val * 44 - (containerH / 2) + (itemH / 2);
     inner.style.transition = animate ? 'transform 0.3s cubic-bezier(0.25,0.46,0.45,0.94)' : 'none';
     inner.style.transform = `translateY(${-offset}px)`;
   }
-
   function updateHiddenInput() {
     const el = document.getElementById('horario');
     if (el) el.value = pad(horaAtual) + ':' + pad(minAtual);
   }
-
-  // Touch / drag handling
   function addDrag(colId, innerId, isHora) {
     const col = document.getElementById(colId);
     if (!col) return;
     let startY = 0, startVal = 0;
-
     function onStart(y) { startY = y; startVal = isHora ? horaAtual : minAtual; }
     function onMove(y) {
       const delta = Math.round((startY - y) / 44);
@@ -1361,7 +1322,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
       scrollToVal(innerId, newVal, true);
       updateHiddenInput();
     }
-
     col.addEventListener('touchstart', e => onStart(e.touches[0].clientY), {passive:true});
     col.addEventListener('touchmove',  e => { e.preventDefault(); onMove(e.touches[0].clientY); }, {passive:false});
     col.addEventListener('mousedown',  e => {
@@ -1371,7 +1331,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
       document.addEventListener('mousemove', mm);
       document.addEventListener('mouseup', mu);
     });
-    // Clique nos dígitos visíveis
     col.addEventListener('click', e => {
       const d = e.target.closest('.neon-digit');
       if (!d) return;
@@ -1381,28 +1340,22 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
       updateHiddenInput();
     });
   }
-
-  // Inicializa quando o DOM estiver pronto
   function init() {
     const now = new Date();
     horaAtual = now.getHours();
     minAtual  = Math.round(now.getMinutes() / 5) * 5;
     if (minAtual >= 60) { minAtual = 0; horaAtual = (horaAtual + 1) % 24; }
-
     buildCol('inner-hora', 24, horaAtual);
     buildCol('inner-min',  60, minAtual);
     addDrag('col-hora', 'inner-hora', true);
     addDrag('col-min',  'inner-min',  false);
     updateHiddenInput();
   }
-
-  // Reexecuta quando a aba Nova é aberta
   const origSwitch = window.switchTab;
   window.switchTab = function(tab) {
     if (origSwitch) origSwitch(tab);
     if (tab === 'nova') setTimeout(init, 50);
   };
-
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {
