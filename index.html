@@ -233,22 +233,31 @@
         throw new Error('Membro sem igreja associada. Fale com o líder.');
       }
 
-      const snapIgreja = await getDoc(doc(db, 'igrejas', igrejaIdEncontrado));
-      if (!snapIgreja.exists()) throw new Error('Igreja não encontrada no sistema.');
-
-      const dadosIgreja = snapIgreja.data();
-      const senhaIgreja = dadosIgreja.senhaMembro || SENHA_MEMBRO_PADRAO;
+      // Tenta buscar dados da igreja — mas não bloqueia se o doc não existir
+      let nomeIgreja  = 'Ministério de Música';
+      let senhaIgreja = SENHA_MEMBRO_PADRAO;
+      try {
+        const snapIgreja = await getDoc(doc(db, 'igrejas', igrejaIdEncontrado));
+        if (snapIgreja.exists()) {
+          const dadosIgreja = snapIgreja.data();
+          nomeIgreja  = dadosIgreja.nome        || nomeIgreja;
+          senhaIgreja = dadosIgreja.senhaMembro  || SENHA_MEMBRO_PADRAO;
+        }
+        // Se o documento da igreja não existir, continua com os defaults
+      } catch(errIgreja) {
+        console.warn('Não foi possível carregar dados da igreja:', errIgreja);
+      }
 
       if (senha !== SENHA_MEMBRO_PADRAO && senha !== senhaIgreja) {
         throw new Error('Senha incorreta. A senha padrão é: 1234');
       }
 
       igrejaId        = igrejaIdEncontrado;
-      nomeIgrejaAtual = dadosIgreja.nome || 'Ministério';
+      nomeIgrejaAtual = nomeIgreja;
       membroLogado    = true;
       usuarioLogado   = null;
 
-      entrarNoApp(dadosIgreja.nome || 'Ministério', false);
+      entrarNoApp(nomeIgreja, false);
       showToast('✓ Bem-vindo, ' + membroDoc.nome + '!', 'success');
 
     } catch(err) {
@@ -760,11 +769,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
   background:radial-gradient(ellipse at 35% 30%, rgba(0,229,255,0.22) 0%, rgba(7,13,26,0.98) 65%);
   box-shadow:inset 0 0 30px rgba(0,229,255,0.15), 0 0 40px rgba(0,229,255,0.35), 0 0 80px rgba(0,229,255,0.15);
 }
-/* SVG de guitarra dentro do logo */
-.logo-guitar{
-  width:62px;height:62px;
-  filter:drop-shadow(0 0 10px rgba(0,229,255,0.9)) drop-shadow(0 0 22px rgba(0,229,255,0.5));
-}
+.logo-emoji{font-size:52px;line-height:1;filter:drop-shadow(0 0 12px rgba(0,229,255,0.9)) drop-shadow(0 0 24px rgba(0,229,255,0.5));}
 
 .inicio-titulo{
   font-family:'Playfair Display',serif;font-size:30px;font-weight:700;
@@ -1021,35 +1026,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
   <div class="tela-inicio">
     <div class="logo-wrap">
       <div class="logo-inner">
-        <!-- CORREÇÃO 3: SVG de guitarra desenhado inline, sem depender de emoji -->
-        <svg class="logo-guitar" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <!-- Corpo da guitarra -->
-          <ellipse cx="22" cy="44" rx="14" ry="11" fill="rgba(0,229,255,0.15)" stroke="#00e5ff" stroke-width="1.8"/>
-          <ellipse cx="22" cy="44" rx="9" ry="7" fill="rgba(0,229,255,0.08)" stroke="#00e5ff" stroke-width="1"/>
-          <!-- Cintura da guitarra -->
-          <path d="M16 36 Q10 33 12 28 Q14 23 20 24 Q26 25 28 28 Q30 33 24 36" fill="rgba(0,229,255,0.12)" stroke="#00e5ff" stroke-width="1.5" stroke-linejoin="round"/>
-          <!-- Braço -->
-          <rect x="27" y="10" width="6" height="26" rx="3" fill="rgba(0,229,255,0.12)" stroke="#00e5ff" stroke-width="1.5"/>
-          <!-- Cabeça -->
-          <rect x="26" y="5" width="8" height="8" rx="2" fill="rgba(0,229,255,0.18)" stroke="#00e5ff" stroke-width="1.5"/>
-          <!-- Cravelhas -->
-          <circle cx="24" cy="6.5" r="1.5" fill="#00e5ff"/>
-          <circle cx="24" cy="10.5" r="1.5" fill="#00e5ff"/>
-          <circle cx="36" cy="6.5" r="1.5" fill="#00e5ff"/>
-          <circle cx="36" cy="10.5" r="1.5" fill="#00e5ff"/>
-          <!-- Cordas -->
-          <line x1="28" y1="10" x2="16" y2="38" stroke="#00e5ff" stroke-width="0.7" opacity="0.6"/>
-          <line x1="30" y1="10" x2="20" y2="38" stroke="#00e5ff" stroke-width="0.7" opacity="0.6"/>
-          <line x1="32" y1="10" x2="24" y2="38" stroke="#00e5ff" stroke-width="0.7" opacity="0.6"/>
-          <!-- Buraco de som -->
-          <circle cx="22" cy="44" r="3.5" stroke="#00e5ff" stroke-width="1" fill="none" opacity="0.7"/>
-          <!-- Cavalete -->
-          <rect x="14" y="49" width="16" height="2" rx="1" fill="#00e5ff" opacity="0.6"/>
-          <!-- Estrela decorativa -->
-          <circle cx="48" cy="16" r="2" fill="#00e5ff" opacity="0.5"/>
-          <circle cx="52" cy="8" r="1.2" fill="#00e5ff" opacity="0.35"/>
-          <circle cx="55" cy="20" r="1" fill="#00e5ff" opacity="0.25"/>
-        </svg>
+        <span class="logo-emoji">🎵</span>
       </div>
     </div>
     <h1 class="inicio-titulo">Escala do Louvor</h1>
@@ -1116,7 +1093,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
   <header class="app-header">
     <div class="header-top">
       <div class="header-text">
-        <h1>🎸 <span id="badge-lider" class="badge-lider" style="display:none;">LÍDER</span></h1>
+        <h1>🎵 <span id="badge-lider" class="badge-lider" style="display:none;">LÍDER</span></h1>
         <div id="nome-igreja-header">Ministério de Música</div>
       </div>
       <div class="header-right">
