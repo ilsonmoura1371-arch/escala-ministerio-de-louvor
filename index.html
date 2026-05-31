@@ -189,11 +189,6 @@
     document.getElementById('lider-erro').style.display='none';
   };
 
-  /* ══════════════════════════════════════
-     LOGIN MEMBRO — CORRIGIDO
-     Busca TODOS os músicos sem índice composto,
-     filtra no cliente por nome (case-insensitive).
-  ══════════════════════════════════════ */
   window.handleAuthMembro = async function(e) {
     if (e) e.preventDefault();
     const nomeMembro = document.getElementById('membro-nome').value.trim();
@@ -211,8 +206,6 @@
     btn.textContent = 'Verificando...';
 
     try {
-      // ── CORREÇÃO PRINCIPAL: busca simples sem índice composto ──
-      // Traz todos os músicos e filtra no cliente pelo nome
       const snapMusicos = await getDocs(collection(db, 'musicos'));
 
       let membroDoc         = null;
@@ -233,7 +226,6 @@
         throw new Error('Membro sem igreja associada. Fale com o líder.');
       }
 
-      // Tenta buscar dados da igreja — mas não bloqueia se o doc não existir
       let nomeIgreja  = 'Ministério de Música';
       let senhaIgreja = SENHA_MEMBRO_PADRAO;
       try {
@@ -243,7 +235,6 @@
           nomeIgreja  = dadosIgreja.nome        || nomeIgreja;
           senhaIgreja = dadosIgreja.senhaMembro  || SENHA_MEMBRO_PADRAO;
         }
-        // Se o documento da igreja não existir, continua com os defaults
       } catch(errIgreja) {
         console.warn('Não foi possível carregar dados da igreja:', errIgreja);
       }
@@ -276,6 +267,19 @@
       membroLogado = false;
       igrejaId     = null;
       mostrarTelaInicio();
+    }
+  };
+
+  /* ── FECHAR APLICATIVO ── */
+  window.fecharApp = async function() {
+    if (confirm('Deseja sair e fechar o aplicativo?')) {
+      try {
+        if (auth.currentUser) await signOut(auth);
+      } catch(e) {}
+      membroLogado = false;
+      igrejaId = null;
+      window.close();
+      window.location.href = 'about:blank';
     }
   };
 
@@ -747,7 +751,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
     linear-gradient(180deg,#04080f 0%,#070d1a 100%);
 }
 
-/* ── LOGO com SVG de guitarra ── */
+/* ── LOGO ── */
 .logo-wrap{
   width:130px;height:130px;border-radius:50%;
   display:flex;align-items:center;justify-content:center;
@@ -795,6 +799,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
 .btn-inicio-membro{background:linear-gradient(135deg,#00acc1,#006064);color:#fff;box-shadow:0 4px 24px rgba(0,229,255,0.3);}
 .btn-inicio-membro:active{transform:scale(0.98);}
 .btn-inicio-lider{background:rgba(124,58,237,0.12);color:#a78bfa;border:1px solid rgba(124,58,237,0.35);}
+.btn-inicio-fechar{background:rgba(239,68,68,0.08);color:#f87171;border:1px solid rgba(239,68,68,0.3);}
+.btn-inicio-fechar:active{transform:scale(0.98);}
 .erro-msg-inicio{font-size:12px;color:#f87171;text-align:center;margin-bottom:8px;display:none;}
 
 /* ══ RELÓGIO NEON ══ */
@@ -886,6 +892,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
 .status-dot.offline{background:#334155;}
 #status-text{font-size:11px;font-weight:700;color:var(--text-main);}
 .btn-sair{background:transparent;border:1px solid rgba(239,68,68,0.4);color:#f87171;font-size:12px;font-weight:700;cursor:pointer;padding:5px 12px;border-radius:20px;}
+.btn-fechar-header{background:transparent;border:1px solid rgba(239,68,68,0.4);color:#f87171;font-size:12px;font-weight:700;cursor:pointer;padding:5px 12px;border-radius:20px;}
 .badge-lider{background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;box-shadow:0 0 10px rgba(168,85,247,0.4);}
 
 /* ══ TABS ══ */
@@ -1042,6 +1049,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
         </form>
       </div>
       <button class="btn-inicio btn-inicio-lider" onclick="mostrarTelaLider()">⛪ Cadastrar / Entrar como Líder</button>
+      <!-- BOTÃO FECHAR NA TELA INICIAL -->
+      <button class="btn-inicio btn-inicio-fechar" onclick="fecharApp()">✕ Fechar Aplicativo</button>
     </div>
   </div>
 </div>
@@ -1050,9 +1059,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
 <div id="tela-lider" style="display:none;">
   <div class="tela-lider">
     <div class="auth-card">
-      <!-- CORREÇÃO 2: Botão fechar vermelho -->
       <button class="btn-fechar-card" onclick="voltarInicio()" title="Fechar">✕</button>
-
       <div class="auth-logo">🎼</div>
       <h2 id="lider-title">Entrar como Líder</h2>
       <p>Administre a escala da sua igreja</p>
@@ -1102,6 +1109,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
           <span id="status-text">Conectando...</span>
         </div>
         <button id="btn-sair" class="btn-sair" onclick="sair()">Sair</button>
+        <!-- BOTÃO FECHAR NO HEADER DO APP -->
+        <button class="btn-fechar-header" onclick="fecharApp()" title="Fechar aplicativo">✕</button>
       </div>
     </div>
   </header>
