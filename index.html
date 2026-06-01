@@ -712,20 +712,20 @@
   window.buscarCifra = function() {
     const query_str = document.getElementById('cifra-busca').value.trim();
     if (!query_str) { showToast('Digite o nome do hino','danger'); return; }
-    // Monta URL de busca do BananaCifra
+    // Monta URL de busca do https://www.bananacifras.com/
     const slug = query_str.toLowerCase()
       .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
       .replace(/[^a-z0-9\s]/g,'')
       .trim().replace(/\s+/g,'+');
-    const url = `https://www.bananacifra.com.br/busca/?q=${encodeURIComponent(query_str)}`;
+    const url = `https://www.bananacifras.com/busca/?q=${encodeURIComponent(query_str)}`;
     // Feedback visual antes de abrir
     const container = document.getElementById('cifra-resultado');
     container.innerHTML = `<div class="cifra-abrindo">
       <div class="cifra-abrindo-icone">&#127928;</div>
-      <div class="cifra-abrindo-titulo">Abrindo BananaCifra...</div>
+      <div class="cifra-abrindo-titulo">Abrindo BananaCifras.com</div>
       <div class="cifra-abrindo-desc">Buscando por <strong>${esc(query_str)}</strong></div>
-      <a href="${url}" target="_blank" rel="noopener noreferrer" class="btn-ir-bananacifra">
-        Abrir BananaCifra
+      <a href="${url}" target="_blank" rel="noopener noreferrer" class="btn-ir-bananacifras">
+        Abrir https://www.bananacifras.com/
       </a>
     </div>`;
     window.open(url, '_blank');
