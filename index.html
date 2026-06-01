@@ -102,6 +102,7 @@
   function mostrarTelaInicio() {
     if (unsubEscalas) { unsubEscalas(); unsubEscalas = null; }
     if (unsubMusicos) { unsubMusicos(); unsubMusicos = null; }
+    if (typeof unsubCifras !== 'undefined' && unsubCifras) { unsubCifras(); unsubCifras = null; }
     document.getElementById('tela-inicio').style.display  = 'flex';
     document.getElementById('tela-lider').style.display   = 'none';
     document.getElementById('app-content').style.display  = 'none';
@@ -289,6 +290,8 @@
       snap => { musicos=snap.docs.map(d=>({id:d.id,...d.data()})); renderEquipe(); verificarAniversarios(); },
       err  => console.error(err)
     );
+    // Cifras — iniciado depois que a função é definida abaixo
+    setTimeout(()=>{ if(typeof iniciarListenerCifras==='function') iniciarListenerCifras(); },0);
   }
 
   function setStatus(s) {
@@ -707,32 +710,183 @@
   }
 
   /* ══════════════════════════════════════
-     CIFRAS — nova aba
+     CIFRAS — busca externa + CRUD interno
   ══════════════════════════════════════ */
+  let cifras        = [];
+  let cifraEditId   = null;
+  let unsubCifras   = null;
+  window.cifraSelecionada = null;
+
+  // Listener Firestore para cifras — chamado dentro de iniciarListeners()
+  function iniciarListenerCifras() {
+    if (!igrejaId) return;
+    if (unsubCifras) unsubCifras();
+    const qC = query(
+      collection(db,'cifras'),
+      where('igrejaId','==',igrejaId),
+      orderBy('titulo','asc')
+    );
+    unsubCifras = onSnapshot(qC,
+      snap => { cifras = snap.docs.map(d=>({id:d.id,...d.data()})); renderCifraLista(); },
+      err  => console.error(err)
+    );
+  }
+
+  // ── Busca externa BananaCifra ──
   window.buscarCifra = function() {
-    const query_str = document.getElementById('cifra-busca').value.trim();
-    if (!query_str) { showToast('Digite o nome do hino','danger'); return; }
-    // Monta URL de busca do BananaCifra
-    const slug = query_str.toLowerCase()
-      .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
-      .replace(/[^a-z0-9\s]/g,'')
-      .trim().replace(/\s+/g,'+');
-    const url = `https://www.bananacifras.com/cifra/busca?q=${encodeURIComponent(query_str)}`;
-    // Feedback visual antes de abrir
-    const container = document.getElementById('cifra-resultado');
-    container.innerHTML = `<div class="cifra-abrindo">
+    const q = document.getElementById('cifra-busca').value.trim();
+    if (!q) { showToast('Digite o nome do hino','danger'); return; }
+    const url = `https://www.bananacifras.com/cifra/busca?q=${encodeURIComponent(q)}`;
+    document.getElementById('cifra-resultado').innerHTML = `<div class="cifra-abrindo">
       <div class="cifra-abrindo-icone">&#127928;</div>
       <div class="cifra-abrindo-titulo">Abrindo BananaCifra...</div>
-      <div class="cifra-abrindo-desc">Buscando por <strong>${esc(query_str)}</strong></div>
-      <a href="${url}" target="_blank" rel="noopener noreferrer" class="btn-ir-bananacifra">
-        Abrir BananaCifra
-      </a>
+      <div class="cifra-abrindo-desc">Buscando: <strong>${esc(q)}</strong></div>
+      <a href="${url}" target="_blank" rel="noopener noreferrer" class="btn-ir-bananacifra">Abrir BananaCifra</a>
     </div>`;
-    window.open(url, '_blank');
+    window.open(url,'_blank');
+  };
+  window.buscarCifraKeydown = function(e){ if(e.key==='Enter') buscarCifra(); };
+
+  // ── Alternar sub-abas de cifras ──
+  window.cifraSubTab = function(aba) {
+    ['busca','minhas'].forEach(t=>{
+      document.getElementById('cifra-tab-'+t)?.classList.toggle('ativo', t===aba);
+      document.getElementById('cifra-area-'+t)?.classList.toggle('ativo', t===aba);
+    });
+    if(aba==='minhas') renderCifraLista();
   };
 
-  window.buscarCifraKeydown = function(e) {
-    if (e.key === 'Enter') buscarCifra();
+  // ── Lista de cifras salvas ──
+  function renderCifraLista() {
+    const lista = document.getElementById('cifra-lista-itens'); if(!lista) return;
+    if(cifras.length===0){
+      lista.innerHTML=`<div class="cifra-dica">
+        <div class="cifra-dica-icone">&#127932;</div>
+        <div>Nenhuma cifra salva ainda.<br>Toque em <strong>+ Nova Cifra</strong> para adicionar.</div>
+      </div>`; return;
+    }
+    lista.innerHTML = cifras.map(c=>`
+      <div class="cifra-item-row" onclick="verCifra('${c.id}')">
+        <div class="cifra-item-info">
+          <div class="cifra-item-titulo">${esc(c.titulo)}</div>
+          ${c.tom?`<div class="cifra-item-tom">Tom: ${esc(c.tom)}</div>`:''}
+        </div>
+        <span class="cifra-item-seta">&#8250;</span>
+      </div>`).join('');
+  }
+
+  // ── Abrir formulário novo ──
+  window.abrirFormCifra = function(id) {
+    cifraEditId = id || null;
+    const c = id ? cifras.find(x=>x.id===id) : null;
+    document.getElementById('cifra-form-titulo-input').value = c ? c.titulo : '';
+    document.getElementById('cifra-form-tom').value          = c ? (c.tom||'') : '';
+    document.getElementById('cifra-form-texto').value        = c ? c.texto : '';
+    document.getElementById('cifra-form-label').textContent  = c ? 'Editar Cifra' : 'Nova Cifra';
+    document.getElementById('cifra-form-area').style.display = 'block';
+    document.getElementById('cifra-viz-area').style.display  = 'none';
+    document.getElementById('cifra-form-titulo-input').focus();
+    document.getElementById('cifra-form-area').scrollIntoView({behavior:'smooth',block:'start'});
+  };
+  window.fecharFormCifra = function() {
+    document.getElementById('cifra-form-area').style.display = 'none';
+    if(window.cifraSelecionada) document.getElementById('cifra-viz-area').style.display='block';
+  };
+
+  // ── Salvar cifra (cria ou edita) ──
+  window.salvarCifra = async function() {
+    const titulo = document.getElementById('cifra-form-titulo-input').value.trim();
+    const tom    = document.getElementById('cifra-form-tom').value.trim();
+    const texto  = document.getElementById('cifra-form-texto').value.trim();
+    if(!titulo){ showToast('Informe o titulo do hino','danger'); return; }
+    if(!texto) { showToast('Cole ou digite a cifra','danger'); return; }
+    const btn = document.getElementById('btn-salvar-cifra');
+    btn.disabled=true; btn.textContent='Salvando...';
+    try {
+      let idResultado;
+      if(cifraEditId){
+        await updateDoc(doc(db,'cifras',cifraEditId),{titulo,tom,texto,updatedAt:serverTimestamp()});
+        idResultado = cifraEditId;
+        showToast('Cifra atualizada!','success');
+      } else {
+        const ref = await addDoc(collection(db,'cifras'),{titulo,tom,texto,igrejaId,createdAt:serverTimestamp(),updatedAt:serverTimestamp()});
+        idResultado = ref.id;
+        showToast('Cifra salva!','success');
+      }
+      document.getElementById('cifra-form-area').style.display='none';
+      setTimeout(()=>{ verCifra(idResultado); }, 400);
+    } catch(err){ showToast('Erro ao salvar cifra','danger'); console.error(err); }
+    btn.disabled=false; btn.textContent='Salvar Cifra';
+  };
+
+  // ── Visualizar cifra ──
+  window.verCifra = function(id) {
+    const c = cifras.find(x=>x.id===id); if(!c) return;
+    window.cifraSelecionada = id;
+    document.getElementById('cifra-form-area').style.display='none';
+    const area = document.getElementById('cifra-viz-area');
+    area.style.display='block';
+    document.getElementById('cifra-viz-nome').textContent = c.titulo;
+    document.getElementById('cifra-viz-tom').textContent  = c.tom ? 'Tom: '+c.tom : '';
+    // guarda texto original para transposição
+    area.dataset.textoOriginal = c.texto;
+    area.dataset.semitons = '0';
+    renderTextoCifra(c.texto);
+    area.scrollIntoView({behavior:'smooth',block:'start'});
+  };
+
+  function renderTextoCifra(texto) {
+    const acordeRx = /\b([A-G][b#]?(?:m(?:aj)?|aug|dim|sus|add)?(?:\d+)?(?:\/[A-G][b#]?)?)\b/g;
+    const html = esc(texto).replace(/\n/g,'<br>').replace(acordeRx, m=>`<span class="acorde">${m}</span>`);
+    document.getElementById('cifra-viz-texto').innerHTML = html;
+  }
+
+  // ── Transposição ──
+  window.transporCifra = function(delta) {
+    const area = document.getElementById('cifra-viz-area'); if(!area) return;
+    const semitons = (parseInt(area.dataset.semitons)||0) + delta;
+    area.dataset.semitons = semitons;
+    const notas    = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+    const notasBem = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
+    function transNota(nota) {
+      let i = notas.indexOf(nota); if(i===-1) i=notasBem.indexOf(nota); if(i===-1) return nota;
+      return notas[((i+delta)%12+12)%12];
+    }
+    const acordeRx = /\b([A-G][b#]?(?:m(?:aj)?|aug|dim|sus|add)?(?:\d+)?(?:\/[A-G][b#]?)?)\b/g;
+    const novoTexto = area.dataset.textoOriginal.replace(acordeRx, m=>{
+      const p = m.match(/^([A-G][b#]?)(.*?)(\/([A-G][b#]?))?$/);
+      if(!p) return m;
+      let r = transNota(p[1])+(p[2]||'');
+      if(p[4]) r+='/'+transNota(p[4]);
+      return r;
+    });
+    // atualiza texto transposto como novo original acumulado
+    area.dataset.textoOriginal = novoTexto;
+    renderTextoCifra(novoTexto);
+    const label = document.getElementById('cifra-tom-label');
+    if(label) label.textContent = semitons===0?'Tom original': (semitons>0?`+${semitons} semitons`:`${semitons} semitons`);
+  };
+
+  // ── Excluir cifra ──
+  window.excluirCifra = async function(id) {
+    if(!confirm('Remover esta cifra?')) return;
+    try {
+      await deleteDoc(doc(db,'cifras',id));
+      document.getElementById('cifra-viz-area').style.display='none';
+      window.cifraSelecionada = null;
+      showToast('Cifra removida','danger');
+    } catch(err){ showToast('Erro ao remover','danger'); }
+  };
+
+  // ── Voltar para lista ──
+  window.voltarParaLista = function() {
+    document.getElementById('cifra-viz-area').style.display='none';
+    window.cifraSelecionada=null;
+  };
+
+  // Busca rápida por tag
+  window.cifraRapida = function(nome) {
+    document.getElementById('cifra-busca').value=nome; buscarCifra();
   };
 
   function isLider(){ return !!usuarioLogado; }
@@ -1012,6 +1166,17 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
 
 /* ══ CIFRAS ══ */
 .cifras-panel{padding-top:12px;}
+
+/* Sub-abas: Buscar / Minhas Cifras */
+.cifra-subtabs{display:flex;gap:0;background:rgba(0,0,0,0.4);border:1px solid var(--border-neon);border-radius:var(--radius-sm);overflow:hidden;margin-bottom:16px;}
+.cifra-subtab{flex:1;padding:11px 8px;background:transparent;border:none;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);cursor:pointer;transition:all 0.2s;}
+.cifra-subtab.ativo{background:rgba(0,229,255,0.12);color:var(--accent);box-shadow:inset 0 -2px 0 var(--accent);}
+
+/* Áreas das sub-abas */
+.cifra-area{display:none;}
+.cifra-area.ativo{display:block;}
+
+/* Busca externa */
 .cifras-header{font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:var(--accent);margin-bottom:4px;}
 .cifras-sub{font-size:12px;color:var(--text-muted);margin-bottom:16px;}
 .cifra-search-row{display:flex;gap:8px;margin-bottom:16px;}
@@ -1027,7 +1192,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
 .cifra-abrindo-desc strong{color:var(--text-main);}
 .btn-ir-bananacifra{display:inline-block;background:linear-gradient(135deg,#f59e0b,#d97706);color:#000;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;padding:12px 28px;border-radius:50px;text-decoration:none;box-shadow:0 4px 20px rgba(245,158,11,0.35);transition:all 0.2s;}
 .btn-ir-bananacifra:active{transform:scale(0.97);}
-.cifra-erro{background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25);border-radius:var(--radius-sm);padding:16px;color:#f87171;font-size:14px;}
 .cifra-dica{background:rgba(0,229,255,0.04);border:1px solid rgba(0,229,255,0.12);border-radius:var(--radius);padding:20px;text-align:center;color:var(--text-muted);font-size:13px;line-height:1.6;}
 .cifra-dica-icone{font-size:36px;margin-bottom:10px;font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
 .cifra-sugestoes{margin-top:16px;}
@@ -1035,6 +1199,57 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
 .cifra-tags{display:flex;flex-wrap:wrap;gap:8px;}
 .cifra-tag{background:rgba(0,229,255,0.06);border:1px solid rgba(0,229,255,0.18);color:var(--accent);font-size:12px;font-weight:700;padding:6px 14px;border-radius:20px;cursor:pointer;transition:all 0.15s;}
 .cifra-tag:hover,.cifra-tag:active{background:rgba(0,229,255,0.15);}
+
+/* Lista de cifras salvas */
+.cifra-minhas-topo{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+.cifra-minhas-titulo{font-family:'Playfair Display',serif;font-size:18px;font-weight:700;color:var(--accent);}
+.btn-nova-cifra{background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#fff;border:none;border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;padding:9px 16px;cursor:pointer;box-shadow:0 4px 16px rgba(124,58,237,0.35);}
+.btn-nova-cifra:active{transform:scale(0.97);}
+.cifra-item-row{display:flex;align-items:center;justify-content:space-between;background:var(--bg-card);border:1px solid var(--border-neon);border-radius:var(--radius-sm);padding:14px 16px;margin-bottom:8px;cursor:pointer;transition:all 0.15s;}
+.cifra-item-row:hover,.cifra-item-row:active{background:rgba(0,229,255,0.06);border-color:rgba(0,229,255,0.3);}
+.cifra-item-titulo{font-size:15px;font-weight:700;color:var(--text-main);}
+.cifra-item-tom{font-size:12px;color:var(--accent);font-weight:700;margin-top:2px;}
+.cifra-item-seta{font-size:22px;color:var(--accent);font-weight:700;flex-shrink:0;}
+
+/* Formulário de cifra */
+.cifra-form-card{background:var(--bg-card);border:1px solid rgba(124,58,237,0.35);border-radius:var(--radius);padding:20px;margin-bottom:16px;box-shadow:0 0 24px rgba(124,58,237,0.1);}
+.cifra-form-label{font-family:'Playfair Display',serif;font-size:17px;font-weight:700;color:#c4b5fd;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid rgba(124,58,237,0.2);display:block;}
+.cifra-field{margin-bottom:12px;}
+.cifra-field label{display:block;font-size:12px;font-weight:700;color:var(--text-main);margin-bottom:5px;}
+.cifra-field input,.cifra-field select{width:100%;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-main);font-family:'DM Sans',sans-serif;font-size:15px;padding:11px;outline:none;}
+.cifra-field input:focus,.cifra-field select:focus{border-color:#7c3aed;box-shadow:0 0 0 3px rgba(124,58,237,0.1);}
+.cifra-field select option{background:#0c1424;}
+.cifra-textarea{width:100%;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-main);font-family:'Share Tech Mono',monospace;font-size:13px;padding:12px;outline:none;resize:vertical;min-height:220px;line-height:1.8;margin-top:5px;}
+.cifra-textarea:focus{border-color:#7c3aed;box-shadow:0 0 0 3px rgba(124,58,237,0.1);}
+.cifra-textarea::placeholder{color:#2a3a50;font-family:'DM Sans',sans-serif;}
+.cifra-hint{font-size:11px;color:var(--text-muted);margin-top:5px;line-height:1.5;}
+.cifra-form-btns{display:flex;gap:10px;margin-top:16px;}
+.btn-salvar-cifra{flex:1;padding:13px;border:none;border-radius:var(--radius-sm);background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#fff;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 4px 20px rgba(124,58,237,0.35);}
+.btn-salvar-cifra:disabled{opacity:0.6;cursor:not-allowed;}
+.btn-cancelar-cifra{padding:13px 18px;border:1px solid var(--border);border-radius:var(--radius-sm);background:transparent;color:var(--text-muted);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;}
+
+/* Visualizador de cifra */
+.cifra-viz-card{background:var(--bg-card);border:1px solid var(--border-neon);border-radius:var(--radius);padding:20px;margin-bottom:16px;box-shadow:var(--shadow-neon);}
+.cifra-viz-topo{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:14px;}
+.cifra-viz-info{flex:1;min-width:0;}
+.cifra-viz-nome{font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:#fff;line-height:1.2;}
+.cifra-viz-tom-label{font-size:13px;color:var(--accent);font-weight:700;margin-top:4px;}
+.cifra-viz-acoes{display:flex;gap:8px;flex-shrink:0;}
+.btn-viz-acao{background:rgba(0,229,255,0.07);border:1px solid rgba(0,229,255,0.2);color:var(--accent);border-radius:var(--radius-sm);padding:8px 12px;font-size:13px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;}
+.btn-viz-acao:active{transform:scale(0.95);}
+.btn-viz-excluir{background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.3);color:#f87171;}
+/* Controles de transposição */
+.cifra-transpor{display:flex;align-items:center;gap:10px;background:rgba(0,229,255,0.04);border:1px solid rgba(0,229,255,0.15);border-radius:var(--radius-sm);padding:10px 14px;margin-bottom:14px;}
+.cifra-transpor-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);flex:1;}
+#cifra-tom-label{font-size:11px;color:var(--accent);font-weight:700;}
+.btn-transpor{background:rgba(0,229,255,0.1);border:1px solid rgba(0,229,255,0.25);color:var(--accent);border-radius:8px;width:36px;height:36px;font-size:20px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:'DM Sans',sans-serif;}
+.btn-transpor:active{transform:scale(0.9);}
+/* Texto da cifra */
+.cifra-viz-texto{font-family:'Share Tech Mono',monospace;font-size:14px;line-height:2;color:var(--text-main);white-space:pre-wrap;word-break:break-word;background:rgba(0,0,0,0.3);border-radius:var(--radius-sm);padding:16px;overflow-x:auto;}
+.acorde{color:#00e5ff;font-weight:700;text-shadow:0 0 8px rgba(0,229,255,0.5);}
+/* Botão voltar */
+.btn-voltar-lista{display:inline-block;margin-top:14px;padding:11px 18px;border:1px solid var(--border);border-radius:var(--radius-sm);background:transparent;color:var(--text-muted);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;}
+
 
 /* ══ TOAST / DIALOG ══ */
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:#0c1424;color:#fff;padding:12px 24px;border-radius:50px;font-size:14px;font-weight:700;box-shadow:0 10px 30px rgba(0,0,0,0.6);opacity:0;transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1);z-index:999;white-space:nowrap;border:1px solid var(--border);}
@@ -1170,34 +1385,127 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
     <!-- PANEL: CIFRAS -->
     <div id="panel-cifras" class="panel">
       <div class="cifras-panel">
-        <h2 class="cifras-header">Cifras Gospel</h2>
-        <p class="cifras-sub">Abre o BananaCifra direto na busca do hino</p>
-        <div class="cifra-search-row">
-          <input type="text" id="cifra-busca" class="cifra-search-input"
-            placeholder="Ex: Grandioso Es Tu, Oceans..."
-            onkeydown="buscarCifraKeydown(event)">
-          <button class="btn-buscar-cifra" onclick="buscarCifra()">Buscar</button>
+
+        <!-- Sub-abas -->
+        <div class="cifra-subtabs">
+          <button class="cifra-subtab ativo" id="cifra-tab-busca"   onclick="cifraSubTab('busca')">&#127928; Buscar</button>
+          <button class="cifra-subtab"       id="cifra-tab-minhas"  onclick="cifraSubTab('minhas')">&#127932; Minhas Cifras</button>
         </div>
-        <div id="cifra-resultado">
-          <div class="cifra-dica">
-            <div class="cifra-dica-icone">&#127928;</div>
-            <div>Digite o nome do hino e toque <strong>Buscar</strong>. O BananaCifra abre automaticamente com os resultados.</div>
+
+        <!-- ── ÁREA: Buscar no BananaCifra ── -->
+        <div class="cifra-area ativo" id="cifra-area-busca">
+          <h2 class="cifras-header">Cifras Gospel</h2>
+          <p class="cifras-sub">Abre o BananaCifra direto na busca do hino</p>
+          <div class="cifra-search-row">
+            <input type="text" id="cifra-busca" class="cifra-search-input"
+              placeholder="Ex: Grandioso Es Tu, Oceans..."
+              onkeydown="buscarCifraKeydown(event)">
+            <button class="btn-buscar-cifra" onclick="buscarCifra()">Buscar</button>
           </div>
-          <div class="cifra-sugestoes">
-            <div class="cifra-sugestoes-titulo">Sugestoes rapidas</div>
-            <div class="cifra-tags">
-              <span class="cifra-tag" onclick="cifraRapida('Grandioso Es Tu')">Grandioso Es Tu</span>
-              <span class="cifra-tag" onclick="cifraRapida('Porque Ele Vive')">Porque Ele Vive</span>
-              <span class="cifra-tag" onclick="cifraRapida('Oceans Hillsong')">Oceans</span>
-              <span class="cifra-tag" onclick="cifraRapida('10.000 Reasons')">10.000 Reasons</span>
-              <span class="cifra-tag" onclick="cifraRapida('Reckless Love')">Reckless Love</span>
-              <span class="cifra-tag" onclick="cifraRapida('Way Maker')">Way Maker</span>
-              <span class="cifra-tag" onclick="cifraRapida('O Poder do Teu Amor')">Poder do Teu Amor</span>
-              <span class="cifra-tag" onclick="cifraRapida('Nao Para de Lutar')">Nao Para de Lutar</span>
+          <div id="cifra-resultado">
+            <div class="cifra-dica">
+              <div class="cifra-dica-icone">&#127928;</div>
+              <div>Digite o nome do hino e toque <strong>Buscar</strong>. O BananaCifra abre com os resultados.</div>
+            </div>
+            <div class="cifra-sugestoes">
+              <div class="cifra-sugestoes-titulo">Sugestoes rapidas</div>
+              <div class="cifra-tags">
+                <span class="cifra-tag" onclick="cifraRapida('Grandioso Es Tu')">Grandioso Es Tu</span>
+                <span class="cifra-tag" onclick="cifraRapida('Porque Ele Vive')">Porque Ele Vive</span>
+                <span class="cifra-tag" onclick="cifraRapida('Oceans Hillsong')">Oceans</span>
+                <span class="cifra-tag" onclick="cifraRapida('10000 Reasons')">10.000 Reasons</span>
+                <span class="cifra-tag" onclick="cifraRapida('Reckless Love')">Reckless Love</span>
+                <span class="cifra-tag" onclick="cifraRapida('Way Maker')">Way Maker</span>
+                <span class="cifra-tag" onclick="cifraRapida('O Poder do Teu Amor')">Poder do Teu Amor</span>
+                <span class="cifra-tag" onclick="cifraRapida('Nao Para de Lutar')">Nao Para de Lutar</span>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+
+        <!-- ── ÁREA: Minhas Cifras ── -->
+        <div class="cifra-area" id="cifra-area-minhas">
+
+          <!-- Topo com botão nova cifra -->
+          <div class="cifra-minhas-topo">
+            <div class="cifra-minhas-titulo">Minhas Cifras</div>
+            <button class="btn-nova-cifra" onclick="abrirFormCifra()">+ Nova Cifra</button>
+          </div>
+
+          <!-- Formulário (oculto por padrão) -->
+          <div id="cifra-form-area" style="display:none;">
+            <div class="cifra-form-card">
+              <span id="cifra-form-label" class="cifra-form-label">Nova Cifra</span>
+              <div class="cifra-field">
+                <label>Titulo do Hino</label>
+                <input type="text" id="cifra-form-titulo-input" placeholder="Ex: Grandioso Es Tu">
+              </div>
+              <div class="cifra-field">
+                <label>Tom Base</label>
+                <select id="cifra-form-tom">
+                  <option value="">Sem tom definido</option>
+                  <option value="C">C (Do)</option>
+                  <option value="C#">C# (Do#)</option>
+                  <option value="D">D (Re)</option>
+                  <option value="D#">D# (Re#)</option>
+                  <option value="E">E (Mi)</option>
+                  <option value="F">F (Fa)</option>
+                  <option value="F#">F# (Fa#)</option>
+                  <option value="G">G (Sol)</option>
+                  <option value="G#">G# (Sol#)</option>
+                  <option value="A">A (La)</option>
+                  <option value="A#">A# (La#)</option>
+                  <option value="B">B (Si)</option>
+                  <option value="Cm">Cm</option>
+                  <option value="Dm">Dm</option>
+                  <option value="Em">Em</option>
+                  <option value="Gm">Gm</option>
+                  <option value="Am">Am</option>
+                  <option value="Bm">Bm</option>
+                </select>
+              </div>
+              <div class="cifra-field">
+                <label>Cifra / Letra com Acordes</label>
+                <textarea id="cifra-form-texto" class="cifra-textarea"
+                  placeholder="Cole ou digite a cifra aqui.&#10;&#10;Exemplo:&#10;G           Em&#10;Grandioso es Tu, Senhor&#10;C           D&#10;Grande e Teu amor..."></textarea>
+                <div class="cifra-hint">Cole a cifra do BananaCifra ou de qualquer site. Os acordes aparecem destacados em azul automaticamente.</div>
+              </div>
+              <div class="cifra-form-btns">
+                <button id="btn-salvar-cifra" class="btn-salvar-cifra" onclick="salvarCifra()">Salvar Cifra</button>
+                <button class="btn-cancelar-cifra" onclick="fecharFormCifra()">Cancelar</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Visualizador de cifra (oculto por padrão) -->
+          <div id="cifra-viz-area" style="display:none;">
+            <div class="cifra-viz-card">
+              <div class="cifra-viz-topo">
+                <div class="cifra-viz-info">
+                  <div id="cifra-viz-nome" class="cifra-viz-nome"></div>
+                  <div id="cifra-viz-tom" class="cifra-viz-tom-label"></div>
+                </div>
+                <div class="cifra-viz-acoes">
+                  <button class="btn-viz-acao" onclick="abrirFormCifra(window.cifraSelecionada)">Editar</button>
+                  <button class="btn-viz-acao btn-viz-excluir" onclick="excluirCifra(window.cifraSelecionada)">Excluir</button>
+                </div>
+              </div>
+              <div class="cifra-transpor">
+                <span class="cifra-transpor-label">Transpor tom:</span>
+                <span id="cifra-tom-label">Tom original</span>
+                <button class="btn-transpor" onclick="transporCifra(-1)">&#8722;</button>
+                <button class="btn-transpor" onclick="transporCifra(1)">&#43;</button>
+              </div>
+              <div id="cifra-viz-texto" class="cifra-viz-texto"></div>
+              <button class="btn-voltar-lista" onclick="voltarParaLista()">&#8592; Voltar</button>
+            </div>
+          </div>
+
+          <!-- Lista de cifras -->
+          <div id="cifra-lista-itens"></div>
+
+        </div><!-- /cifra-area-minhas -->
+      </div><!-- /cifras-panel -->
     </div>
 
     <!-- PANEL: NOVA ESCALA -->
