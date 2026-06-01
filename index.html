@@ -40,7 +40,6 @@
 
   let escalas         = [];
   let musicos         = [];
-  let cifras          = [];
   let editDocId       = null;
   let pendingDeleteId = null;
   let usuarioLogado   = null;
@@ -51,9 +50,6 @@
   let filtroAno = new Date().getFullYear();
   let unsubEscalas = null;
   let unsubMusicos = null;
-  let unsubCifras  = null;
-  let cifraEditId  = null;
-
 
   const MESES_FULL = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
   const MESES      = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
@@ -61,24 +57,26 @@
   const CODIGO_ATIVACAO = "LOUVOR@2026";
   const SENHA_MEMBRO_PADRAO = "1234";
 
-  // CORREÇÃO 1: Ícones com fallback texto para iOS
+  // FIX iOS: usar texto em vez de emojis para evitar problema de renderização
   const FUNCOES = [
-    { id:'vocal',     label:'Vocal Principal',   icon:'🎤', iconFallback:'MIC' },
-    { id:'back',      label:'Backing Vocals',     icon:'🎙️', iconFallback:'BCK' },
-    { id:'violao',    label:'Violão',             icon:'🎸', iconFallback:'VLO' },
-    { id:'guitarra',  label:'Guitarra',           icon:'🎸', iconFallback:'GTR' },
-    { id:'teclado',   label:'Teclado',            icon:'🎹', iconFallback:'TEC' },
-    { id:'bateria',   label:'Bateria',            icon:'🥁', iconFallback:'BAT' },
-    { id:'baixo',     label:'Baixo',              icon:'🎵', iconFallback:'BXO' },
-    { id:'sax',       label:'Saxofone',           icon:'🎷', iconFallback:'SAX' },
-    { id:'percussao', label:'Percussão',          icon:'🪘', iconFallback:'PER' },
-    { id:'som',       label:'Mesa de Som',        icon:'🎚️', iconFallback:'SOM' },
-    { id:'midia',     label:'Mídia/ProPresenter', icon:'🖥️', iconFallback:'MID' },
+    { id:'vocal',     label:'Vocal Principal',   icon:'MIC' },
+    { id:'back',      label:'Backing Vocals',     icon:'BACK' },
+    { id:'violao',    label:'Violao',             icon:'VLO' },
+    { id:'guitarra',  label:'Guitarra',           icon:'GTR' },
+    { id:'teclado',   label:'Teclado',            icon:'TCL' },
+    { id:'bateria',   label:'Bateria',            icon:'BAT' },
+    { id:'baixo',     label:'Baixo',              icon:'BXO' },
+    { id:'sax',       label:'Saxofone',           icon:'SAX' },
+    { id:'percussao', label:'Percussao',          icon:'PRC' },
+    { id:'som',       label:'Mesa de Som',        icon:'SOM' },
+    { id:'midia',     label:'Midia/ProPresenter', icon:'MID' },
   ];
 
-  function icone(f) {
-    return `<span class="func-icon" aria-label="${f.label}">${f.icon}</span>`;
-  }
+  // Emojis separados para exibição (iOS renderiza emojis em texto normal sem problemas)
+  const FUNCOES_EMOJI = {
+    vocal:'🎤', back:'🎙️', violao:'🪕', guitarra:'🎸', teclado:'🎹',
+    bateria:'🥁', baixo:'🎵', sax:'🎷', percussao:'🪘', som:'🎚️', midia:'🖥️'
+  };
 
   /* ══════════════════════════════════════
      AUTH FIREBASE (LÍDER)
@@ -104,7 +102,6 @@
   function mostrarTelaInicio() {
     if (unsubEscalas) { unsubEscalas(); unsubEscalas = null; }
     if (unsubMusicos) { unsubMusicos(); unsubMusicos = null; }
-    if (unsubCifras)  { unsubCifras();  unsubCifras  = null; }
     document.getElementById('tela-inicio').style.display  = 'flex';
     document.getElementById('tela-lider').style.display   = 'none';
     document.getElementById('app-content').style.display  = 'none';
@@ -120,11 +117,6 @@
     document.getElementById('tab-equipe').style.display  = isLider ? 'flex' : 'none';
     document.getElementById('badge-lider').style.display = isLider ? 'inline' : 'none';
     document.getElementById('btn-sair').textContent      = isLider ? 'Sair' : 'Trocar';
-    // Botão nova cifra disponível para todos os membros
-    const btnNovaCifra = document.getElementById('btn-nova-cifra-topo');
-    if (btnNovaCifra) btnNovaCifra.style.display = 'block';
-    const acoesViz = document.getElementById('cifra-viz-acoes-wrap');
-    if (acoesViz) acoesViz.style.display = 'flex';
 
     filtroMes = new Date().getMonth();
     filtroAno = new Date().getFullYear();
@@ -152,11 +144,11 @@
     const nome  = document.getElementById('lider-nome-igreja').value.trim();
     const codigo= document.getElementById('lider-codigo').value.trim();
     const btn   = document.getElementById('btn-lider-auth');
-    if (!email||!senha) { showToast('⚠️ Preencha email e senha','danger'); return; }
-    if (modo && !nome)  { showToast('⚠️ Informe o nome da Igreja','danger'); return; }
+    if (!email||!senha) { showToast('Preencha email e senha','danger'); return; }
+    if (modo && !nome)  { showToast('Informe o nome da Igreja','danger'); return; }
     if (modo && codigo !== CODIGO_ATIVACAO) {
       document.getElementById('lider-erro').style.display='block';
-      document.getElementById('lider-erro').textContent='❌ Código de ativação inválido.';
+      document.getElementById('lider-erro').textContent='Codigo de ativacao invalido.';
       return;
     }
     btn.disabled=true; btn.textContent = modo?'Cadastrando...':'Entrando...';
@@ -167,40 +159,40 @@
         await setDoc(doc(db,'igrejas',cred.user.uid), {
           nome, senhaMembro: SENHA_MEMBRO_PADRAO, createdAt: serverTimestamp()
         });
-        showToast('✓ Igreja cadastrada!','success');
+        showToast('Igreja cadastrada!','success');
       } else {
         await signInWithEmailAndPassword(auth, email, senha);
-        showToast('✓ Bem-vindo!','success');
+        showToast('Bem-vindo!','success');
       }
       document.getElementById('lider-form').reset();
       document.getElementById('group-nome-lider').style.display='none';
     } catch(err) {
       document.getElementById('lider-erro').style.display='block';
       document.getElementById('lider-erro').textContent =
-        err.code==='auth/email-already-in-use' ? '❌ Email já cadastrado.' :
-        (err.code==='auth/wrong-password'||err.code==='auth/user-not-found'||err.code==='auth/invalid-credential') ? '❌ Email ou senha incorretos.' :
-        '❌ '+err.message;
+        err.code==='auth/email-already-in-use' ? 'Email ja cadastrado.' :
+        (err.code==='auth/wrong-password'||err.code==='auth/user-not-found'||err.code==='auth/invalid-credential') ? 'Email ou senha incorretos.' :
+        err.message;
     } finally {
       btn.disabled=false;
-      btn.textContent = modo?'Cadastrar Igreja':'Entrar como Líder';
+      btn.textContent = modo?'Cadastrar Igreja':'Entrar como Lider';
     }
   };
 
   window.recuperarSenha = async function() {
     const email = document.getElementById('lider-email').value.trim();
-    if (!email) { showToast('⚠️ Digite seu email primeiro','danger'); return; }
+    if (!email) { showToast('Digite seu email primeiro','danger'); return; }
     try {
       await sendPasswordResetEmail(auth, email);
-      showToast('📧 Email de recuperação enviado!','success');
-    } catch(err) { showToast('❌ Email não encontrado.','danger'); }
+      showToast('Email de recuperacao enviado!','success');
+    } catch(err) { showToast('Email nao encontrado.','danger'); }
   };
 
   window.toggleLiderMode = function() {
     const modo = document.getElementById('lider-mode-check').checked;
     document.getElementById('group-nome-lider').style.display   = modo?'block':'none';
     document.getElementById('group-codigo-lider').style.display = modo?'block':'none';
-    document.getElementById('lider-title').textContent = modo?'Cadastrar sua Igreja':'Entrar como Líder';
-    document.getElementById('btn-lider-auth').textContent = modo?'Cadastrar Igreja':'Entrar como Líder';
+    document.getElementById('lider-title').textContent = modo?'Cadastrar sua Igreja':'Entrar como Lider';
+    document.getElementById('btn-lider-auth').textContent = modo?'Cadastrar Igreja':'Entrar como Lider';
     document.getElementById('lider-erro').style.display='none';
   };
 
@@ -210,12 +202,16 @@
     const senha      = document.getElementById('membro-senha').value.trim();
     const btn        = document.getElementById('btn-membro-auth');
     const erroEl     = document.getElementById('membro-erro');
+
     erroEl.style.display = 'none';
     erroEl.textContent   = '';
-    if (!nomeMembro) { showToast('⚠️ Digite seu nome','danger'); return; }
-    if (!senha)      { showToast('⚠️ Digite a senha','danger'); return; }
+
+    if (!nomeMembro) { showToast('Digite seu nome','danger'); return; }
+    if (!senha)      { showToast('Digite a senha','danger'); return; }
+
     btn.disabled = true;
     btn.textContent = 'Verificando...';
+
     try {
       const snapMusicos = await getDocs(collection(db, 'musicos'));
       let membroDoc = null, igrejaIdEncontrado = null;
@@ -225,9 +221,10 @@
           membroDoc = dados; igrejaIdEncontrado = dados.igrejaId;
         }
       });
-      if (!membroDoc) throw new Error('Nome não encontrado. Verifique como foi cadastrado pelo líder.');
-      if (!igrejaIdEncontrado) throw new Error('Membro sem igreja associada. Fale com o líder.');
-      let nomeIgreja = 'Ministério de Música', senhaIgreja = SENHA_MEMBRO_PADRAO;
+      if (!membroDoc) throw new Error('Nome nao encontrado. Verifique como foi cadastrado pelo lider.');
+      if (!igrejaIdEncontrado) throw new Error('Membro sem igreja associada. Fale com o lider.');
+
+      let nomeIgreja = 'Ministerio de Musica', senhaIgreja = SENHA_MEMBRO_PADRAO;
       try {
         const snapIgreja = await getDoc(doc(db, 'igrejas', igrejaIdEncontrado));
         if (snapIgreja.exists()) {
@@ -235,17 +232,25 @@
           nomeIgreja  = dadosIgreja.nome       || nomeIgreja;
           senhaIgreja = dadosIgreja.senhaMembro || SENHA_MEMBRO_PADRAO;
         }
-      } catch(errIgreja) { console.warn('Não foi possível carregar dados da igreja:', errIgreja); }
-      if (senha !== SENHA_MEMBRO_PADRAO && senha !== senhaIgreja) throw new Error('Senha incorreta. A senha padrão é: 1234');
-      igrejaId = igrejaIdEncontrado; nomeIgrejaAtual = nomeIgreja;
-      membroLogado = true; usuarioLogado = null;
+      } catch(errIgreja) { console.warn('Nao foi possivel carregar dados da igreja:', errIgreja); }
+
+      if (senha !== SENHA_MEMBRO_PADRAO && senha !== senhaIgreja) {
+        throw new Error('Senha incorreta. A senha padrao e: 1234');
+      }
+
+      igrejaId = igrejaIdEncontrado;
+      nomeIgrejaAtual = nomeIgreja;
+      membroLogado = true;
+      usuarioLogado = null;
+
       entrarNoApp(nomeIgreja, false);
-      showToast('✓ Bem-vindo, ' + membroDoc.nome + '!', 'success');
+      showToast('Bem-vindo, ' + membroDoc.nome + '!', 'success');
     } catch(err) {
       erroEl.style.display = 'block';
-      erroEl.textContent   = '❌ ' + err.message;
+      erroEl.textContent   = err.message;
     } finally {
-      btn.disabled = false; btn.textContent = 'Entrar';
+      btn.disabled = false;
+      btn.textContent = 'Entrar';
     }
   };
 
@@ -284,13 +289,6 @@
       snap => { musicos=snap.docs.map(d=>({id:d.id,...d.data()})); renderEquipe(); verificarAniversarios(); },
       err  => console.error(err)
     );
-    // Listener para cifras
-    if (unsubCifras) unsubCifras();
-    const qC = query(collection(db,'cifras'), where("igrejaId","==",igrejaId), orderBy("titulo","asc"));
-    unsubCifras = onSnapshot(qC,
-      snap => { cifras=snap.docs.map(d=>({id:d.id,...d.data()})); renderCifras(); },
-      err  => console.error(err)
-    );
   }
 
   function setStatus(s) {
@@ -308,13 +306,8 @@
     ['escala-atual','proxima-escala','nova','equipe','cifras'].forEach(t=>{
       const b=document.getElementById('tab-'+t); if(b) b.classList.toggle('active',t===tab);
     });
-    if (tab==='escala-atual') {
-      filtroMes = new Date().getMonth();
-      filtroAno = new Date().getFullYear();
-      renderLista();
-    }
+    if (tab==='escala-atual') { filtroMes=new Date().getMonth(); filtroAno=new Date().getFullYear(); renderLista(); }
     if (tab==='proxima-escala') renderProxima();
-    if (tab==='cifras') renderCifras();
   };
 
   /* ══════════════════════════════════════
@@ -336,17 +329,17 @@
     ['data','horario','hinos','links','recados'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
     FUNCOES.forEach(f=>{ const el=document.getElementById('f-'+f.id); if(el) el.value=''; });
     document.getElementById('form-title-text').textContent='Agendar nova data';
-    document.getElementById('btn-salvar').textContent='💾 Salvar Escala';
+    document.getElementById('btn-salvar').textContent='Salvar Escala';
     document.getElementById('btn-cancelar').classList.remove('visible');
     document.getElementById('btn-salvar').disabled=false;
   };
 
   window.salvar = async function() {
-    if (!isLider()) { showToast('🔒 Apenas o líder pode criar escalas','danger'); return; }
+    if (!isLider()) { showToast('Apenas o lider pode criar escalas','danger'); return; }
     const data   =document.getElementById('data').value.trim();
     const horario=document.getElementById('horario').value.trim();
-    if (!data)    { showToast('⚠️ Informe a data','danger');    return; }
-    if (!horario) { showToast('⚠️ Informe o horário','danger'); return; }
+    if (!data)    { showToast('Informe a data','danger');    return; }
+    if (!horario) { showToast('Informe o horario','danger'); return; }
     const funcoes={};
     FUNCOES.forEach(f=>{ funcoes[f.id]=document.getElementById('f-'+f.id)?.value.trim()||''; });
     const btn=document.getElementById('btn-salvar');
@@ -357,14 +350,14 @@
       recados:document.getElementById('recados').value.trim(),
       igrejaId, updatedAt:serverTimestamp() };
     try {
-      if (editDocId) { await updateDoc(doc(db,'escalas',editDocId),obj); showToast('✓ Escala atualizada!','success'); }
-      else { obj.createdAt=serverTimestamp(); await addDoc(col,obj); showToast('✓ Escala salva com sucesso!','success'); }
+      if (editDocId) { await updateDoc(doc(db,'escalas',editDocId),obj); showToast('Escala atualizada!','success'); }
+      else { obj.createdAt=serverTimestamp(); await addDoc(col,obj); showToast('Escala salva!','success'); }
       resetForm(); switchTab('escala-atual');
-    } catch(err) { console.error(err); showToast('❌ Erro ao salvar','danger'); btn.disabled=false; btn.textContent=editDocId?'Atualizar Escala':'💾 Salvar Escala'; }
+    } catch(err) { console.error(err); showToast('Erro ao salvar','danger'); btn.disabled=false; btn.textContent=editDocId?'Atualizar Escala':'Salvar Escala'; }
   };
 
   window.editarEscala = function(id) {
-    if (!isLider()) { showToast('🔒 Apenas o líder pode editar','danger'); return; }
+    if (!isLider()) { showToast('Apenas o lider pode editar','danger'); return; }
     const e=escalas.find(x=>x.id===id); if(!e) return;
     editDocId=id;
     document.getElementById('data').value   =e.dataISO;
@@ -380,11 +373,11 @@
   };
 
   window.abrirDialog = function(id) {
-    if (!isLider()) { showToast('🔒 Apenas o líder pode excluir','danger'); return; }
+    if (!isLider()) { showToast('Apenas o lider pode excluir','danger'); return; }
     pendingDeleteId=id;
     const e=escalas.find(x=>x.id===id); if(!e) return;
     const [ano,mes,dia]=e.dataISO.split('-');
-    document.getElementById('dialog-desc').textContent=`Remover a escala do dia ${dia}/${mes}/${ano} às ${e.horario}?`;
+    document.getElementById('dialog-desc').textContent=`Remover a escala do dia ${dia}/${mes}/${ano} as ${e.horario}?`;
     document.getElementById('overlay').classList.add('active');
   };
   window.fecharDialog = function(e) {
@@ -395,8 +388,8 @@
     if(!pendingDeleteId) return;
     const btn=document.querySelector('.btn-dialog-confirm');
     btn.textContent='Removendo...'; btn.disabled=true;
-    try { await deleteDoc(doc(db,'escalas',pendingDeleteId)); if(editDocId===pendingDeleteId) resetForm(); showToast('🗑 Removida','danger'); }
-    catch(err) { showToast('❌ Erro ao remover','danger'); }
+    try { await deleteDoc(doc(db,'escalas',pendingDeleteId)); if(editDocId===pendingDeleteId) resetForm(); showToast('Removida','danger'); }
+    catch(err) { showToast('Erro ao remover','danger'); }
     btn.textContent='Remover'; btn.disabled=false;
     document.getElementById('overlay').classList.remove('active'); pendingDeleteId=null;
   };
@@ -409,9 +402,9 @@
       const links   = document.getElementById('links-input-'+id)?.value.trim()   || '';
       const recados = document.getElementById('recados-input-'+id)?.value.trim() || '';
       await updateDoc(doc(db,'escalas',id), { hinos, links, recados, updatedAt: serverTimestamp() });
-      showToast('✓ Escala salva!','success');
-    } catch(err){ showToast('❌ Erro ao salvar','danger'); }
-    if(btn){ btn.disabled=false; btn.textContent='💾 Salvar Escala'; }
+      showToast('Escala salva!','success');
+    } catch(err){ showToast('Erro ao salvar','danger'); }
+    if(btn){ btn.disabled=false; btn.textContent='Salvar Escala'; }
   };
 
   /* ══════════════════════════════════════
@@ -421,28 +414,28 @@
     const e=escalas.find(x=>x.id===id); if(!e) return;
     const [ano,mes,dia]=e.dataISO.split('-');
     const ds=SEMANA[new Date(e.dataISO+'T00:00:00').getDay()];
-    let msg=`🎵 *ESCALA DO LOUVOR*\n\n📅 *${ds}, ${dia}/${mes}/${ano}* às ${e.horario}\n\n`;
-    FUNCOES.forEach(f=>{ if(e[f.id]) msg+=`${f.icon} *${f.label}:* ${e[f.id]}\n`; });
-    if(e.hinos)   msg+=`\n🎵 *Hinos:*\n${e.hinos}\n`;
-    if(e.links)   msg+=`\n🔗 *Links:*\n${e.links}\n`;
-    msg+=`\n🙏 Contamos com todos!`;
+    let msg=`ESCALA DO LOUVOR\n\n${ds}, ${dia}/${mes}/${ano} as ${e.horario}\n\n`;
+    FUNCOES.forEach(f=>{ if(e[f.id]) msg+=`${f.label}: ${e[f.id]}\n`; });
+    if(e.hinos)   msg+=`\nHinos:\n${e.hinos}\n`;
+    if(e.links)   msg+=`\nLinks:\n${e.links}\n`;
+    msg+=`\nContamos com todos!`;
     window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');
   };
 
   /* ══════════════════════════════════════
-     CRUD EQUIPE
-     CORREÇÃO 2: Aniversário só dia e mês
+     CRUD EQUIPE — ANIVERSÁRIO DIA/MES
   ══════════════════════════════════════ */
   window.salvarMembro = async function() {
-    if(!isLider()){showToast('🔒 Apenas o líder pode cadastrar','danger');return;}
-    const nome    = document.getElementById('musico-nome').value.trim();
-    const funcao  = document.getElementById('musico-funcao').value;
-    const diaNasc = document.getElementById('musico-aniv-dia').value;
-    const mesNasc = document.getElementById('musico-aniv-mes').value;
-    if(!nome)  {showToast('⚠️ Informe o nome','danger');return;}
-    if(!funcao){showToast('⚠️ Selecione a função','danger');return;}
-    // Salva como "MM-DD" para facilitar comparação
-    const aniversario = (mesNasc && diaNasc) ? `${mesNasc.padStart(2,'0')}-${diaNasc.padStart(2,'0')}` : '';
+    if(!isLider()){showToast('Apenas o lider pode cadastrar','danger');return;}
+    const nome   = document.getElementById('musico-nome').value.trim();
+    const funcao = document.getElementById('musico-funcao').value;
+    // FIX: pegar dia e mes separados
+    const dia  = document.getElementById('musico-aniv-dia').value;
+    const mes  = document.getElementById('musico-aniv-mes').value;
+    if(!nome)  {showToast('Informe o nome','danger');return;}
+    if(!funcao){showToast('Selecione a funcao','danger');return;}
+    // Salvar no formato --MM-DD para compatibilidade, sem ano
+    const aniversario = (dia && mes) ? `--${mes.padStart(2,'0')}-${dia.padStart(2,'0')}` : '';
     try {
       await addDoc(collection(db,'musicos'),{
         nome, funcao, aniversario, igrejaId, createdAt:serverTimestamp()
@@ -451,16 +444,31 @@
       document.getElementById('musico-funcao').value='';
       document.getElementById('musico-aniv-dia').value='';
       document.getElementById('musico-aniv-mes').value='';
-      showToast('✓ Membro cadastrado!','success');
-    } catch(err){ showToast('❌ Erro ao cadastrar','danger'); }
+      showToast('Membro cadastrado!','success');
+    } catch(err){ showToast('Erro ao cadastrar','danger'); }
   };
 
   window.excluirMembro = async function(id) {
-    if(!isLider()){showToast('🔒 Apenas o líder pode excluir','danger');return;}
+    if(!isLider()){showToast('Apenas o lider pode excluir','danger');return;}
     if(!confirm('Remover este membro da equipe?')) return;
-    try { await deleteDoc(doc(db,'musicos',id)); showToast('🗑 Membro removido','danger'); }
-    catch(err){ showToast('❌ Erro ao remover','danger'); }
+    try { await deleteDoc(doc(db,'musicos',id)); showToast('Membro removido','danger'); }
+    catch(err){ showToast('Erro ao remover','danger'); }
   };
+
+  // FIX: função para parsear aniversário tanto no formato antigo (YYYY-MM-DD) quanto novo (--MM-DD)
+  function parseAniversario(val) {
+    if (!val) return null;
+    if (val.startsWith('--')) {
+      // formato --MM-DD
+      const parts = val.split('-').filter(Boolean);
+      if (parts.length >= 2) return { mes: parseInt(parts[0]), dia: parseInt(parts[1]) };
+    } else {
+      // formato antigo YYYY-MM-DD
+      const [,mes,dia] = val.split('-');
+      if (mes && dia) return { mes: parseInt(mes), dia: parseInt(dia) };
+    }
+    return null;
+  }
 
   function renderEquipe() {
     const container=document.getElementById('lista-equipe'); if(!container) return;
@@ -475,22 +483,14 @@
       const lista=grupos[f.id];
       if(lista.length===0) return;
       html+=`<div class="musico-grupo">
-        <div class="musico-grupo-titulo">${f.icon} ${f.label}</div>
+        <div class="musico-grupo-titulo"><span class="func-emoji">${FUNCOES_EMOJI[f.id]||''}</span> ${f.label}</div>
         <div class="musico-grupo-lista">`;
       lista.forEach(m=>{
-        // CORREÇÃO 2: aniversário agora é MM-DD
-        const anivInfo = m.aniversario ? (()=>{
-          // Suporta formato antigo (YYYY-MM-DD) e novo (MM-DD)
-          const parts = m.aniversario.split('-');
-          let dia, mes;
-          if (parts.length === 3) { mes = parts[1]; dia = parts[2]; }
-          else if (parts.length === 2) { mes = parts[0]; dia = parts[1]; }
-          else return '';
-          return `🎂 ${parseInt(dia)}/${parseInt(mes)}`;
-        })() : '';
+        const anivData = parseAniversario(m.aniversario);
+        const anivInfo = anivData ? `dia ${anivData.dia}/${anivData.mes}` : '';
         html+=`<div class="musico-chip">
           <span>${esc(m.nome)}${anivInfo?`<small class="chip-aniv"> ${anivInfo}</small>`:''}</span>
-          ${isLider()?`<button class="musico-del" onclick="excluirMembro('${m.id}')">✕</button>`:''}
+          ${isLider()?`<button class="musico-del" onclick="excluirMembro('${m.id}')">x</button>`:''}
         </div>`;
       });
       html+=`</div></div>`;
@@ -502,31 +502,24 @@
     const mesAtual = new Date().getMonth() + 1;
     const diaAtual = new Date().getDate();
     const aniv = musicos.filter(m=>{
-      if(!m.aniversario) return false;
-      const parts = m.aniversario.split('-');
-      let mes;
-      if (parts.length === 3) mes = parseInt(parts[1]);
-      else if (parts.length === 2) mes = parseInt(parts[0]);
-      else return false;
-      return mes === mesAtual;
+      const anivData = parseAniversario(m.aniversario);
+      return anivData && anivData.mes === mesAtual;
     }).sort((a,b)=>{
-      const getDia = aniv => {
-        const parts = aniv.split('-');
-        return parts.length === 3 ? parseInt(parts[2]) : parseInt(parts[1]);
-      };
-      return getDia(a.aniversario) - getDia(b.aniversario);
+      const da = parseAniversario(a.aniversario);
+      const db2 = parseAniversario(b.aniversario);
+      return (da?.dia||0)-(db2?.dia||0);
     });
 
     const banner=document.getElementById('banner-aniversarios');
     if(!banner) return;
     if(aniv.length===0){ banner.style.display='none'; return; }
-    let html=`<div class="aniv-header">🎂 Aniversários de ${MESES_FULL[mesAtual-1]}</div><div class="aniv-lista">`;
+    let html=`<div class="aniv-header">Aniversarios de ${MESES_FULL[mesAtual-1]}</div><div class="aniv-lista">`;
     aniv.forEach(m=>{
-      const parts = m.aniversario.split('-');
-      const dia = parts.length === 3 ? parseInt(parts[2]) : parseInt(parts[1]);
+      const anivData = parseAniversario(m.aniversario);
+      const dia = anivData?.dia || 0;
       const isHoje=dia===diaAtual;
       html+=`<div class="aniv-item${isHoje?' hoje':''}">
-        <span class="aniv-icon">${isHoje?'🎉':'🎂'}</span>
+        <span class="aniv-icon">${isHoje?'festa':'bolo'}</span>
         <span class="aniv-nome">${esc(m.nome)}</span>
         <span class="aniv-dia">dia ${dia}</span>
         ${isHoje?'<span class="aniv-tag">Hoje!</span>':''}
@@ -554,18 +547,14 @@
       const d=new Date(e.dataISO+'T00:00:00');
       return d.getMonth()===filtroMes && d.getFullYear()===filtroAno;
     });
-
     const container=document.getElementById('lista-escalas'); if(!container) return;
-
     if(lista.length===0){
       container.innerHTML=`<div class="empty-state">
-        <div class="empty-icon">🎶</div>
+        <div class="empty-icon">notas</div>
         <h3>Nenhuma escala em ${MESES_FULL[filtroMes]}</h3>
-        <p>${isLider()?'Toque em "+ Nova" para criar.':'Aguarde o líder adicionar escalas.'}</p>
-      </div>`;
-      return;
+        <p>${isLider()?'Toque em "+ Nova" para criar.':'Aguarde o lider adicionar escalas.'}</p>
+      </div>`; return;
     }
-
     const html=lista.map(e=>{
       const [ano,mes,dia]=e.dataISO.split('-');
       const dataBR=`${dia}/${mes}/${ano}`;
@@ -573,18 +562,17 @@
       const diaSemana=SEMANA[new Date(e.dataISO+'T00:00:00').getDay()];
       const diff=Math.round((new Date(e.dataISO+'T00:00:00')-hoje)/86400000);
       let badge;
-      if(diff===0)           badge={label:'Hoje',cls:'hoje'};
-      else if(diff===1)      badge={label:'Amanhã',cls:'breve'};
+      if(diff===0)             badge={label:'Hoje',cls:'hoje'};
+      else if(diff===1)        badge={label:'Amanha',cls:'breve'};
       else if(diff>1&&diff<=7) badge={label:`Em ${diff} dias`,cls:'breve'};
-      else if(diff>7)        badge={label:`Em ${diff} dias`,cls:'normal'};
-      else if(diff===-1)     badge={label:'Ontem',cls:'passado'};
-      else                   badge={label:`Há ${Math.abs(diff)} dias`,cls:'passado'};
+      else if(diff>7)          badge={label:`Em ${diff} dias`,cls:'normal'};
+      else if(diff===-1)       badge={label:'Ontem',cls:'passado'};
+      else                     badge={label:`Ha ${Math.abs(diff)} dias`,cls:'passado'};
       const isPassada=new Date(e.dataISO+'T00:00:00')<hoje;
-
       let funcHtml='';
       FUNCOES.forEach(f=>{
         if(e[f.id]) funcHtml+=`<div class="escala-row">
-          <span class="escala-row-icon func-icon">${f.icon}</span>
+          <span class="escala-row-icon func-emoji">${FUNCOES_EMOJI[f.id]||f.icon}</span>
           <div class="escala-row-content">
             <div class="escala-row-label">${f.label}</div>
             <div class="escala-row-value">${esc(e[f.id])}</div>
@@ -592,7 +580,6 @@
       });
       const hinosVal=e.hinos||'', linksVal=e.links||'', recadoVal=e.recados||'';
       const temRecado=recadoVal.trim().length>0;
-
       return `<div class="escala-card${isPassada?' passada':''}" data-id="${e.id}">
         <div class="escala-card-header">
           <div class="escala-date-block">
@@ -601,37 +588,37 @@
             </div>
             <div class="escala-date-info">
               <span class="escala-date-full">${diaSemana}, ${dataBR}</span>
-              <span class="escala-time-badge">&#x1F550; ${e.horario}</span>
+              <span class="escala-time-badge">Hora: ${e.horario}</span>
             </div>
           </div>
           <span class="dias-badge ${badge.cls}">${badge.label}</span>
         </div>
         <div class="escala-card-body">
-          ${funcHtml||'<p class="sem-conteudo" style="padding:10px 0">Nenhum músico escalado.</p>'}
+          ${funcHtml||'<p class="sem-conteudo" style="padding:10px 0">Nenhum musico escalado.</p>'}
           <div class="campo-editavel">
-            <div class="campo-editavel-titulo">&#x1F3B5; Hinos do Dia</div>
+            <div class="campo-editavel-titulo">Hinos do Dia</div>
             <div>${hinosVal?`<div class="hinos-txt">${esc(hinosVal)}</div>`:'<span class="sem-conteudo">Nenhum hino adicionado</span>'}</div>
-            <textarea id="hinos-input-${e.id}" class="campo-textarea" placeholder="1. Grandioso És Tu&#10;2. Porque Ele Vive">${esc(hinosVal)}</textarea>
+            <textarea id="hinos-input-${e.id}" class="campo-textarea" placeholder="1. Grandioso Es Tu&#10;2. Porque Ele Vive">${esc(hinosVal)}</textarea>
           </div>
           <div class="campo-editavel" style="margin-top:10px;">
-            <div class="campo-editavel-titulo">&#x1F517; Links das Músicas</div>
+            <div class="campo-editavel-titulo">Links das Musicas</div>
             <div>${formatarLinksHtml(linksVal)}</div>
             <textarea id="links-input-${e.id}" class="campo-textarea" placeholder="Cole os links do YouTube ou Spotify">${esc(linksVal)}</textarea>
           </div>
           <div class="campo-editavel roxo" style="margin-top:10px;">
-            <div class="campo-editavel-titulo">&#x1F4E2; Avisos &amp; Justificativas ${temRecado?'<span class="recados-badge">Há mensagem</span>':''}</div>
+            <div class="campo-editavel-titulo">Avisos e Justificativas ${temRecado?'<span class="recados-badge">Ha mensagem</span>':''}</div>
             ${temRecado?`<div class="recado-exibido">${esc(recadoVal)}</div>`:''}
             <textarea id="recados-input-${e.id}" class="campo-textarea" placeholder="Deixe seu aviso ou justificativa">${esc(recadoVal)}</textarea>
           </div>
           <button id="btn-salvar-escala-${e.id}" class="btn-salvar-unico" onclick="salvarEscalaCompleta('${e.id}')">
-            &#x1F4BE; Salvar Escala
+            Salvar Escala
           </button>
         </div>
         <div class="escala-card-footer">
-          <button class="btn-whats-card" onclick="compartilharWhatsApp('${e.id}')">&#x1F4F2; WhatsApp</button>
+          <button class="btn-whats-card" onclick="compartilharWhatsApp('${e.id}')">WhatsApp</button>
           ${isLider()?`
-          <button class="btn-edit-card" onclick="editarEscala('${e.id}')">&#x270F;&#xFE0F; Editar</button>
-          <button class="btn-del-card"  onclick="abrirDialog('${e.id}')">&#x1F5D1;</button>`:`<span></span><span></span>`}
+          <button class="btn-edit-card" onclick="editarEscala('${e.id}')">Editar</button>
+          <button class="btn-del-card"  onclick="abrirDialog('${e.id}')">Del</button>`:`<span></span><span></span>`}
         </div>
       </div>`;
     }).join('');
@@ -639,12 +626,10 @@
   }
 
   window.mesAnterior = function() {
-    filtroMes--; if(filtroMes<0){filtroMes=11;filtroAno--;}
-    renderLista();
+    filtroMes--; if(filtroMes<0){filtroMes=11;filtroAno--;} renderLista();
   };
   window.mesProximo = function() {
-    filtroMes++; if(filtroMes>11){filtroMes=0;filtroAno++;}
-    renderLista();
+    filtroMes++; if(filtroMes>11){filtroMes=0;filtroAno++;} renderLista();
   };
 
   function renderProxima() {
@@ -652,7 +637,7 @@
     const hoje=new Date(); hoje.setHours(0,0,0,0);
     const futuras=escalas.filter(e=>new Date(e.dataISO+'T00:00:00')>=hoje);
     if(futuras.length===0){
-      container.innerHTML=`<div class="empty-state"><div class="empty-icon">&#x1F3B6;</div><h3>Nenhuma escala futura</h3><p>${isLider()?'Crie uma em "+ Nova".':'Aguarde o líder.'}</p></div>`;
+      container.innerHTML=`<div class="empty-state"><div class="empty-icon">notas</div><h3>Nenhuma escala futura</h3><p>${isLider()?'Crie uma em "+ Nova".':'Aguarde o lider.'}</p></div>`;
       return;
     }
     const proxima=futuras[0];
@@ -662,40 +647,38 @@
     let funcHtml='';
     FUNCOES.forEach(f=>{
       if(proxima[f.id]) funcHtml+=`<div class="escala-row">
-        <span class="escala-row-icon func-icon">${f.icon}</span>
+        <span class="escala-row-icon func-emoji">${FUNCOES_EMOJI[f.id]||f.icon}</span>
         <div class="escala-row-content">
           <div class="escala-row-label">${f.label}</div>
           <div class="escala-row-value">${esc(proxima[f.id])}</div>
         </div></div>`;
     });
-
     let html=`<div class="proxima-destaque">
-      <div class="proxima-badge-dias">${diff===0?'Hoje!':diff===1?'Amanhã':'Em '+diff+' dias'}</div>
+      <div class="proxima-badge-dias">${diff===0?'Hoje!':diff===1?'Amanha':'Em '+diff+' dias'}</div>
       <div class="proxima-data-grande">${diaSemana}</div>
       <div class="proxima-data-num">${parseInt(dia)} de ${MESES_FULL[parseInt(mes)-1]} ${ano}</div>
-      <div class="proxima-hora">&#x1F550; ${proxima.horario}</div>
+      <div class="proxima-hora">Hora: ${proxima.horario}</div>
     </div>
     <div class="escala-card" style="margin-top:12px;">
       <div class="escala-card-body">
-        ${funcHtml||'<p class="sem-conteudo" style="padding:10px 0">Nenhum músico escalado.</p>'}
-        ${proxima.hinos?`<div class="campo-editavel"><div class="campo-editavel-titulo">&#x1F3B5; Hinos</div><div class="hinos-txt">${esc(proxima.hinos)}</div></div>`:''}
-        ${proxima.links?`<div class="campo-editavel"><div class="campo-editavel-titulo">&#x1F517; Links</div>${formatarLinksHtml(proxima.links)}</div>`:''}
-        ${proxima.recados?`<div class="campo-editavel roxo"><div class="campo-editavel-titulo">&#x1F4E2; Aviso</div><div class="recado-exibido">${esc(proxima.recados)}</div></div>`:''}
+        ${funcHtml||'<p class="sem-conteudo" style="padding:10px 0">Nenhum musico escalado.</p>'}
+        ${proxima.hinos?`<div class="campo-editavel"><div class="campo-editavel-titulo">Hinos</div><div class="hinos-txt">${esc(proxima.hinos)}</div></div>`:''}
+        ${proxima.links?`<div class="campo-editavel"><div class="campo-editavel-titulo">Links</div>${formatarLinksHtml(proxima.links)}</div>`:''}
+        ${proxima.recados?`<div class="campo-editavel roxo"><div class="campo-editavel-titulo">Aviso</div><div class="recado-exibido">${esc(proxima.recados)}</div></div>`:''}
       </div>
       <div class="escala-card-footer">
-        <button class="btn-whats-card" onclick="compartilharWhatsApp('${proxima.id}')">&#x1F4F2; WhatsApp</button>
-        ${isLider()?`<button class="btn-edit-card" onclick="editarEscala('${proxima.id}')">&#x270F;&#xFE0F; Editar</button><button class="btn-del-card" onclick="abrirDialog('${proxima.id}')">&#x1F5D1;</button>`:`<span></span><span></span>`}
+        <button class="btn-whats-card" onclick="compartilharWhatsApp('${proxima.id}')">WhatsApp</button>
+        ${isLider()?`<button class="btn-edit-card" onclick="editarEscala('${proxima.id}')">Editar</button><button class="btn-del-card" onclick="abrirDialog('${proxima.id}')">Del</button>`:`<span></span><span></span>`}
       </div>
     </div>`;
-
     if(futuras.length>1){
       html+=`<div class="proximas-outras-titulo">Outras escalas futuras</div>`;
       futuras.slice(1).forEach(e=>{
         const [a2,m2,d2]=e.dataISO.split('-');
         const ds2=SEMANA[new Date(e.dataISO+'T00:00:00').getDay()];
         html+=`<div class="proxima-mini" onclick="irParaEscala('${e.id}')">
-          <span class="proxima-mini-data">${ds2}, ${parseInt(d2)}/${parseInt(m2)}/${a2} — ${e.horario}</span>
-          <span class="proxima-mini-seta">›</span>
+          <span class="proxima-mini-data">${ds2}, ${parseInt(d2)}/${parseInt(m2)}/${a2} - ${e.horario}</span>
+          <span class="proxima-mini-seta">></span>
         </div>`;
       });
     }
@@ -718,152 +701,39 @@
     return txt.trim().split('\n').map(l=>{
       l=l.trim(); if(!l) return '';
       const rx=/(https?:\/\/[^\s]+)/g;
-      if(rx.test(l)){rx.lastIndex=0; return '<div class="link-item">'+l.replace(rx,u=>`<a href="${u}" target="_blank" rel="noopener noreferrer" class="musica-link"><span>&#x25B6;</span> Ouvir / Assistir</a>`)+'</div>';}
+      if(rx.test(l)){rx.lastIndex=0; return '<div class="link-item">'+l.replace(rx,u=>`<a href="${u}" target="_blank" rel="noopener noreferrer" class="musica-link">Ouvir / Assistir</a>`)+'</div>';}
       return `<div class="link-item link-texto">${esc(l)}</div>`;
     }).filter(Boolean).join('');
   }
 
   /* ══════════════════════════════════════
-     CIFRAS (NOVA FUNCIONALIDADE)
+     CIFRAS — nova aba
   ══════════════════════════════════════ */
-  // cifraSelecionada exposta globalmente para os onclick inline do HTML
-  if (typeof window.cifraSelecionada === 'undefined') window.cifraSelecionada = null;
-  let cifraSelecionada = null;
-
-  window.abrirNovaCifra = function() {
-    cifraEditId = null;
-    cifraSelecionada = null;
-    window.cifraSelecionada = null;
-    document.getElementById('cifra-titulo-input').value = '';
-    document.getElementById('cifra-tom-input').value = '';
-    document.getElementById('cifra-texto-input').value = '';
-    document.getElementById('cifra-form-area').style.display = 'block';
-    document.getElementById('cifra-visualizar-area').style.display = 'none';
-    document.getElementById('cifra-form-titulo').textContent = 'Nova Cifra';
-    document.getElementById('cifra-titulo-input').focus();
+  window.buscarCifra = function() {
+    const query_str = document.getElementById('cifra-busca').value.trim();
+    if (!query_str) { showToast('Digite o nome do hino','danger'); return; }
+    // Monta URL de busca do BananaCifra
+    const slug = query_str.toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+      .replace(/[^a-z0-9\s]/g,'')
+      .trim().replace(/\s+/g,'+');
+    const url = `https://www.bananacifra.com.br/busca/?q=${encodeURIComponent(query_str)}`;
+    // Feedback visual antes de abrir
+    const container = document.getElementById('cifra-resultado');
+    container.innerHTML = `<div class="cifra-abrindo">
+      <div class="cifra-abrindo-icone">&#127928;</div>
+      <div class="cifra-abrindo-titulo">Abrindo BananaCifra...</div>
+      <div class="cifra-abrindo-desc">Buscando por <strong>${esc(query_str)}</strong></div>
+      <a href="${url}" target="_blank" rel="noopener noreferrer" class="btn-ir-bananacifra">
+        Abrir BananaCifra
+      </a>
+    </div>`;
+    window.open(url, '_blank');
   };
 
-  window.fecharFormCifra = function() {
-    document.getElementById('cifra-form-area').style.display = 'none';
-    if (cifraSelecionada) {
-      document.getElementById('cifra-visualizar-area').style.display = 'block';
-    }
+  window.buscarCifraKeydown = function(e) {
+    if (e.key === 'Enter') buscarCifra();
   };
-
-  window.salvarCifra = async function() {
-    const titulo = document.getElementById('cifra-titulo-input').value.trim();
-    const tom    = document.getElementById('cifra-tom-input').value.trim();
-    const texto  = document.getElementById('cifra-texto-input').value.trim();
-    if (!titulo) { showToast('⚠️ Informe o título do hino','danger'); return; }
-    if (!texto)  { showToast('⚠️ Informe a cifra','danger'); return; }
-    const btn = document.getElementById('btn-salvar-cifra');
-    btn.disabled = true; btn.textContent = 'Salvando...';
-    try {
-      let idParaVer;
-      if (cifraEditId) {
-        await updateDoc(doc(db,'cifras',cifraEditId), { titulo, tom, texto, updatedAt: serverTimestamp() });
-        idParaVer = cifraEditId;
-        showToast('✓ Cifra atualizada!', 'success');
-      } else {
-        const docRef = await addDoc(collection(db,'cifras'), { titulo, tom, texto, igrejaId, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
-        idParaVer = docRef.id;
-        cifraEditId = idParaVer;
-        showToast('✓ Cifra salva!', 'success');
-      }
-      document.getElementById('cifra-form-area').style.display = 'none';
-      // Abre a visualização após salvar
-      setTimeout(() => { window.verCifra(idParaVer); }, 400);
-    } catch(err) { showToast('❌ Erro ao salvar cifra','danger'); console.error(err); }
-    btn.disabled = false; btn.textContent = 'Salvar Cifra';
-  };
-
-  window.verCifra = function(id) {
-    const c = cifras.find(x=>x.id===id); if(!c) return;
-    cifraSelecionada = id;
-    window.cifraSelecionada = id;  // expõe globalmente
-    document.getElementById('cifra-form-area').style.display = 'none';
-    const area = document.getElementById('cifra-visualizar-area');
-    area.style.display = 'block';
-    document.getElementById('cifra-viz-titulo').textContent = c.titulo;
-    document.getElementById('cifra-viz-tom').textContent = c.tom ? 'Tom: ' + c.tom : '';
-    // Renderiza cifra com acordes coloridos
-    const textoColorido = renderizarCifra(c.texto);
-    document.getElementById('cifra-viz-texto').innerHTML = textoColorido;
-    area.scrollIntoView({behavior:'smooth', block:'start'});
-  };
-
-  window.editarCifra = function(id) {
-    const c = cifras.find(x=>x.id===id); if(!c) return;
-    cifraEditId = id;
-    document.getElementById('cifra-titulo-input').value = c.titulo;
-    document.getElementById('cifra-tom-input').value = c.tom || '';
-    document.getElementById('cifra-texto-input').value = c.texto;
-    document.getElementById('cifra-form-area').style.display = 'block';
-    document.getElementById('cifra-visualizar-area').style.display = 'none';
-    document.getElementById('cifra-form-titulo').textContent = 'Editar Cifra';
-  };
-
-  window.excluirCifra = async function(id) {
-    if(!confirm('Remover esta cifra?')) return;
-    try {
-      await deleteDoc(doc(db,'cifras',id));
-      document.getElementById('cifra-visualizar-area').style.display = 'none';
-      cifraSelecionada = null;
-      window.cifraSelecionada = null;
-      showToast('🗑 Cifra removida','danger');
-    } catch(err){ showToast('❌ Erro ao remover','danger'); }
-  };
-
-  function renderizarCifra(texto) {
-    // Detecta acordes (letras maiúsculas opcionalmente seguidas de m, 7, sus, aug, dim, etc.)
-    const acordeRegex = /\b([A-G][b#]?(?:m|maj|min|aug|dim|sus|add)?(?:\d+)?(?:\/[A-G][b#]?)?)\b/g;
-    return esc(texto).replace(/\n/g, '<br>').replace(acordeRegex, match => 
-      `<span class="cifra-acorde">${match}</span>`
-    );
-  }
-
-  window.aumentarTom = function() { transporCifra(1); };
-  window.diminuirTom = function() { transporCifra(-1); };
-
-  function transporCifra(semitones) {
-    if (!cifraSelecionada) return;
-    const c = cifras.find(x=>x.id===cifraSelecionada); if(!c) return;
-    const notas    = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
-    const notasBem = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
-    function transporNota(nota) {
-      let idx = notas.indexOf(nota);
-      if (idx === -1) idx = notasBem.indexOf(nota);
-      if (idx === -1) return nota;
-      const novo = ((idx + semitones) % 12 + 12) % 12;
-      return notas[novo];
-    }
-    const acordeRegex = /\b([A-G][b#]?(?:m|maj|min|aug|dim|sus|add)?(?:\d+)?(?:\/[A-G][b#]?)?)\b/g;
-    const novoTexto = c.texto.replace(acordeRegex, match => {
-      const partes = match.match(/^([A-G][b#]?)(.*?)(\/([A-G][b#]?))?$/);
-      if (!partes) return match;
-      let resultado = transporNota(partes[1]) + (partes[2]||'');
-      if (partes[4]) resultado += '/' + transporNota(partes[4]);
-      return resultado;
-    });
-    document.getElementById('cifra-viz-texto').innerHTML = renderizarCifra(novoTexto);
-  }
-
-  function renderCifras() {
-    const lista = document.getElementById('cifras-lista'); if(!lista) return;
-    if (cifras.length === 0) {
-      lista.innerHTML = `<div class="empty-state"><div class="empty-icon">🎼</div><h3>Nenhuma cifra cadastrada</h3><p>Toque em "+ Nova Cifra" para adicionar.</p></div>`;
-      return;
-    }
-    lista.innerHTML = cifras.map(c=>`
-      <div class="cifra-item" onclick="verCifra('${c.id}')">
-        <div class="cifra-item-info">
-          <div class="cifra-item-titulo">${esc(c.titulo)}</div>
-          ${c.tom?`<div class="cifra-item-tom">Tom: ${esc(c.tom)}</div>`:''}
-        </div>
-        <span class="cifra-item-seta">›</span>
-      </div>
-    `).join('');
-  }
 
   function isLider(){ return !!usuarioLogado; }
   function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -899,14 +769,11 @@
 html{font-size:16px;scroll-behavior:smooth;}
 body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text-main);min-height:100vh;-webkit-tap-highlight-color:transparent;}
 
-/* CORREÇÃO iOS: garantir renderização correta de emoji */
-.func-icon{
-  font-style:normal;
-  font-family:'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji','Android Emoji',sans-serif;
-  display:inline-block;
-  font-size:inherit;
-  line-height:1;
-  -webkit-font-smoothing:antialiased;
+/* FIX iOS: forçar renderização de emoji como texto colorido em vez de imagem */
+.func-emoji {
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Android Emoji", sans-serif;
+  font-style: normal;
+  display: inline-block;
 }
 
 /* ══ TELA INÍCIO ══ */
@@ -918,7 +785,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
     radial-gradient(ellipse 60% 40% at 80% 110%, rgba(124,58,237,0.12) 0%, transparent 60%),
     linear-gradient(180deg,#04080f 0%,#070d1a 100%);
 }
-
 .logo-wrap{
   width:130px;height:130px;border-radius:50%;
   display:flex;align-items:center;justify-content:center;
@@ -940,8 +806,13 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
   background:radial-gradient(ellipse at 35% 30%, rgba(0,229,255,0.22) 0%, rgba(7,13,26,0.98) 65%);
   box-shadow:inset 0 0 30px rgba(0,229,255,0.15), 0 0 40px rgba(0,229,255,0.35), 0 0 80px rgba(0,229,255,0.15);
 }
-.logo-emoji{font-size:52px;line-height:1;font-family:'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif;}
-
+/* FIX iOS: logo emoji explícito em span com font-family */
+.logo-emoji{
+  font-size:52px;line-height:1;
+  font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;
+  font-style:normal;
+  filter:drop-shadow(0 0 12px rgba(0,229,255,0.9)) drop-shadow(0 0 24px rgba(0,229,255,0.5));
+}
 .inicio-titulo{
   font-family:'Playfair Display',serif;font-size:30px;font-weight:700;
   color:#fff;text-align:center;margin-bottom:6px;
@@ -949,7 +820,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
 }
 .inicio-sub{font-size:12px;color:var(--accent);text-align:center;margin-bottom:36px;text-transform:uppercase;letter-spacing:2.5px;font-weight:700;}
 .inicio-botoes{display:flex;flex-direction:column;gap:14px;width:100%;max-width:340px;}
-
 .membro-box{
   background:rgba(0,229,255,0.04);border:1px solid rgba(0,229,255,0.2);
   border-radius:var(--radius);padding:20px;box-shadow:0 0 30px rgba(0,229,255,0.08);
@@ -971,64 +841,30 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
 .erro-msg-inicio{font-size:12px;color:#f87171;text-align:center;margin-bottom:8px;display:none;}
 
 /* ══ RELÓGIO NEON ══ */
-.neon-time-picker{
-  display:flex;align-items:center;justify-content:center;gap:0;
-  background:rgba(0,0,0,0.7);border:1px solid rgba(0,229,255,0.3);
-  border-radius:var(--radius);padding:16px 20px;
-  box-shadow:0 0 30px rgba(0,229,255,0.15), inset 0 0 40px rgba(0,0,0,0.5);
-  margin-bottom:4px;
-}
-.neon-time-col{
-  display:flex;flex-direction:column;align-items:center;gap:0;
-  position:relative;height:140px;overflow:hidden;width:60px;
-}
-.neon-time-col::before,.neon-time-col::after{
-  content:'';position:absolute;left:0;right:0;height:40px;z-index:2;pointer-events:none;
-}
-.neon-time-col::before{top:0;background:linear-gradient(to bottom, rgba(0,0,0,0.85) 0%, transparent 100%);}
-.neon-time-col::after{bottom:0;background:linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 100%);}
-.neon-time-col-inner{
-  display:flex;flex-direction:column;align-items:center;
-  transition:transform 0.3s cubic-bezier(0.25,0.46,0.45,0.94);
-  cursor:ns-resize;user-select:none;
-}
-.neon-digit{
-  font-family:'Share Tech Mono', monospace;font-size:28px;font-weight:700;
-  line-height:1;padding:8px 0;color:rgba(0,229,255,0.25);
-  transition:all 0.2s;text-align:center;width:60px;
-}
+.neon-time-picker{display:flex;align-items:center;justify-content:center;gap:0;background:rgba(0,0,0,0.7);border:1px solid rgba(0,229,255,0.3);border-radius:var(--radius);padding:16px 20px;box-shadow:0 0 30px rgba(0,229,255,0.15),inset 0 0 40px rgba(0,0,0,0.5);margin-bottom:4px;}
+.neon-time-col{display:flex;flex-direction:column;align-items:center;gap:0;position:relative;height:140px;overflow:hidden;width:60px;}
+.neon-time-col::before,.neon-time-col::after{content:'';position:absolute;left:0;right:0;height:40px;z-index:2;pointer-events:none;}
+.neon-time-col::before{top:0;background:linear-gradient(to bottom,rgba(0,0,0,0.85) 0%,transparent 100%);}
+.neon-time-col::after{bottom:0;background:linear-gradient(to top,rgba(0,0,0,0.85) 0%,transparent 100%);}
+.neon-time-col-inner{display:flex;flex-direction:column;align-items:center;transition:transform 0.3s cubic-bezier(0.25,0.46,0.45,0.94);cursor:ns-resize;user-select:none;}
+.neon-digit{font-family:'Share Tech Mono',monospace;font-size:28px;font-weight:700;line-height:1;padding:8px 0;color:rgba(0,229,255,0.25);transition:all 0.2s;text-align:center;width:60px;}
 .neon-digit.active{color:var(--neon-digit);text-shadow:var(--neon-digit-glow);font-size:36px;animation:neonPulse 2s ease-in-out infinite;}
 .neon-digit.near{color:rgba(0,229,255,0.55);text-shadow:0 0 8px rgba(0,229,255,0.4);font-size:28px;}
 @keyframes neonPulse{
-  0%,100%{text-shadow:0 0 8px #00e5ff, 0 0 20px #00e5ff, 0 0 40px rgba(0,229,255,0.6);}
-  50%{text-shadow:0 0 12px #00e5ff, 0 0 30px #00e5ff, 0 0 60px rgba(0,229,255,0.8), 0 0 100px rgba(0,229,255,0.4);}
+  0%,100%{text-shadow:0 0 8px #00e5ff,0 0 20px #00e5ff,0 0 40px rgba(0,229,255,0.6);}
+  50%{text-shadow:0 0 12px #00e5ff,0 0 30px #00e5ff,0 0 60px rgba(0,229,255,0.8),0 0 100px rgba(0,229,255,0.4);}
 }
 .neon-sep{font-family:'Share Tech Mono',monospace;font-size:36px;font-weight:700;color:#00e5ff;margin:0 4px;text-shadow:var(--neon-digit-glow);animation:neonPulse 1.5s ease-in-out infinite;line-height:140px;}
 .neon-time-picker-wrap{position:relative;}
-.neon-select-line{
-  position:absolute;left:20px;right:20px;top:50%;transform:translateY(-50%);
-  height:52px;border-top:1px solid rgba(0,229,255,0.35);border-bottom:1px solid rgba(0,229,255,0.35);
-  pointer-events:none;z-index:1;border-radius:6px;box-shadow:0 0 12px rgba(0,229,255,0.2);
-}
-#horario{ display:none; }
+.neon-select-line{position:absolute;left:20px;right:20px;top:50%;transform:translateY(-50%);height:52px;border-top:1px solid rgba(0,229,255,0.35);border-bottom:1px solid rgba(0,229,255,0.35);pointer-events:none;z-index:1;border-radius:6px;box-shadow:0 0 12px rgba(0,229,255,0.2);}
+#horario{display:none;}
 
 /* ══ TELA LÍDER ══ */
-.tela-lider{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;
-  background:radial-gradient(ellipse at 50% 0%,rgba(124,58,237,0.18) 0%,transparent 60%),linear-gradient(180deg,#04080f,#070d1a);}
+.tela-lider{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:radial-gradient(ellipse at 50% 0%,rgba(124,58,237,0.18) 0%,transparent 60%),linear-gradient(180deg,#04080f,#070d1a);}
 .auth-card{background:rgba(12,20,36,0.98);width:100%;max-width:380px;border-radius:var(--radius);padding:30px 24px;border:1px solid rgba(124,58,237,0.3);box-shadow:0 0 50px rgba(124,58,237,0.12);position:relative;}
-
-.btn-fechar-card{
-  position:absolute;top:14px;right:14px;
-  width:32px;height:32px;border-radius:50%;
-  background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.5);
-  color:#f87171;font-size:16px;font-weight:700;
-  cursor:pointer;display:flex;align-items:center;justify-content:center;
-  transition:all 0.2s;line-height:1;
-}
+.btn-fechar-card{position:absolute;top:14px;right:14px;width:32px;height:32px;border-radius:50%;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.5);color:#f87171;font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;line-height:1;}
 .btn-fechar-card:hover{background:rgba(239,68,68,0.35);box-shadow:0 0 12px rgba(239,68,68,0.4);}
-.btn-fechar-card:active{transform:scale(0.92);}
-
-.auth-logo{text-align:center;font-size:44px;margin-bottom:10px;}
+.auth-logo{text-align:center;font-size:44px;margin-bottom:10px;font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
 .auth-card h2{font-family:'Playfair Display',serif;font-size:21px;color:#c4b5fd;text-align:center;margin-bottom:6px;}
 .auth-card p{font-size:13px;color:var(--text-muted);text-align:center;margin-bottom:20px;}
 .switch-container{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:16px;background:rgba(0,0,0,0.4);padding:10px;border-radius:var(--radius-sm);font-size:12px;font-weight:700;color:var(--text-muted);}
@@ -1043,6 +879,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
 .field-group select option{background:#0c1424;}
 .field-group textarea{resize:vertical;min-height:80px;}
 .field-hint{font-size:11px;color:var(--text-muted);margin-top:3px;}
+
+/* FIX iOS: aniversário dia/mês como dois selects */
+.aniv-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.aniv-row select{background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-main);font-family:'DM Sans',sans-serif;font-size:15px;padding:11px;outline:none;}
+.aniv-row select option{background:#0c1424;}
 
 /* ══ HEADER ══ */
 .app-header{background:var(--bg-header);padding:12px 16px;position:sticky;top:0;z-index:100;border-bottom:1px solid rgba(0,229,255,0.08);box-shadow:0 2px 20px rgba(0,0,0,0.6);}
@@ -1063,7 +904,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
 
 /* ══ TABS ══ */
 .nav-tabs{display:flex;background:var(--bg-header);border-bottom:1px solid rgba(0,229,255,0.08);position:sticky;top:62px;z-index:99;overflow-x:auto;}
-.nav-tab{flex:1;min-width:70px;padding:13px 4px;background:transparent;border:none;color:var(--text-muted);font-family:'DM Sans',sans-serif;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;cursor:pointer;border-bottom:2px solid transparent;transition:all 0.2s;display:flex;align-items:center;justify-content:center;gap:4px;white-space:nowrap;}
+.nav-tab{flex:1;min-width:70px;padding:13px 6px;background:transparent;border:none;color:var(--text-muted);font-family:'DM Sans',sans-serif;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;cursor:pointer;border-bottom:2px solid transparent;transition:all 0.2s;display:flex;align-items:center;justify-content:center;gap:4px;white-space:nowrap;}
 .nav-tab.active{color:var(--accent);border-bottom-color:var(--accent);text-shadow:0 0 10px rgba(0,229,255,0.5);}
 .badge{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;background:var(--accent);color:#000;font-size:10px;font-weight:700;border-radius:50%;}
 
@@ -1081,7 +922,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
 .aniv-lista{display:flex;flex-direction:column;gap:6px;}
 .aniv-item{display:flex;align-items:center;gap:8px;font-size:13px;}
 .aniv-item.hoje .aniv-nome{color:#fbbf24;font-weight:700;}
-.aniv-icon{font-size:16px;} .aniv-nome{flex:1;color:var(--text-main);} .aniv-dia{font-size:12px;color:var(--text-muted);}
+.aniv-icon{font-size:16px;font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
+.aniv-nome{flex:1;color:var(--text-main);}
+.aniv-dia{font-size:12px;color:var(--text-muted);}
 .aniv-tag{background:#fbbf24;color:#000;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;text-transform:uppercase;}
 
 /* ══ PROXIMA ESCALA ══ */
@@ -1110,15 +953,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
 /* ══ EQUIPE ══ */
 .equipe-form{background:var(--bg-card);border:1px solid var(--border-neon);border-radius:var(--radius);padding:16px;margin-bottom:16px;box-shadow:var(--shadow-neon);}
 .equipe-form h3{font-family:'Playfair Display',serif;font-size:16px;color:var(--accent);margin-bottom:14px;}
-
-/* CORREÇÃO 2: seletores de dia/mês para aniversário */
-.aniv-selects{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-.aniv-selects select{width:100%;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-main);font-family:'DM Sans',sans-serif;font-size:15px;padding:11px;outline:none;}
-.aniv-selects select:focus{border-color:var(--accent2);box-shadow:0 0 0 3px rgba(124,58,237,0.1);}
-.aniv-selects select option{background:#0c1424;}
-
 .musico-grupo{margin-bottom:16px;}
-.musico-grupo-titulo{font-size:13px;font-weight:700;color:var(--text-main);margin-bottom:8px;}
+.musico-grupo-titulo{font-size:13px;font-weight:700;color:var(--text-main);margin-bottom:8px;display:flex;align-items:center;gap:6px;}
 .musico-grupo-lista{display:flex;flex-wrap:wrap;gap:8px;}
 .musico-chip{display:flex;align-items:center;gap:6px;background:rgba(0,229,255,0.06);color:var(--neon3);border:1px solid rgba(0,229,255,0.18);padding:6px 12px;border-radius:20px;font-size:13px;font-weight:700;}
 .chip-aniv{font-size:10px;color:#fbbf24;font-weight:400;}
@@ -1156,15 +992,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
 .hinos-txt{white-space:pre-wrap;color:var(--text-hinos);font-weight:700;font-size:14px;margin-bottom:6px;}
 .campo-textarea{width:100%;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-main);font-family:'DM Sans',sans-serif;font-size:14px;padding:10px;outline:none;resize:vertical;min-height:72px;line-height:1.5;margin-top:6px;}
 .campo-textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,229,255,0.07);}
-.btn-salvar-unico{
-  display:block;width:100%;margin-top:14px;padding:14px;border:none;
-  border-radius:var(--radius-sm);
-  background:linear-gradient(135deg,#7c3aed,#6d28d9);
-  color:#fff;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:700;
-  cursor:pointer;letter-spacing:0.3px;
-  box-shadow:0 4px 24px rgba(124,58,237,0.35), 0 0 40px rgba(124,58,237,0.15);
-  transition:all 0.2s;
-}
+.btn-salvar-unico{display:block;width:100%;margin-top:14px;padding:14px;border:none;border-radius:var(--radius-sm);background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#fff;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:700;cursor:pointer;letter-spacing:0.3px;box-shadow:0 4px 24px rgba(124,58,237,0.35),0 0 40px rgba(124,58,237,0.15);transition:all 0.2s;}
 .btn-salvar-unico:hover{box-shadow:0 4px 30px rgba(124,58,237,0.5);}
 .btn-salvar-unico:active{transform:scale(0.98);}
 .btn-salvar-unico:disabled{opacity:0.6;cursor:not-allowed;}
@@ -1179,50 +1007,34 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
 .btn-del-card{color:var(--danger);}
 .sem-conteudo{color:#2a3a50;font-style:italic;font-size:13px;}
 .empty-state{text-align:center;padding:50px 24px;color:var(--text-muted);}
-.empty-icon{font-size:52px;margin-bottom:12px;}
+.empty-icon{font-size:52px;margin-bottom:12px;font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
 .empty-state h3{font-family:'Playfair Display',serif;font-size:19px;font-weight:700;color:var(--text-main);margin-bottom:6px;}
 
-/* ══ CIFRAS (NOVA FUNCIONALIDADE) ══ */
-.cifras-header{display:flex;align-items:center;justify-content:space-between;padding:12px 0 8px;}
-.cifras-header-titulo{font-family:'Playfair Display',serif;font-size:18px;font-weight:700;color:var(--accent);}
-.btn-nova-cifra{background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#fff;border:none;border-radius:var(--radius-sm);padding:9px 16px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 4px 16px rgba(124,58,237,0.35);}
-.btn-nova-cifra:active{transform:scale(0.97);}
-
-.cifra-item{display:flex;align-items:center;justify-content:space-between;background:var(--bg-card);border:1px solid var(--border-neon);border-radius:var(--radius-sm);padding:14px 16px;margin-bottom:8px;cursor:pointer;transition:all 0.15s;}
-.cifra-item:hover,.cifra-item:active{background:rgba(0,229,255,0.06);border-color:rgba(0,229,255,0.3);}
-.cifra-item-titulo{font-size:15px;font-weight:700;color:var(--text-main);}
-.cifra-item-tom{font-size:12px;color:var(--accent);font-weight:700;margin-top:2px;}
-.cifra-item-seta{font-size:22px;color:var(--accent);font-weight:700;}
-
-.cifra-form-card{background:var(--bg-card);border:1px solid rgba(124,58,237,0.3);border-radius:var(--radius);padding:20px;margin-bottom:16px;box-shadow:0 0 24px rgba(124,58,237,0.1);}
-.cifra-form-titulo{font-family:'Playfair Display',serif;font-size:17px;font-weight:700;color:#c4b5fd;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid rgba(124,58,237,0.2);}
-.cifra-textarea{width:100%;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-main);font-family:'Share Tech Mono',monospace;font-size:13px;padding:12px;outline:none;resize:vertical;min-height:200px;line-height:1.7;margin-top:6px;}
-.cifra-textarea:focus{border-color:#7c3aed;box-shadow:0 0 0 3px rgba(124,58,237,0.1);}
-.cifra-form-hint{font-size:11px;color:var(--text-muted);margin-top:6px;line-height:1.5;}
-.cifra-form-btns{display:flex;gap:10px;margin-top:14px;}
-.btn-salvar-cifra{flex:1;padding:13px;border:none;border-radius:var(--radius-sm);background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#fff;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 4px 20px rgba(124,58,237,0.35);}
-.btn-cancelar-cifra{padding:13px 18px;border:1px solid var(--border);border-radius:var(--radius-sm);background:transparent;color:var(--text-muted);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;}
-
-.cifra-viz-card{background:var(--bg-card);border:1px solid var(--border-neon);border-radius:var(--radius);padding:20px;margin-bottom:16px;box-shadow:var(--shadow-neon);}
-.cifra-viz-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;gap:10px;}
-.cifra-viz-titulo{font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:#fff;}
-.cifra-viz-tom{font-size:13px;color:var(--accent);font-weight:700;margin-top:4px;}
-.cifra-viz-acoes{display:flex;gap:8px;flex-shrink:0;}
-.btn-cifra-acao{background:rgba(0,229,255,0.07);border:1px solid rgba(0,229,255,0.2);color:var(--accent);border-radius:var(--radius-sm);padding:7px 10px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;}
-.btn-cifra-acao.perigo{background:rgba(239,68,68,0.08);border-color:rgba(239,68,68,0.3);color:#f87171;}
-.cifra-transpor{display:flex;align-items:center;gap:10px;background:rgba(0,229,255,0.04);border:1px solid rgba(0,229,255,0.15);border-radius:var(--radius-sm);padding:10px 14px;margin-bottom:14px;}
-.transpor-label{font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;flex:1;}
-.btn-transpor{background:rgba(0,229,255,0.1);border:1px solid rgba(0,229,255,0.25);color:var(--accent);border-radius:8px;width:36px;height:36px;font-size:20px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;}
-.btn-transpor:active{transform:scale(0.92);}
-.cifra-texto{
-  font-family:'Share Tech Mono',monospace;font-size:14px;line-height:1.9;
-  color:var(--text-main);white-space:pre-wrap;word-break:break-word;
-  background:rgba(0,0,0,0.3);border-radius:var(--radius-sm);padding:16px;
-  overflow-x:auto;
-}
-.cifra-acorde{color:#00e5ff;font-weight:700;text-shadow:0 0 8px rgba(0,229,255,0.5);}
-.cifra-viz-btns-bottom{display:flex;gap:10px;margin-top:14px;}
-.btn-back-cifras{padding:12px 18px;border:1px solid var(--border);border-radius:var(--radius-sm);background:transparent;color:var(--text-muted);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;}
+/* ══ CIFRAS ══ */
+.cifras-panel{padding-top:12px;}
+.cifras-header{font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:var(--accent);margin-bottom:4px;}
+.cifras-sub{font-size:12px;color:var(--text-muted);margin-bottom:16px;}
+.cifra-search-row{display:flex;gap:8px;margin-bottom:16px;}
+.cifra-search-input{flex:1;background:var(--bg-input);border:1px solid rgba(0,229,255,0.2);border-radius:var(--radius-sm);color:var(--text-main);font-family:'DM Sans',sans-serif;font-size:15px;padding:12px 14px;outline:none;}
+.cifra-search-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,229,255,0.1);}
+.cifra-search-input::placeholder{color:#2a3a50;}
+.btn-buscar-cifra{background:linear-gradient(135deg,#00acc1,#006064);color:#fff;border:none;border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;padding:12px 18px;cursor:pointer;white-space:nowrap;box-shadow:0 4px 16px rgba(0,229,255,0.25);}
+.btn-buscar-cifra:active{transform:scale(0.97);}
+.cifra-abrindo{background:rgba(0,229,255,0.04);border:1px solid rgba(0,229,255,0.2);border-radius:var(--radius);padding:28px 20px;text-align:center;}
+.cifra-abrindo-icone{font-size:44px;margin-bottom:12px;font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
+.cifra-abrindo-titulo{font-family:'Playfair Display',serif;font-size:18px;font-weight:700;color:var(--accent);margin-bottom:6px;}
+.cifra-abrindo-desc{font-size:14px;color:var(--text-muted);margin-bottom:18px;}
+.cifra-abrindo-desc strong{color:var(--text-main);}
+.btn-ir-bananacifra{display:inline-block;background:linear-gradient(135deg,#f59e0b,#d97706);color:#000;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;padding:12px 28px;border-radius:50px;text-decoration:none;box-shadow:0 4px 20px rgba(245,158,11,0.35);transition:all 0.2s;}
+.btn-ir-bananacifra:active{transform:scale(0.97);}
+.cifra-erro{background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25);border-radius:var(--radius-sm);padding:16px;color:#f87171;font-size:14px;}
+.cifra-dica{background:rgba(0,229,255,0.04);border:1px solid rgba(0,229,255,0.12);border-radius:var(--radius);padding:20px;text-align:center;color:var(--text-muted);font-size:13px;line-height:1.6;}
+.cifra-dica-icone{font-size:36px;margin-bottom:10px;font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
+.cifra-sugestoes{margin-top:16px;}
+.cifra-sugestoes-titulo{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:10px;}
+.cifra-tags{display:flex;flex-wrap:wrap;gap:8px;}
+.cifra-tag{background:rgba(0,229,255,0.06);border:1px solid rgba(0,229,255,0.18);color:var(--accent);font-size:12px;font-weight:700;padding:6px 14px;border-radius:20px;cursor:pointer;transition:all 0.15s;}
+.cifra-tag:hover,.cifra-tag:active{background:rgba(0,229,255,0.15);}
 
 /* ══ TOAST / DIALOG ══ */
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:#0c1424;color:#fff;padding:12px 24px;border-radius:50px;font-size:14px;font-weight:700;box-shadow:0 10px 30px rgba(0,0,0,0.6);opacity:0;transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1);z-index:999;white-space:nowrap;border:1px solid var(--border);}
@@ -1248,23 +1060,23 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
   <div class="tela-inicio">
     <div class="logo-wrap">
       <div class="logo-inner">
-        <span class="logo-emoji">🎵</span>
+        <span class="logo-emoji">&#127925;</span>
       </div>
     </div>
     <h1 class="inicio-titulo">Escala do Louvor</h1>
-    <p class="inicio-sub">Ministério de Música</p>
+    <p class="inicio-sub">Ministerio de Musica</p>
     <div class="inicio-botoes">
       <div class="membro-box">
         <div class="membro-box-label">Acesso da Equipe</div>
         <form onsubmit="handleAuthMembro(event)">
           <input type="text"     id="membro-nome"  class="input-neon" placeholder="Seu nome (como cadastrado)" autocomplete="name">
-          <input type="password" id="membro-senha" class="input-neon" placeholder="Senha (padrão: 1234)">
+          <input type="password" id="membro-senha" class="input-neon" placeholder="Senha (padrao: 1234)">
           <p id="membro-erro" class="erro-msg-inicio"></p>
-          <button type="submit" id="btn-membro-auth" class="btn-inicio btn-inicio-membro">Entrar →</button>
+          <button type="submit" id="btn-membro-auth" class="btn-inicio btn-inicio-membro">Entrar</button>
         </form>
       </div>
-      <button class="btn-inicio btn-inicio-lider" onclick="mostrarTelaLider()">&#x26EA; Cadastrar / Entrar como Líder</button>
-      <button class="btn-inicio btn-inicio-fechar" onclick="fecharApp()">&#x2715; Fechar Aplicativo</button>
+      <button class="btn-inicio btn-inicio-lider" onclick="mostrarTelaLider()">Cadastrar / Entrar como Lider</button>
+      <button class="btn-inicio btn-inicio-fechar" onclick="fecharApp()">Fechar Aplicativo</button>
     </div>
   </div>
 </div>
@@ -1273,12 +1085,12 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
 <div id="tela-lider" style="display:none;">
   <div class="tela-lider">
     <div class="auth-card">
-      <button class="btn-fechar-card" onclick="voltarInicio()" title="Fechar">&#x2715;</button>
-      <div class="auth-logo">🎼</div>
-      <h2 id="lider-title">Entrar como Líder</h2>
+      <button class="btn-fechar-card" onclick="voltarInicio()" title="Fechar">X</button>
+      <div class="auth-logo">&#127932;</div>
+      <h2 id="lider-title">Entrar como Lider</h2>
       <p>Administre a escala da sua igreja</p>
       <div class="switch-container">
-        <span>Já tenho cadastro</span>
+        <span>Ja tenho cadastro</span>
         <input type="checkbox" id="lider-mode-check" onchange="toggleLiderMode()">
         <span>Cadastrar Igreja</span>
       </div>
@@ -1288,8 +1100,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
           <input type="text" id="lider-nome-igreja" placeholder="Ex: Igreja Batista Central">
         </div>
         <div id="group-codigo-lider" class="field-group" style="display:none;">
-          <label>&#x1F511; Código de Ativação</label>
-          <input type="text" id="lider-codigo" placeholder="Código fornecido pelo suporte">
+          <label>Codigo de Ativacao</label>
+          <input type="text" id="lider-codigo" placeholder="Codigo fornecido pelo suporte">
           <div class="field-hint" style="color:#334155;">Recebido no momento da compra.</div>
         </div>
         <div class="field-group">
@@ -1298,12 +1110,12 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
         </div>
         <div class="field-group">
           <label>Senha</label>
-          <input type="password" id="lider-senha" placeholder="Mínimo 6 caracteres" autocomplete="current-password">
+          <input type="password" id="lider-senha" placeholder="Minimo 6 caracteres" autocomplete="current-password">
         </div>
         <p id="lider-erro" class="erro-msg"></p>
-        <button type="submit" id="btn-lider-auth" class="btn btn-primary">Entrar como Líder</button>
+        <button type="submit" id="btn-lider-auth" class="btn btn-primary">Entrar como Lider</button>
         <button type="button" class="btn-recuperar" onclick="recuperarSenha()">Esqueci minha senha</button>
-        <button type="button" class="btn-voltar" onclick="voltarInicio()">← Voltar</button>
+        <button type="button" class="btn-voltar" onclick="voltarInicio()">Voltar</button>
       </form>
     </div>
   </div>
@@ -1314,8 +1126,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
   <header class="app-header">
     <div class="header-top">
       <div class="header-text">
-        <h1>🎵 <span id="badge-lider" class="badge-lider" style="display:none;">LÍDER</span></h1>
-        <div id="nome-igreja-header">Ministério de Música</div>
+        <h1>Louvor <span id="badge-lider" class="badge-lider" style="display:none;">LIDER</span></h1>
+        <div id="nome-igreja-header">Ministerio de Musica</div>
       </div>
       <div class="header-right">
         <div class="header-status">
@@ -1323,17 +1135,17 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
           <span id="status-text">Conectando...</span>
         </div>
         <button id="btn-sair" class="btn-sair" onclick="sair()">Sair</button>
-        <button class="btn-fechar-header" onclick="fecharApp()" title="Fechar aplicativo">&#x2715;</button>
+        <button class="btn-fechar-header" onclick="fecharApp()" title="Fechar aplicativo">X</button>
       </div>
     </div>
   </header>
 
   <nav class="nav-tabs">
-    <button id="tab-escala-atual"   class="nav-tab active" onclick="switchTab('escala-atual')">
+    <button id="tab-escala-atual"   class="nav-tab active"          onclick="switchTab('escala-atual')">
       Escalas <span id="badge-count" class="badge" style="display:none;">0</span>
     </button>
-    <button id="tab-proxima-escala" class="nav-tab" onclick="switchTab('proxima-escala')">Próxima</button>
-    <button id="tab-cifras"         class="nav-tab" onclick="switchTab('cifras')">Cifras</button>
+    <button id="tab-proxima-escala" class="nav-tab"                 onclick="switchTab('proxima-escala')">Proxima</button>
+    <button id="tab-cifras"         class="nav-tab"                 onclick="switchTab('cifras')">Cifras</button>
     <button id="tab-nova"           class="nav-tab" style="display:none;" onclick="switchTab('nova')">+ Nova</button>
     <button id="tab-equipe"         class="nav-tab" style="display:none;" onclick="switchTab('equipe')">Equipe</button>
   </nav>
@@ -1343,9 +1155,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
     <div id="panel-escala-atual" class="panel active">
       <div id="banner-aniversarios" class="banner-aniversarios"></div>
       <div class="mes-nav">
-        <button class="mes-nav-btn" onclick="mesAnterior()">‹</button>
+        <button class="mes-nav-btn" onclick="mesAnterior()">&#8249;</button>
         <span id="mes-nav-label"></span>
-        <button class="mes-nav-btn" onclick="mesProximo()">›</button>
+        <button class="mes-nav-btn" onclick="mesProximo()">&#8250;</button>
       </div>
       <div id="lista-escalas"></div>
     </div>
@@ -1357,83 +1169,35 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
 
     <!-- PANEL: CIFRAS -->
     <div id="panel-cifras" class="panel">
-      <div class="cifras-header">
-        <div class="cifras-header-titulo">&#x1F3BC; Cifras</div>
-        <button class="btn-nova-cifra" onclick="abrirNovaCifra()" id="btn-nova-cifra-topo">+ Nova Cifra</button>
-      </div>
-
-      <!-- Formulário (oculto por padrão) -->
-      <div id="cifra-form-area" style="display:none;">
-        <div class="cifra-form-card">
-          <div id="cifra-form-titulo" class="cifra-form-titulo">Nova Cifra</div>
-          <div class="field-group">
-            <label>Título do Hino</label>
-            <input type="text" id="cifra-titulo-input" placeholder="Ex: Grandioso És Tu" style="background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-main);font-family:'DM Sans',sans-serif;font-size:15px;padding:11px;outline:none;width:100%;">
+      <div class="cifras-panel">
+        <h2 class="cifras-header">Cifras Gospel</h2>
+        <p class="cifras-sub">Abre o BananaCifra direto na busca do hino</p>
+        <div class="cifra-search-row">
+          <input type="text" id="cifra-busca" class="cifra-search-input"
+            placeholder="Ex: Grandioso Es Tu, Oceans..."
+            onkeydown="buscarCifraKeydown(event)">
+          <button class="btn-buscar-cifra" onclick="buscarCifra()">Buscar</button>
+        </div>
+        <div id="cifra-resultado">
+          <div class="cifra-dica">
+            <div class="cifra-dica-icone">&#127928;</div>
+            <div>Digite o nome do hino e toque <strong>Buscar</strong>. O BananaCifra abre automaticamente com os resultados.</div>
           </div>
-          <div class="field-group">
-            <label>Tom Base</label>
-            <select id="cifra-tom-input" style="background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-main);font-family:'DM Sans',sans-serif;font-size:15px;padding:11px;outline:none;width:100%;">
-              <option value="">Selecione o tom...</option>
-              <option value="C">C (Dó)</option>
-              <option value="C#">C# (Dó#)</option>
-              <option value="D">D (Ré)</option>
-              <option value="D#">D# (Ré#)</option>
-              <option value="E">E (Mi)</option>
-              <option value="F">F (Fá)</option>
-              <option value="F#">F# (Fá#)</option>
-              <option value="G">G (Sol)</option>
-              <option value="G#">G# (Sol#)</option>
-              <option value="A">A (Lá)</option>
-              <option value="A#">A# (Lá#)</option>
-              <option value="B">B (Si)</option>
-              <option value="Cm">Cm</option>
-              <option value="Dm">Dm</option>
-              <option value="Em">Em</option>
-              <option value="Fm">Fm</option>
-              <option value="Gm">Gm</option>
-              <option value="Am">Am</option>
-              <option value="Bm">Bm</option>
-            </select>
-          </div>
-          <div class="field-group">
-            <label>Cifra / Letra com Acordes</label>
-            <textarea id="cifra-texto-input" class="cifra-textarea" placeholder="G               Em&#10;Grandioso és Tu, Senhor&#10;C               D&#10;Grande é Teu amor..."></textarea>
-            <div class="cifra-form-hint">Digite os acordes acima das letras. Os acordes aparecerão destacados em azul na visualização.</div>
-          </div>
-          <div class="cifra-form-btns">
-            <button id="btn-salvar-cifra" class="btn-salvar-cifra" onclick="salvarCifra()">Salvar Cifra</button>
-            <button class="btn-cancelar-cifra" onclick="fecharFormCifra()">Cancelar</button>
+          <div class="cifra-sugestoes">
+            <div class="cifra-sugestoes-titulo">Sugestoes rapidas</div>
+            <div class="cifra-tags">
+              <span class="cifra-tag" onclick="cifraRapida('Grandioso Es Tu')">Grandioso Es Tu</span>
+              <span class="cifra-tag" onclick="cifraRapida('Porque Ele Vive')">Porque Ele Vive</span>
+              <span class="cifra-tag" onclick="cifraRapida('Oceans Hillsong')">Oceans</span>
+              <span class="cifra-tag" onclick="cifraRapida('10.000 Reasons')">10.000 Reasons</span>
+              <span class="cifra-tag" onclick="cifraRapida('Reckless Love')">Reckless Love</span>
+              <span class="cifra-tag" onclick="cifraRapida('Way Maker')">Way Maker</span>
+              <span class="cifra-tag" onclick="cifraRapida('O Poder do Teu Amor')">Poder do Teu Amor</span>
+              <span class="cifra-tag" onclick="cifraRapida('Nao Para de Lutar')">Nao Para de Lutar</span>
+            </div>
           </div>
         </div>
       </div>
-
-      <!-- Visualização de cifra (oculta por padrão) -->
-      <div id="cifra-visualizar-area" style="display:none;">
-        <div class="cifra-viz-card">
-          <div class="cifra-viz-header">
-            <div>
-              <div id="cifra-viz-titulo" class="cifra-viz-titulo"></div>
-              <div id="cifra-viz-tom" class="cifra-viz-tom"></div>
-            </div>
-            <div class="cifra-viz-acoes" id="cifra-viz-acoes-wrap">
-              <button class="btn-cifra-acao" id="btn-editar-cifra-viz" onclick="editarCifra(window.cifraSelecionada)">&#x270F;&#xFE0F;</button>
-              <button class="btn-cifra-acao perigo" id="btn-excluir-cifra-viz" onclick="excluirCifra(window.cifraSelecionada)">&#x1F5D1;</button>
-            </div>
-          </div>
-          <div class="cifra-transpor">
-            <span class="transpor-label">Transpor tom:</span>
-            <button class="btn-transpor" onclick="diminuirTom()">&#x2212;</button>
-            <button class="btn-transpor" onclick="aumentarTom()">&#x2B;</button>
-          </div>
-          <div id="cifra-viz-texto" class="cifra-texto"></div>
-          <div class="cifra-viz-btns-bottom">
-            <button class="btn-back-cifras" onclick="document.getElementById('cifra-visualizar-area').style.display='none';">← Voltar</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Lista de cifras -->
-      <div id="cifras-lista"></div>
     </div>
 
     <!-- PANEL: NOVA ESCALA -->
@@ -1443,7 +1207,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
         <div class="field-row">
           <div class="field-group"><label>Data</label><input type="date" id="data"></div>
           <div class="field-group">
-            <label>Horário</label>
+            <label>Horario</label>
             <input type="time" id="horario" style="display:none;">
             <div class="neon-time-picker-wrap">
               <div class="neon-time-picker" id="neon-clock">
@@ -1459,35 +1223,35 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
             </div>
           </div>
         </div>
-        <div class="form-section-label">&#x1F3A4; Músicos Escalados</div>
+        <div class="form-section-label">Musicos Escalados</div>
         <div class="funcoes-grid">
-          <div class="field-group"><label>&#x1F3A4; Vocal Principal</label><input type="text" id="f-vocal" placeholder="Nome"></div>
-          <div class="field-group"><label>&#x1F399;&#xFE0F; Backing Vocals</label><input type="text" id="f-back" placeholder="Nomes"></div>
-          <div class="field-group"><label>&#x1F3B8; Violão</label><input type="text" id="f-violao" placeholder="Nome"></div>
-          <div class="field-group"><label>&#x1F3B8; Guitarra</label><input type="text" id="f-guitarra" placeholder="Nome"></div>
-          <div class="field-group"><label>&#x1F3B9; Teclado</label><input type="text" id="f-teclado" placeholder="Nome"></div>
-          <div class="field-group"><label>&#x1F941; Bateria</label><input type="text" id="f-bateria" placeholder="Nome"></div>
-          <div class="field-group"><label>&#x1F3B5; Baixo</label><input type="text" id="f-baixo" placeholder="Nome"></div>
-          <div class="field-group"><label>&#x1F3B7; Saxofone</label><input type="text" id="f-sax" placeholder="Nome"></div>
-          <div class="field-group"><label>&#x1FA98; Percussão</label><input type="text" id="f-percussao" placeholder="Nome"></div>
-          <div class="field-group"><label>&#x1F39A;&#xFE0F; Mesa de Som</label><input type="text" id="f-som" placeholder="Nome"></div>
-          <div class="field-group"><label>&#x1F5A5;&#xFE0F; Mídia</label><input type="text" id="f-midia" placeholder="Nome"></div>
+          <div class="field-group"><label>Vocal Principal</label><input type="text" id="f-vocal" placeholder="Nome"></div>
+          <div class="field-group"><label>Backing Vocals</label><input type="text" id="f-back" placeholder="Nomes"></div>
+          <div class="field-group"><label>Violao</label><input type="text" id="f-violao" placeholder="Nome"></div>
+          <div class="field-group"><label>Guitarra</label><input type="text" id="f-guitarra" placeholder="Nome"></div>
+          <div class="field-group"><label>Teclado</label><input type="text" id="f-teclado" placeholder="Nome"></div>
+          <div class="field-group"><label>Bateria</label><input type="text" id="f-bateria" placeholder="Nome"></div>
+          <div class="field-group"><label>Baixo</label><input type="text" id="f-baixo" placeholder="Nome"></div>
+          <div class="field-group"><label>Saxofone</label><input type="text" id="f-sax" placeholder="Nome"></div>
+          <div class="field-group"><label>Percussao</label><input type="text" id="f-percussao" placeholder="Nome"></div>
+          <div class="field-group"><label>Mesa de Som</label><input type="text" id="f-som" placeholder="Nome"></div>
+          <div class="field-group"><label>Midia</label><input type="text" id="f-midia" placeholder="Nome"></div>
         </div>
-        <div class="form-section-label">&#x1F3B5; Repertório</div>
+        <div class="form-section-label">Repertorio</div>
         <div class="field-group">
           <label>Hinos do Dia</label>
-          <textarea id="hinos" placeholder="1. Grandioso És Tu&#10;2. Porque Ele Vive"></textarea>
+          <textarea id="hinos" placeholder="1. Grandioso Es Tu&#10;2. Porque Ele Vive"></textarea>
         </div>
         <div class="field-group">
-          <label>&#x1F517; Links das Músicas</label>
+          <label>Links das Musicas</label>
           <textarea id="links" placeholder="Cole os links do YouTube ou Spotify"></textarea>
           <div class="field-hint">Um link por linha.</div>
         </div>
         <div class="field-group">
-          <label>&#x1F4E2; Avisos</label>
+          <label>Avisos</label>
           <textarea id="recados" placeholder="Avisos gerais para esta data."></textarea>
         </div>
-        <button id="btn-salvar" class="btn btn-primary" onclick="salvar()">&#x1F4BE; Salvar Escala</button>
+        <button id="btn-salvar" class="btn btn-primary" onclick="salvar()">Salvar Escala</button>
         <button id="btn-cancelar" class="btn btn-secondary" onclick="resetForm();switchTab('escala-atual')">Cancelar</button>
       </div>
     </div>
@@ -1495,59 +1259,63 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
     <!-- PANEL: EQUIPE -->
     <div id="panel-equipe" class="panel">
       <div class="equipe-form">
-        <h3>&#x2795; Cadastrar Membro da Equipe</h3>
+        <h3>Cadastrar Membro da Equipe</h3>
         <div class="field-row">
           <div class="field-group">
             <label>Nome</label>
             <input type="text" id="musico-nome" placeholder="Nome do membro">
           </div>
           <div class="field-group">
-            <label>Função</label>
+            <label>Funcao</label>
             <select id="musico-funcao">
               <option value="">Selecione...</option>
-              <option value="vocal">&#x1F3A4; Vocal Principal</option>
-              <option value="back">&#x1F399;&#xFE0F; Backing Vocals</option>
-              <option value="violao">&#x1F3B8; Violão</option>
-              <option value="guitarra">&#x1F3B8; Guitarra</option>
-              <option value="teclado">&#x1F3B9; Teclado</option>
-              <option value="bateria">&#x1F941; Bateria</option>
-              <option value="baixo">&#x1F3B5; Baixo</option>
-              <option value="sax">&#x1F3B7; Saxofone</option>
-              <option value="percussao">&#x1FA98; Percussão</option>
-              <option value="som">&#x1F39A;&#xFE0F; Mesa de Som</option>
-              <option value="midia">&#x1F5A5;&#xFE0F; Mídia</option>
+              <option value="vocal">Vocal Principal</option>
+              <option value="back">Backing Vocals</option>
+              <option value="violao">Violao</option>
+              <option value="guitarra">Guitarra</option>
+              <option value="teclado">Teclado</option>
+              <option value="bateria">Bateria</option>
+              <option value="baixo">Baixo</option>
+              <option value="sax">Saxofone</option>
+              <option value="percussao">Percussao</option>
+              <option value="som">Mesa de Som</option>
+              <option value="midia">Midia</option>
             </select>
           </div>
         </div>
-        <!-- CORREÇÃO 2: Aniversário só com dia e mês -->
+        <!-- FIX: aniversário apenas dia e mês, sem ano -->
         <div class="field-group">
-          <label>&#x1F382; Aniversário (opcional — só dia e mês)</label>
-          <div class="aniv-selects">
+          <label>Aniversario (dia e mes - opcional)</label>
+          <div class="aniv-row">
             <select id="musico-aniv-dia">
-              <option value="">Dia...</option>
-              <script>for(let d=1;d<=31;d++) document.write(`<option value="${d}">${d}</option>`);</script>
+              <option value="">Dia</option>
+              <option value="1">1</option><option value="2">2</option><option value="3">3</option>
+              <option value="4">4</option><option value="5">5</option><option value="6">6</option>
+              <option value="7">7</option><option value="8">8</option><option value="9">9</option>
+              <option value="10">10</option><option value="11">11</option><option value="12">12</option>
+              <option value="13">13</option><option value="14">14</option><option value="15">15</option>
+              <option value="16">16</option><option value="17">17</option><option value="18">18</option>
+              <option value="19">19</option><option value="20">20</option><option value="21">21</option>
+              <option value="22">22</option><option value="23">23</option><option value="24">24</option>
+              <option value="25">25</option><option value="26">26</option><option value="27">27</option>
+              <option value="28">28</option><option value="29">29</option><option value="30">30</option>
+              <option value="31">31</option>
             </select>
             <select id="musico-aniv-mes">
-              <option value="">Mês...</option>
-              <option value="01">Janeiro</option>
-              <option value="02">Fevereiro</option>
-              <option value="03">Março</option>
-              <option value="04">Abril</option>
-              <option value="05">Maio</option>
-              <option value="06">Junho</option>
-              <option value="07">Julho</option>
-              <option value="08">Agosto</option>
-              <option value="09">Setembro</option>
-              <option value="10">Outubro</option>
-              <option value="11">Novembro</option>
-              <option value="12">Dezembro</option>
+              <option value="">Mes</option>
+              <option value="1">Janeiro</option><option value="2">Fevereiro</option>
+              <option value="3">Marco</option><option value="4">Abril</option>
+              <option value="5">Maio</option><option value="6">Junho</option>
+              <option value="7">Julho</option><option value="8">Agosto</option>
+              <option value="9">Setembro</option><option value="10">Outubro</option>
+              <option value="11">Novembro</option><option value="12">Dezembro</option>
             </select>
           </div>
         </div>
         <button class="btn btn-primary" style="margin-top:8px;" onclick="salvarMembro()">Cadastrar Membro</button>
       </div>
       <div class="equipe-lista-card">
-        <h3>&#x1F465; Equipe da Igreja</h3>
+        <h3>Equipe da Igreja</h3>
         <div id="lista-equipe"></div>
       </div>
     </div>
@@ -1665,7 +1433,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
   }
 })();
 
-// cifraSelecionada é gerenciada no módulo Firebase e exposta via window.cifraSelecionada
+// Busca rápida de cifra por tag
+window.cifraRapida = function(nome) {
+  document.getElementById('cifra-busca').value = nome;
+  buscarCifra();
+};
 </script>
 
 <script type="module">
