@@ -15,25 +15,26 @@
 <meta name="description" content="Gerencie a escala do ministerio de musica da sua igreja">
 <meta name="application-name" content="Escala do Louvor">
 <meta name="msapplication-TileColor" content="#060c18">
-<meta name="msapplication-TileImage" content="icons/icon-144x144.png">
+<meta name="msapplication-TileImage" content="guitarra-144.png">
 
 <!-- Manifesto PWA -->
 <link rel="manifest" href="manifest.json">
 
 <!-- Favicon -->
-<link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="32x32" href="guitarra-48.png">
 
 <!-- Apple Touch Icons para iOS -->
-<link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="apple-touch-icon" sizes="152x152" href="icons/icon-152x152.png">
-<link rel="apple-touch-icon" sizes="192x192" href="icons/icon-192x192.png">
-<link rel="apple-touch-icon" sizes="512x512" href="icons/icon-512x512.png">
+<link rel="apple-touch-icon" href="guitarra-192.png">
+<link rel="apple-touch-icon" sizes="152x152" href="guitarra-144.png">
+<link rel="apple-touch-icon" sizes="192x192" href="guitarra-192.png">
+<link rel="apple-touch-icon" sizes="512x512" href="guitarra-512.png">
 <!-- ═══════════════════════════════════════ -->
 
 <title>Escala do Louvor</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@400;500;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap" rel="stylesheet">
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
@@ -68,6 +69,8 @@
   let igrejaId        = null;
   let nomeIgrejaAtual = '';
   let membroLogado    = false;
+  let membroDocId     = null;
+  let membroNome      = "";
   let filtroMes = new Date().getMonth();
   let filtroAno = new Date().getFullYear();
   let unsubEscalas = null;
@@ -76,8 +79,18 @@
   const MESES_FULL = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
   const MESES      = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
   const SEMANA     = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
-  const CODIGO_ATIVACAO = "LOUVOR@2026";
   const SENHA_MEMBRO_PADRAO = "1234";
+  const ADMIN_EMAIL = 'ilsonmoura1371@gmail.com';
+
+  function gerarCodigoIgreja() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let codigo = '';
+    for (let i = 0; i < 8; i++) {
+      if (i === 4) codigo += '-';
+      codigo += chars[Math.floor(Math.random() * chars.length)];
+    }
+    return codigo;
+  }
 
   const FUNCOES = [
     { id:'vocal',     label:'Vocal Principal',   icon:'MIC' },
@@ -93,16 +106,43 @@
     { id:'midia',     label:'Midia/ProPresenter', icon:'MID' },
   ];
 
-  const FUNCOES_EMOJI = {
-    vocal:'🎤', back:'🎙️', violao:'🪕', guitarra:'🎸', teclado:'🎹',
-    bateria:'🥁', baixo:'🎵', sax:'🎷', percussao:'🪘', som:'🎚️', midia:'🖥️'
+  const FUNCOES_COR = {
+    vocal:'#f472b6', back:'#c084fc', violao:'#fb923c', guitarra:'#f87171',
+    teclado:'#60a5fa', bateria:'#facc15', baixo:'#34d399', sax:'#f59e0b',
+    percussao:'#a78bfa', som:'#22d3ee', midia:'#94a3b8'
   };
+
+  const FUNCOES_SVG = {
+    vocal: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>`,
+    back:  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/><circle cx="19" cy="6" r="3" fill="currentColor" opacity="0.4"/></svg>`,
+    violao:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6"/><path d="M12 3v4"/><ellipse cx="12" cy="14" rx="5" ry="6"/><circle cx="12" cy="14" r="1.5" fill="currentColor"/><line x1="12" y1="8" x2="12" y2="8.5"/></svg>`,
+    guitarra:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3l6 0"/><path d="M12 3v3"/><path d="M6 21c-1.5-1.5-1.5-4 0-5.5L14.5 7"/><ellipse cx="17" cy="7" rx="2.5" ry="2.5"/><circle cx="8.5" cy="17.5" r="3"/><circle cx="8.5" cy="17.5" r="1" fill="currentColor"/></svg>`,
+    teclado:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="8" width="20" height="10" rx="2"/><line x1="6" y1="8" x2="6" y2="18"/><line x1="10" y1="8" x2="10" y2="18"/><line x1="14" y1="8" x2="14" y2="18"/><line x1="18" y1="8" x2="18" y2="18"/><rect x="4.5" y="8" width="2" height="6" rx="1" fill="currentColor"/><rect x="8.5" y="8" width="2" height="6" rx="1" fill="currentColor"/><rect x="14.5" y="8" width="2" height="6" rx="1" fill="currentColor"/></svg>`,
+    bateria:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="18" rx="8" ry="3"/><path d="M4 18v-4c0-1.7 3.6-3 8-3s8 1.3 8 3v4"/><ellipse cx="12" cy="11" rx="4" ry="1.5"/><line x1="7" y1="4" x2="9" y2="11"/><line x1="17" y1="4" x2="15" y2="11"/></svg>`,
+    baixo: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h4"/><path d="M11 3v4"/><path d="M6 21c-1.5-1.5-1.5-4 0-5.5L13 7"/><ellipse cx="16" cy="7" rx="2" ry="2"/><circle cx="8" cy="18" rx="3" ry="3"/><circle cx="8" cy="18" r="1" fill="currentColor"/></svg>`,
+    sax:   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3c0 0 1 1 1 3v10c0 2 2 4 4 4s4-2 4-4V8"/><path d="M9 6h5"/><circle cx="17" cy="5" r="2"/><line x1="13" y1="10" x2="16" y2="10"/><line x1="13" y1="13" x2="16" y2="13"/></svg>`,
+    percussao:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="13" rx="8" ry="4"/><path d="M4 13v4c0 2.2 3.6 4 8 4s8-1.8 8-4v-4"/><line x1="8" y1="4" x2="10" y2="9"/><line x1="16" y1="4" x2="14" y2="9"/><circle cx="8" cy="3.5" r="1" fill="currentColor"/><circle cx="16" cy="3.5" r="1" fill="currentColor"/></svg>`,
+    som:   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><circle cx="8" cy="12" r="2"/><circle cx="16" cy="12" r="3"/><line x1="12" y1="8" x2="12" y2="16"/></svg>`,
+    midia: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>`,
+  };
+
+  function funcIcone(id) {
+    const svg = FUNCOES_SVG[id] || FUNCOES_SVG.midia;
+    const cor = FUNCOES_COR[id] || '#94a3b8';
+    return '<span class="func-icone" style="color:'+cor+';border-color:'+cor+'33;background:'+cor+'18">'+svg+'</span>';
+  }
+
+  // manter compatibilidade
+  const FUNCOES_EMOJI = { vocal:'MIC', back:'BK', violao:'VLO', guitarra:'GTR', teclado:'TCL', bateria:'BAT', baixo:'BXO', sax:'SAX', percussao:'PRC', som:'SOM', midia:'MID' };
+
+  let appJaIniciado = false;
 
   onAuthStateChanged(auth, async (user) => {
     if (user) {
       usuarioLogado = user;
       igrejaId = user.uid;
       membroLogado = false;
+      appJaIniciado = true;
       try {
         const snap = await getDoc(doc(db,'igrejas',user.uid));
         nomeIgrejaAtual = snap.exists() ? (snap.data().nome || user.displayName || 'Minha Igreja') : (user.displayName || 'Minha Igreja');
@@ -110,16 +150,24 @@
         nomeIgrejaAtual = user.displayName || 'Minha Igreja';
       }
       entrarNoApp(nomeIgrejaAtual, true);
-    } else if (!membroLogado) {
-      usuarioLogado = null;
-      mostrarTelaInicio();
+    } else {
+      // Só volta para início se não há membro logado manualmente
+      if (!membroLogado) {
+        usuarioLogado = null;
+        if (appJaIniciado) mostrarTelaInicio();
+      }
     }
   });
 
   function mostrarTelaInicio() {
-    if (unsubEscalas) { unsubEscalas(); unsubEscalas = null; }
-    if (unsubMusicos) { unsubMusicos(); unsubMusicos = null; }
-    if (typeof unsubCifras !== 'undefined' && unsubCifras) { unsubCifras(); unsubCifras = null; }
+    if (unsubEscalas)  { unsubEscalas();  unsubEscalas  = null; }
+    if (unsubMusicos)  { unsubMusicos();  unsubMusicos  = null; }
+    if (typeof unsubCifras    !== 'undefined' && unsubCifras)    { unsubCifras();    unsubCifras    = null; }
+    if (typeof unsubEventos   !== 'undefined' && unsubEventos)   { unsubEventos();   unsubEventos   = null; }
+    if (typeof unsubMensagens !== 'undefined' && unsubMensagens) { unsubMensagens(); unsubMensagens = null; }
+    membroLogado = false;
+    igrejaId = null;
+    appJaIniciado = false;
     document.getElementById('tela-inicio').style.display  = 'flex';
     document.getElementById('tela-lider').style.display   = 'none';
     document.getElementById('app-content').style.display  = 'none';
@@ -135,6 +183,8 @@
     document.getElementById('tab-equipe').style.display  = isLider ? 'flex' : 'none';
     document.getElementById('badge-lider').style.display = isLider ? 'inline' : 'none';
     document.getElementById('btn-sair').textContent      = isLider ? 'Sair' : 'Trocar';
+    const btnAdmin = document.getElementById('btn-admin');
+    if (btnAdmin) btnAdmin.style.display = (isLider && usuarioLogado && usuarioLogado.email === ADMIN_EMAIL) ? 'inline-flex' : 'none';
 
     filtroMes = new Date().getMonth();
     filtroAno = new Date().getFullYear();
@@ -159,30 +209,28 @@
     const email = document.getElementById('lider-email').value.trim();
     const senha = document.getElementById('lider-senha').value.trim();
     const nome  = document.getElementById('lider-nome-igreja').value.trim();
-    const codigo= document.getElementById('lider-codigo').value.trim();
     const btn   = document.getElementById('btn-lider-auth');
     if (!email||!senha) { showToast('Preencha email e senha','danger'); return; }
     if (modo && !nome)  { showToast('Informe o nome da Igreja','danger'); return; }
-    if (modo && codigo !== CODIGO_ATIVACAO) {
-      document.getElementById('lider-erro').style.display='block';
-      document.getElementById('lider-erro').textContent='Codigo de ativacao invalido.';
-      return;
-    }
     btn.disabled=true; btn.textContent = modo?'Cadastrando...':'Entrando...';
     try {
       if (modo) {
+        const codigoIgreja = gerarCodigoIgreja();
         const cred = await createUserWithEmailAndPassword(auth, email, senha);
         await updateProfile(cred.user, { displayName: nome });
         await setDoc(doc(db,'igrejas',cred.user.uid), {
-          nome, senhaMembro: SENHA_MEMBRO_PADRAO, createdAt: serverTimestamp()
+          nome, senhaMembro: SENHA_MEMBRO_PADRAO, codigoAcesso: codigoIgreja, createdAt: serverTimestamp()
         });
-        showToast('Igreja cadastrada!','success');
+        document.getElementById('lider-form').reset();
+        document.getElementById('group-nome-lider').style.display='none';
+        showToast('Igreja cadastrada! Codigo: ' + codigoIgreja,'success');
+        // Exibe o código antes de entrar no app
+        mostrarCodigoIgreja(codigoIgreja, nome);
       } else {
         await signInWithEmailAndPassword(auth, email, senha);
+        document.getElementById('lider-form').reset();
         showToast('Bem-vindo!','success');
       }
-      document.getElementById('lider-form').reset();
-      document.getElementById('group-nome-lider').style.display='none';
     } catch(err) {
       document.getElementById('lider-erro').style.display='block';
       document.getElementById('lider-erro').textContent =
@@ -193,6 +241,18 @@
       btn.disabled=false;
       btn.textContent = modo?'Cadastrar Igreja':'Entrar como Lider';
     }
+  };
+
+  function mostrarCodigoIgreja(codigo, nomeIgreja) {
+    document.getElementById('tela-lider').style.display = 'none';
+    document.getElementById('tela-codigo-igreja').style.display = 'flex';
+    document.getElementById('codigo-igreja-nome').textContent = nomeIgreja;
+    document.getElementById('codigo-igreja-valor').textContent = codigo;
+  }
+
+  window.continuarParaApp = function() {
+    document.getElementById('tela-codigo-igreja').style.display = 'none';
+    // onAuthStateChanged vai chamar entrarNoApp automaticamente
   };
 
   window.recuperarSenha = async function() {
@@ -207,10 +267,66 @@
   window.toggleLiderMode = function() {
     const modo = document.getElementById('lider-mode-check').checked;
     document.getElementById('group-nome-lider').style.display   = modo?'block':'none';
-    document.getElementById('group-codigo-lider').style.display = modo?'block':'none';
     document.getElementById('lider-title').textContent = modo?'Cadastrar sua Igreja':'Entrar como Lider';
     document.getElementById('btn-lider-auth').textContent = modo?'Cadastrar Igreja':'Entrar como Lider';
     document.getElementById('lider-erro').style.display='none';
+  };
+
+  window.mostrarRedefinirSenhaMembro = function() {
+    document.getElementById('tela-inicio').style.display = 'none';
+    document.getElementById('tela-redef-senha').style.display = 'flex';
+    document.getElementById('redef-nome').value = '';
+    document.getElementById('redef-nova-senha').value = '';
+    document.getElementById('redef-confirma-senha').value = '';
+    document.getElementById('redef-erro').style.display = 'none';
+  };
+  window.voltarInicioDeRedef = function() {
+    document.getElementById('tela-redef-senha').style.display = 'none';
+    document.getElementById('tela-inicio').style.display = 'flex';
+  };
+  window.confirmarRedefinicaoSenha = async function(e) {
+    if (e) e.preventDefault();
+    const nome     = document.getElementById('redef-nome').value.trim();
+    const nova     = document.getElementById('redef-nova-senha').value.trim();
+    const confirma = document.getElementById('redef-confirma-senha').value.trim();
+    const erroEl   = document.getElementById('redef-erro');
+    const btn      = document.getElementById('btn-redef-senha');
+    erroEl.style.display = 'none';
+    if (!nome)          { erroEl.style.display='block'; erroEl.textContent='Digite seu nome.'; return; }
+    if (!nova)          { erroEl.style.display='block'; erroEl.textContent='Digite a nova senha.'; return; }
+    if (nova.length < 6){ erroEl.style.display='block'; erroEl.textContent='Senha deve ter pelo menos 6 caracteres.'; return; }
+    if (!/[a-zA-Z]/.test(nova)) { erroEl.style.display='block'; erroEl.textContent='A senha deve conter pelo menos uma letra.'; return; }
+    if (!/[0-9]/.test(nova))    { erroEl.style.display='block'; erroEl.textContent='A senha deve conter pelo menos um numero.'; return; }
+    if (nova !== confirma){ erroEl.style.display='block'; erroEl.textContent='As senhas nao conferem.'; return; }
+    btn.disabled = true; btn.textContent = 'Salvando...';
+    try {
+      const qRedef = query(collection(db, 'musicos'), where('nome', '==', nome));
+      let snapRedef = await getDocs(qRedef);
+      let membroDoc = null, membroDocIdEncontrado = null;
+      if (!snapRedef.empty) {
+        snapRedef.forEach(d => { if (!membroDoc) { membroDoc = d.data(); membroDocIdEncontrado = d.id; } });
+      }
+      if (!membroDoc) {
+        const snapTodos = await getDocs(collection(db, 'musicos'));
+        snapTodos.forEach(d => {
+          const dados = d.data();
+          if (!membroDoc && dados.nome && dados.nome.trim().toLowerCase() === nome.toLowerCase()) {
+            membroDoc = dados; membroDocIdEncontrado = d.id;
+          }
+        });
+      }
+      if (!membroDoc) throw new Error('Nome não encontrado. Verifique como foi cadastrado pelo líder.');
+      await updateDoc(doc(db,'musicos', membroDocIdEncontrado), {
+        senha: nova, senhaProvisoria: false, updatedAt: serverTimestamp()
+      });
+      showToast('Senha redefinida com sucesso!', 'success');
+      voltarInicioDeRedef();
+    } catch(err) {
+      erroEl.style.display = 'block';
+      erroEl.textContent = err.message || 'Erro ao redefinir senha.';
+    } finally {
+      btn.disabled = false; btn.textContent = 'Redefinir Senha';
+    }
   };
 
   window.handleAuthMembro = async function(e) {
@@ -230,16 +346,31 @@
     btn.textContent = 'Verificando...';
 
     try {
-      const snapMusicos = await getDocs(collection(db, 'musicos'));
-      let membroDoc = null, igrejaIdEncontrado = null;
-      snapMusicos.forEach(d => {
-        const dados = d.data();
-        if (dados.nome && dados.nome.trim().toLowerCase() === nomeMembro.toLowerCase()) {
-          membroDoc = dados; igrejaIdEncontrado = dados.igrejaId;
+      const qMembro = query(collection(db, 'musicos'), where('nome', '==', nomeMembro));
+      let snapMusicos = await getDocs(qMembro);
+      // fallback: busca case-insensitive se não encontrou exato
+      if (snapMusicos.empty) {
+        const snapTodos = await getDocs(collection(db, 'musicos'));
+        const encontrados = [];
+        snapTodos.forEach(d => {
+          const dados = d.data();
+          if (dados.nome && dados.nome.trim().toLowerCase() === nomeMembro.toLowerCase()) {
+            encontrados.push(d);
+          }
+        });
+        if (encontrados.length > 0) {
+          snapMusicos = { docs: encontrados, empty: false };
         }
-      });
-      if (!membroDoc) throw new Error('Nome nao encontrado. Verifique como foi cadastrado pelo lider.');
-      if (!igrejaIdEncontrado) throw new Error('Membro sem igreja associada. Fale com o lider.');
+      }
+      let membroDoc = null, igrejaIdEncontrado = null, membroDocIdEncontrado = null;
+      if (!snapMusicos.empty) {
+        snapMusicos.docs.forEach(d => {
+          const dados = d.data();
+          if (!membroDoc) { membroDoc = dados; igrejaIdEncontrado = dados.igrejaId; membroDocIdEncontrado = d.id; }
+        });
+      }
+      if (!membroDoc) throw new Error('Nome não encontrado. Verifique como foi cadastrado pelo líder.');
+      if (!igrejaIdEncontrado) throw new Error('Membro sem igreja associada. Fale com o líder.');
 
       let nomeIgreja = 'Ministerio de Musica', senhaIgreja = SENHA_MEMBRO_PADRAO;
       try {
@@ -251,14 +382,27 @@
         }
       } catch(errIgreja) { console.warn('Nao foi possivel carregar dados da igreja:', errIgreja); }
 
-      if (senha !== SENHA_MEMBRO_PADRAO && senha !== senhaIgreja) {
-        throw new Error('Senha incorreta. A senha padrao e: 1234');
+      // Aceita: senha individual do membro, senha da igreja ou senha padrão
+      const senhaCorretaMembro = membroDoc.senha || senhaIgreja || SENHA_MEMBRO_PADRAO;
+      if (senha !== senhaCorretaMembro) {
+        throw new Error('Senha incorreta.');
       }
 
       igrejaId = igrejaIdEncontrado;
       nomeIgrejaAtual = nomeIgreja;
       membroLogado = true;
+      membroDocId  = membroDocIdEncontrado;
+      membroNome   = membroDoc.nome;
       usuarioLogado = null;
+
+      // Se senha provisoria E ainda está com senha padrão → criar PIN
+      // Se ja tem PIN proprio (senha != 1234) → deixa entrar normalmente
+      const aindaSenhaPadrao = membroDoc.senhaProvisoria === true && membroDoc.senha === SENHA_MEMBRO_PADRAO;
+      if (aindaSenhaPadrao) {
+        mostrarTelaTrocaSenha(nomeIgreja);
+        showToast('Primeiro acesso: crie seu PIN de 4 dígitos!', 'success');
+        return;
+      }
 
       entrarNoApp(nomeIgreja, false);
       showToast('Bem-vindo, ' + membroDoc.nome + '!', 'success');
@@ -269,6 +413,175 @@
       btn.disabled = false;
       btn.textContent = 'Entrar';
     }
+  };
+
+  // ══ PIN SYSTEM ══
+  let pinStep1 = '', pinStep2 = '';
+
+  function buildPinPad(padId, step) {
+    const pad = document.getElementById(padId); if(!pad) return;
+    pad.innerHTML = '';
+    const nums = ['1','2','3','4','5','6','7','8','9','','0','⌫'];
+    nums.forEach(n => {
+      const btn = document.createElement('button');
+      btn.className = 'pin-btn' + (n===''?' pin-btn-empty': n==='⌫'?' pin-btn-del':'');
+      btn.textContent = n;
+      if (n !== '') btn.onclick = () => pinInput(n, step);
+      pad.appendChild(btn);
+    });
+  }
+
+  function pinInput(val, step) {
+    const erroEl = document.getElementById('troca-senha-erro');
+    erroEl.style.display = 'none';
+    if (step === 1) {
+      if (val === '⌫') { pinStep1 = pinStep1.slice(0,-1); }
+      else if (pinStep1.length < 4) { pinStep1 += val; }
+      updatePinDisplay(1, pinStep1);
+      if (pinStep1.length === 4) {
+        setTimeout(() => {
+          document.getElementById('pin-step-1').style.display = 'none';
+          document.getElementById('pin-step-2').style.display = 'block';
+        }, 200);
+      }
+    } else {
+      if (val === '⌫') { pinStep2 = pinStep2.slice(0,-1); }
+      else if (pinStep2.length < 4) { pinStep2 += val; }
+      updatePinDisplay(2, pinStep2);
+      if (pinStep2.length === 4) {
+        setTimeout(() => salvarPin(), 200);
+      }
+    }
+  }
+
+  function updatePinDisplay(step, val) {
+    for (let i = 1; i <= 4; i++) {
+      const dot = document.getElementById('pd'+step+'-'+i);
+      if (dot) dot.classList.toggle('filled', i <= val.length);
+    }
+  }
+
+  async function salvarPin() {
+    const erroEl = document.getElementById('troca-senha-erro');
+    if (pinStep1 !== pinStep2) {
+      erroEl.style.display = 'block';
+      erroEl.textContent = 'PINs diferentes. Tente novamente.';
+      pinStep2 = '';
+      updatePinDisplay(2, '');
+      document.getElementById('pin-step-1').style.display = 'none';
+      document.getElementById('pin-step-2').style.display = 'block';
+      return;
+    }
+    try {
+      await updateDoc(doc(db,'musicos', membroDocId), {
+        senha: pinStep1, senhaProvisoria: false, updatedAt: serverTimestamp()
+      });
+      document.getElementById('tela-troca-senha').style.display = 'none';
+      pinStep1 = ''; pinStep2 = '';
+      entrarNoApp(nomeIgrejaAtual, false);
+      showToast('PIN criado! Bem-vindo, ' + membroNome + '!', 'success');
+    } catch(err) {
+      erroEl.style.display = 'block';
+      erroEl.textContent = 'Erro ao salvar PIN. Tente novamente.';
+      pinStep2 = ''; updatePinDisplay(2,'');
+    }
+  }
+
+  function mostrarTelaTrocaSenha(nomeIgreja) {
+    pinStep1 = ''; pinStep2 = '';
+    document.getElementById('tela-inicio').style.display  = 'none';
+    document.getElementById('tela-lider').style.display   = 'none';
+    document.getElementById('app-content').style.display  = 'none';
+    document.getElementById('tela-troca-senha').style.display = 'flex';
+    document.getElementById('troca-senha-nome-igreja').textContent = nomeIgreja || 'Ministerio de Musica';
+    document.getElementById('pin-step-1').style.display = 'block';
+    document.getElementById('pin-step-2').style.display = 'none';
+    document.getElementById('troca-senha-erro').style.display = 'none';
+    updatePinDisplay(1,''); updatePinDisplay(2,'');
+    buildPinPad('pin-pad-1', 1);
+    buildPinPad('pin-pad-2', 2);
+  }
+
+  // ══ LOGIN COM PIN (teclado numerico na tela de login) ══
+  // manter compatibilidade - confirmarTrocaSenha nao e mais usada mas deixa para nao quebrar
+  window.confirmarTrocaSenha = function(e) { if(e) e.preventDefault(); };
+
+  // ══ ADMIN GERAL ══
+  window.abrirAdmin = async function() {
+    document.getElementById('tela-admin').style.display = 'block';
+    document.getElementById('admin-stats').innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--text-muted);padding:20px;">Carregando...</div>';
+    document.getElementById('admin-lista-igrejas').innerHTML = '';
+    try {
+      const snapI = await getDocs(collection(db,'igrejas'));
+      const igrejas = snapI.docs.map(d=>({id:d.id,...d.data()}));
+      // Para cada igreja busca contagens
+      const dados = await Promise.all(igrejas.map(async ig => {
+        const [snapM, snapE] = await Promise.all([
+          getDocs(query(collection(db,'musicos'), where('igrejaId','==',ig.id))),
+          getDocs(query(collection(db,'escalas'), where('igrejaId','==',ig.id)))
+        ]);
+        return { ...ig, totalMembros: snapM.size, totalEscalas: snapE.size };
+      }));
+      const totalMembros = dados.reduce((s,i)=>s+i.totalMembros,0);
+      const totalEscalas = dados.reduce((s,i)=>s+i.totalEscalas,0);
+      document.getElementById('admin-stats').innerHTML =
+        adminStatCard('⛪','Igrejas',dados.length,'#00e5ff') +
+        adminStatCard('👥','Membros',totalMembros,'#a78bfa') +
+        adminStatCard('🎵','Escalas',totalEscalas,'#34d399');
+      document.getElementById('admin-lista-igrejas').innerHTML = dados.length === 0
+        ? '<div style="text-align:center;color:var(--text-muted);padding:30px;">Nenhuma igreja cadastrada ainda.</div>'
+        : dados.map(ig => adminIgrejaCard(ig)).join('');
+    } catch(err) {
+      document.getElementById('admin-stats').innerHTML = '<div style="grid-column:1/-1;color:#f87171;text-align:center;">Erro ao carregar dados.</div>';
+      console.error(err);
+    }
+  };
+
+  function adminStatCard(emoji, label, valor, cor) {
+    return '<div style="background:var(--bg-card);border:1px solid '+cor+'44;border-radius:12px;padding:16px;text-align:center;">'+
+      '<div style="font-size:24px;">'+emoji+'</div>'+
+      '<div style="font-size:28px;font-weight:700;color:'+cor+';">'+valor+'</div>'+
+      '<div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;">'+label+'</div>'+
+    '</div>';
+  }
+
+  function adminIgrejaCard(ig) {
+    const ativa = ig.ativa !== false;
+    const btnLabel = ativa ? 'Desativar' : 'Ativar';
+    const statusStyle = ativa
+      ? 'background:#16a34a22;color:#4ade80;border:1px solid #4ade8044;'
+      : 'background:#dc262622;color:#f87171;border:1px solid #f8717144;';
+    const statusLabel = ativa ? 'ATIVA' : 'INATIVA';
+    const el = document.createElement('div');
+    el.style.cssText = 'background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:12px;';
+    el.innerHTML =
+      '<div style="flex:1;min-width:0;">'+
+        '<div style="font-size:15px;font-weight:700;color:var(--text-main);">'+esc(ig.nome||'Igreja sem nome')+'</div>'+
+        '<div style="font-size:12px;color:var(--text-muted);margin-top:3px;">'+esc(ig.id)+'</div>'+
+        '<div style="display:flex;gap:12px;margin-top:6px;">'+
+          '<span style="font-size:12px;color:#a78bfa;">👥 '+ig.totalMembros+' membros</span>'+
+          '<span style="font-size:12px;color:#34d399;">🎵 '+ig.totalEscalas+' escalas</span>'+
+        '</div>'+
+      '</div>'+
+      '<div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;">'+
+        '<span style="font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px;'+statusStyle+'">'+statusLabel+'</span>'+
+        '<button id="tog-'+ig.id+'" style="font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:rgba(255,255,255,0.06);color:var(--text-muted);cursor:pointer;">'+btnLabel+'</button>'+
+      '</div>';
+    el.querySelector('#tog-'+ig.id).onclick = () => toggleIgreja(ig.id, ativa);
+    return el.outerHTML;
+  }
+
+  window.toggleIgreja = async function(id, ativa) {
+    if (!confirm((ativa?'Desativar':'Ativar')+' esta igreja?')) return;
+    try {
+      await updateDoc(doc(db,'igrejas',id), { ativa: !ativa });
+      showToast('Igreja '+(ativa?'desativada':'ativada')+'!', ativa?'danger':'success');
+      abrirAdmin();
+    } catch(err) { showToast('Erro ao atualizar','danger'); }
+  };
+
+  window.fecharAdmin = function() {
+    document.getElementById('tela-admin').style.display = 'none';
   };
 
   window.sair = async function() {
@@ -291,19 +604,37 @@
   function iniciarListeners() {
     if (!igrejaId) return;
     setStatus('connecting');
+    // Listener escalas — sem orderBy para evitar exigência de índice composto
     if (unsubEscalas) unsubEscalas();
-    const qE = query(col, where("igrejaId","==",igrejaId), orderBy("dataISO","asc"), orderBy("horario","asc"));
+    const qE = query(col, where("igrejaId","==",igrejaId));
     unsubEscalas = onSnapshot(qE,
-      snap => { escalas=snap.docs.map(d=>({id:d.id,...d.data()})); setStatus('online'); renderLista(); atualizarBadge(); },
-      err  => { console.error(err); setStatus('error'); }
+      snap => {
+        escalas = snap.docs.map(d=>({id:d.id,...d.data()}));
+        // ordena no cliente
+        escalas.sort((a,b)=> (a.dataISO||'').localeCompare(b.dataISO||''));
+        setStatus('online');
+        renderLista();
+        atualizarBadge();
+      },
+      err => { console.error('escalas err:', err); setStatus('error'); }
     );
+    // Listener musicos — sem orderBy
     if (unsubMusicos) unsubMusicos();
-    const qM = query(collection(db,'musicos'), where("igrejaId","==",igrejaId), orderBy("nome","asc"));
+    const qM = query(collection(db,'musicos'), where("igrejaId","==",igrejaId));
     unsubMusicos = onSnapshot(qM,
-      snap => { musicos=snap.docs.map(d=>({id:d.id,...d.data()})); renderEquipe(); verificarAniversarios(); },
-      err  => console.error(err)
+      snap => {
+        musicos = snap.docs.map(d=>({id:d.id,...d.data()}));
+        musicos.sort((a,b)=>(a.nome||'').localeCompare(b.nome||''));
+        renderEquipe();
+        verificarAniversarios();
+      },
+      err => console.error('musicos err:', err)
     );
-    setTimeout(()=>{ if(typeof iniciarListenerCifras==='function') iniciarListenerCifras(); },0);
+    setTimeout(()=>{
+      if(typeof iniciarListenerCifras==='function') iniciarListenerCifras();
+      if(typeof iniciarListenerEventos==='function') iniciarListenerEventos();
+      if(typeof iniciarListenerMensagens==='function') iniciarListenerMensagens();
+    },0);
   }
 
   function setStatus(s) {
@@ -312,14 +643,24 @@
   }
 
   window.switchTab = function(tab) {
-    ['escala-atual','proxima-escala','nova','equipe','cifras'].forEach(t=>{
+    ['escala-atual','proxima-escala','nova','equipe','cifras','eventos','mensagens'].forEach(t=>{
       const p=document.getElementById('panel-'+t); if(p) p.classList.toggle('active',t===tab);
     });
-    ['escala-atual','proxima-escala','nova','equipe','cifras'].forEach(t=>{
+    ['escala-atual','proxima-escala','nova','equipe','cifras','eventos','mensagens'].forEach(t=>{
       const b=document.getElementById('tab-'+t); if(b) b.classList.toggle('active',t===tab);
     });
     if (tab==='escala-atual') { filtroMes=new Date().getMonth(); filtroAno=new Date().getFullYear(); renderLista(); }
     if (tab==='proxima-escala') renderProxima();
+    if (tab==='mensagens') {
+      const el=document.getElementById('badge-msg'); if(el) el.style.display='none';
+      const btnLimpar=document.getElementById('btn-limpar-chat');
+      if(btnLimpar) btnLimpar.style.display = isLider() ? 'block' : 'none';
+      setTimeout(()=>{ const c=document.getElementById('msg-lista'); if(c) c.scrollTop=c.scrollHeight; },100);
+    }
+    if (tab==='eventos') {
+      const btn=document.getElementById('btn-novo-evento');
+      if(btn) btn.style.display=isLider()?'inline-flex':'none';
+    }
   };
 
   let toastTimer;
@@ -429,20 +770,22 @@
     if(!isLider()){showToast('Apenas o lider pode cadastrar','danger');return;}
     const nome   = document.getElementById('musico-nome').value.trim();
     const funcao = document.getElementById('musico-funcao').value;
-    const dia  = document.getElementById('musico-aniv-dia').value;
-    const mes  = document.getElementById('musico-aniv-mes').value;
+    const dia    = document.getElementById('musico-aniv-dia').value;
+    const mes    = document.getElementById('musico-aniv-mes').value;
     if(!nome)  {showToast('Informe o nome','danger');return;}
     if(!funcao){showToast('Selecione a funcao','danger');return;}
     const aniversario = (dia && mes) ? `--${mes.padStart(2,'0')}-${dia.padStart(2,'0')}` : '';
     try {
       await addDoc(collection(db,'musicos'),{
-        nome, funcao, aniversario, igrejaId, createdAt:serverTimestamp()
+        nome, funcao, aniversario, igrejaId,
+        senha: SENHA_MEMBRO_PADRAO, senhaProvisoria: true,
+        createdAt: serverTimestamp()
       });
       document.getElementById('musico-nome').value='';
       document.getElementById('musico-funcao').value='';
       document.getElementById('musico-aniv-dia').value='';
       document.getElementById('musico-aniv-mes').value='';
-      showToast('Membro cadastrado!','success');
+      showToast('Membro cadastrado! No 1º acesso ele criará seu PIN.','success');
     } catch(err){ showToast('Erro ao cadastrar','danger'); }
   };
 
@@ -478,7 +821,7 @@
       const lista=grupos[f.id];
       if(lista.length===0) return;
       html+=`<div class="musico-grupo">
-        <div class="musico-grupo-titulo"><span class="func-emoji">${FUNCOES_EMOJI[f.id]||''}</span> ${f.label}</div>
+        <div class="musico-grupo-titulo">${funcIcone(f.id)}<span class="func-nome" style="color:${FUNCOES_COR[f.id]||'var(--accent)'}">${f.label}</span></div>
         <div class="musico-grupo-lista">`;
       lista.forEach(m=>{
         const anivData = parseAniversario(m.aniversario);
@@ -493,36 +836,94 @@
     container.innerHTML=html;
   }
 
-  function verificarAniversarios() {
-    const mesAtual = new Date().getMonth() + 1;
-    const diaAtual = new Date().getDate();
-    const aniv = musicos.filter(m=>{
-      const anivData = parseAniversario(m.aniversario);
-      return anivData && anivData.mes === mesAtual;
-    }).sort((a,b)=>{
-      const da = parseAniversario(a.aniversario);
-      const db2 = parseAniversario(b.aniversario);
-      return (da?.dia||0)-(db2?.dia||0);
-    });
+  // Controle para não enviar msg de aniversário mais de uma vez por sessão
+  const _anivMsgEnviados = new Set();
 
-    const banner=document.getElementById('banner-aniversarios');
-    if(!banner) return;
-    if(aniv.length===0){ banner.style.display='none'; return; }
-    let html=`<div class="aniv-header">Aniversarios de ${MESES_FULL[mesAtual-1]}</div><div class="aniv-lista">`;
-    aniv.forEach(m=>{
+  function verificarAniversarios() {
+    const hoje = new Date();
+
+    // Filtra membros com aniversário nos próximos 3 dias (inclusive hoje)
+    const anivProximos = musicos.filter(m => {
       const anivData = parseAniversario(m.aniversario);
-      const dia = anivData?.dia || 0;
-      const isHoje=dia===diaAtual;
-      html+=`<div class="aniv-item${isHoje?' hoje':''}">
-        <span class="aniv-icon">${isHoje?'🎉':'🎂'}</span>
-        <span class="aniv-nome">${esc(m.nome)}</span>
-        <span class="aniv-dia">dia ${dia}</span>
-        ${isHoje?'<span class="aniv-tag">Hoje!</span>':''}
-      </div>`;
+      if (!anivData) return false;
+      for (let i = 0; i <= 3; i++) {
+        const d = new Date(hoje); d.setDate(hoje.getDate() + i);
+        if (anivData.mes === d.getMonth()+1 && anivData.dia === d.getDate()) return true;
+      }
+      return false;
+    }).map(m => {
+      const anivData = parseAniversario(m.aniversario);
+      let diasFaltam = 0;
+      for (let i = 0; i <= 3; i++) {
+        const d = new Date(hoje); d.setDate(hoje.getDate() + i);
+        if (anivData.mes === d.getMonth()+1 && anivData.dia === d.getDate()) { diasFaltam = i; break; }
+      }
+      return { ...m, _diasFaltam: diasFaltam, _anivDia: anivData.dia, _anivMes: anivData.mes };
+    }).sort((a, b) => a._diasFaltam - b._diasFaltam);
+
+    // ── Banner ──
+    const banner = document.getElementById('banner-aniversarios');
+    if (banner) {
+      if (anivProximos.length === 0) {
+        banner.style.display = 'none';
+      } else {
+        let html = '<div class="aniv-header">🎂 Aniversários Próximos</div><div class="aniv-lista">';
+        anivProximos.forEach(m => {
+          const isHoje   = m._diasFaltam === 0;
+          const isAmanha = m._diasFaltam === 1;
+          const labelDia = isHoje   ? 'Hoje!'
+                         : isAmanha ? 'Amanhã'
+                         : 'Em ' + m._diasFaltam + ' dias (' + m._anivDia + '/' + m._anivMes + ')';
+          const tagStyle = isHoje
+            ? ''
+            : isAmanha
+              ? 'background:#a78bfa;color:#fff;'
+              : 'background:#334155;color:#94a3b8;';
+          html += '<div class="aniv-item' + (isHoje ? ' hoje' : '') + '">' +
+            '<span class="aniv-icon">' + (isHoje ? '🎉' : '🎂') + '</span>' +
+            '<span class="aniv-nome">' + esc(m.nome) + '</span>' +
+            '<span class="aniv-dia">' + m._anivDia + '/' + m._anivMes + '</span>' +
+            '<span class="aniv-tag" style="' + tagStyle + '">' + labelDia + '</span>' +
+            '</div>';
+        });
+        html += '</div>';
+        banner.innerHTML = html;
+        banner.style.display = 'block';
+      }
+    }
+
+    // ── Mensagem automática no Chat ──
+    anivProximos.forEach(m => {
+      const chave = 'aniv-' + m.id + '-' + hoje.toISOString().slice(0,10) + '-' + m._diasFaltam;
+      if (_anivMsgEnviados.has(chave)) return;
+      _anivMsgEnviados.add(chave);
+      const isHoje   = m._diasFaltam === 0;
+      const isAmanha = m._diasFaltam === 1;
+      let texto;
+      if (isHoje) {
+        texto = '🎉🎂 Hoje é aniversário de ' + m.nome + '! Que Deus abençoe muito esse servo(a) do Senhor! Feliz aniversário! 🎉';
+      } else if (isAmanha) {
+        texto = '🎂 Amanhã é aniversário de ' + m.nome + '! Vamos lembrar de parabenizar! 🥳';
+      } else {
+        texto = '🗓️ Em ' + m._diasFaltam + ' dias é aniversário de ' + m.nome + ' (dia ' + m._anivDia + '/' + m._anivMes + ')!';
+      }
+      if (igrejaId) {
+        // Verifica se já existe mensagem com essa chaveUnica antes de criar
+        getDocs(query(collection(db,'mensagens'), where('chaveUnica','==',chave), where('igrejaId','==',igrejaId)))
+          .then(snap => {
+            if (snap.empty) {
+              addDoc(collection(db, 'mensagens'), {
+                texto,
+                autor: '🎂 Lembrete',
+                igrejaId,
+                sistema: true,
+                chaveUnica: chave,
+                criadoEm: serverTimestamp()
+              }).catch(() => {});
+            }
+          }).catch(() => {});
+      }
     });
-    html+='</div>';
-    banner.innerHTML=html;
-    banner.style.display='block';
   }
 
   function atualizarBadge() {
@@ -567,7 +968,7 @@
       let funcHtml='';
       FUNCOES.forEach(f=>{
         if(e[f.id]) funcHtml+=`<div class="escala-row">
-          <span class="escala-row-icon func-emoji">${FUNCOES_EMOJI[f.id]||f.icon}</span>
+          ${funcIcone(f.id)}
           <div class="escala-row-content">
             <div class="escala-row-label">${f.label}</div>
             <div class="escala-row-value">${esc(e[f.id])}</div>
@@ -642,7 +1043,7 @@
     let funcHtml='';
     FUNCOES.forEach(f=>{
       if(proxima[f.id]) funcHtml+=`<div class="escala-row">
-        <span class="escala-row-icon func-emoji">${FUNCOES_EMOJI[f.id]||f.icon}</span>
+        ${funcIcone(f.id)}
         <div class="escala-row-content">
           <div class="escala-row-label">${f.label}</div>
           <div class="escala-row-value">${esc(proxima[f.id])}</div>
@@ -867,6 +1268,268 @@
 
   function isLider(){ return !!usuarioLogado; }
   function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+  // ══════════════════════════════════
+  // EVENTOS
+  // ══════════════════════════════════
+  let eventos = [];
+  let eventoEditId = null;
+  let unsubEventos = null;
+  const TIPO_EVENTO = {
+    ensaio:  { emoji:'🎵', label:'Ensaio' },
+    culto:   { emoji:'⛪', label:'Culto Especial' },
+    retiro:  { emoji:'🏕️', label:'Retiro' },
+    reuniao: { emoji:'📋', label:'Reuniao' },
+    outro:   { emoji:'📌', label:'Outro' },
+  };
+  function iniciarListenerEventos() {
+    if (!igrejaId) return;
+    if (unsubEventos) unsubEventos();
+    const qEv = query(collection(db,'eventos'), where('igrejaId','==',igrejaId));
+    unsubEventos = onSnapshot(qEv, snap => {
+      eventos = snap.docs.map(d=>({id:d.id,...d.data()}));
+      eventos.sort((a,b)=>(a.dataISO||'').localeCompare(b.dataISO||''));
+      renderEventos();
+    }, err => console.error('eventos err:',err));
+  }
+  function renderEventos() {
+    const c = document.getElementById('lista-eventos'); if(!c) return;
+    const hoje = new Date(); hoje.setHours(0,0,0,0);
+    const futuros  = eventos.filter(e => new Date(e.dataISO+'T00:00:00') >= hoje);
+    const passados = eventos.filter(e => new Date(e.dataISO+'T00:00:00') < hoje);
+    if (eventos.length === 0) {
+      c.innerHTML = '<div class="empty-state"><div class="empty-icon">📅</div><h3>Nenhum evento ainda</h3><p>'+(isLider()?'Toque em "+ Novo Evento" para criar.':'Aguarde o lider adicionar eventos.')+'</p></div>';
+      return;
+    }
+    let html = '';
+    if (futuros.length) {
+      html += '<div class="eventos-secao-titulo">Proximos Eventos</div>';
+      futuros.forEach(e => { html += renderEventoCard(e, hoje, false); });
+    }
+    if (passados.length) {
+      html += '<div class="eventos-secao-titulo" style="margin-top:18px;opacity:0.6;">Eventos Passados</div>';
+      passados.forEach(e => { html += renderEventoCard(e, hoje, true); });
+    }
+    c.innerHTML = html;
+  }
+  function renderEventoCard(e, hoje, passado) {
+    const [ano,mes,dia] = e.dataISO.split('-');
+    const diaSemana = SEMANA[new Date(e.dataISO+'T00:00:00').getDay()];
+    const diff = Math.round((new Date(e.dataISO+'T00:00:00') - hoje) / 86400000);
+    const badge = diff===0?'Hoje':diff===1?'Amanha':diff>0?'Em '+diff+' dias':'Ha '+Math.abs(diff)+' dias';
+    const tipo = TIPO_EVENTO[e.tipo] || TIPO_EVENTO.outro;
+    return '<div class="evento-card'+(passado?' passada':'')+'">'+
+      '<div class="evento-card-topo">'+
+        '<div class="evento-date-block">'+
+          '<span class="evento-emoji">'+tipo.emoji+'</span>'+
+          '<div><div class="evento-titulo-text">'+esc(e.titulo)+'</div><div class="evento-tipo-label">'+tipo.label+'</div></div>'+
+        '</div>'+
+        '<span class="dias-badge '+(diff===0?'hoje':diff>0&&diff<=3?'breve':diff>3?'normal':'passado')+'">'+badge+'</span>'+
+      '</div>'+
+      '<div class="evento-info-row">'+
+        '<span>'+dia+'/'+mes+'/'+ano+(e.hora?' - '+e.hora:'')+'</span>'+
+        (e.local?'<span>'+esc(e.local)+'</span>':'')+
+      '</div>'+
+      (e.descricao?'<div class="evento-descricao">'+esc(e.descricao)+'</div>':'')+
+      (isLider()?'<div class="evento-acoes"><button class="btn-edit-card" onclick="editarEvento(\''+e.id+'\')">Editar</button><button class="btn-del-card" onclick="excluirEvento(\''+e.id+'\')">Del</button></div>':'')+
+    '</div>';
+  }
+  window.abrirFormEvento = function(id) {
+    eventoEditId = id || null;
+    const ev = id ? eventos.find(x=>x.id===id) : null;
+    document.getElementById('ev-titulo').value    = ev ? ev.titulo : '';
+    document.getElementById('ev-data').value      = ev ? ev.dataISO : '';
+    document.getElementById('ev-hora').value      = ev ? (ev.hora||'') : '';
+    document.getElementById('ev-local').value     = ev ? (ev.local||'') : '';
+    document.getElementById('ev-descricao').value = ev ? (ev.descricao||'') : '';
+    document.getElementById('ev-tipo').value      = ev ? (ev.tipo||'ensaio') : 'ensaio';
+    document.getElementById('evento-form-title').textContent = ev ? 'Editar Evento' : 'Novo Evento';
+    document.getElementById('eventos-lider-form').style.display = 'block';
+    document.getElementById('eventos-lider-form').scrollIntoView({behavior:'smooth',block:'start'});
+  };
+  window.fecharFormEvento = function() { document.getElementById('eventos-lider-form').style.display='none'; eventoEditId=null; };
+  window.salvarEvento = async function() {
+    const titulo = document.getElementById('ev-titulo').value.trim();
+    const data   = document.getElementById('ev-data').value;
+    if (!titulo) { showToast('Informe o titulo','danger'); return; }
+    if (!data)   { showToast('Informe a data','danger'); return; }
+    const obj = { titulo, dataISO:data, hora:document.getElementById('ev-hora').value.trim(),
+      local:document.getElementById('ev-local').value.trim(),
+      descricao:document.getElementById('ev-descricao').value.trim(),
+      tipo:document.getElementById('ev-tipo').value, igrejaId, updatedAt:serverTimestamp() };
+    try {
+      if (eventoEditId) { await updateDoc(doc(db,'eventos',eventoEditId),obj); showToast('Evento atualizado!','success'); }
+      else { obj.createdAt=serverTimestamp(); await addDoc(collection(db,'eventos'),obj); showToast('Evento criado!','success'); }
+      fecharFormEvento();
+    } catch(err) { showToast('Erro ao salvar','danger'); console.error(err); }
+  };
+  window.editarEvento = function(id) { abrirFormEvento(id); };
+  window.excluirEvento = async function(id) {
+    if (!confirm('Remover este evento?')) return;
+    try { await deleteDoc(doc(db,'eventos',id)); showToast('Evento removido','danger'); }
+    catch(err) { showToast('Erro ao remover','danger'); }
+  };
+
+  // ══════════════════════════════════
+  // MENSAGENS / CHAT
+  // ══════════════════════════════════
+  let unsubMensagens = null;
+  function iniciarListenerMensagens() {
+    if (!igrejaId) return;
+    if (unsubMensagens) unsubMensagens();
+    const qMsg = query(collection(db,'mensagens'), where('igrejaId','==',igrejaId));
+    unsubMensagens = onSnapshot(qMsg, snap => {
+      const msgs = snap.docs.map(d=>({id:d.id,...d.data()}));
+      msgs.sort((a,b)=>{
+        const ta = (a.criadoEm?.toMillis ? a.criadoEm.toMillis() : 0) || (a.createdAt?.toMillis ? a.createdAt.toMillis() : 0);
+        const tb = (b.criadoEm?.toMillis ? b.criadoEm.toMillis() : 0) || (b.createdAt?.toMillis ? b.createdAt.toMillis() : 0);
+        return ta - tb;
+      });
+      renderMensagens(msgs);
+      const panelAtivo = document.querySelector('#panel-mensagens.active');
+      if (!panelAtivo) {
+        const el = document.getElementById('badge-msg');
+        if (el) { el.textContent='!'; el.style.display='inline-flex'; }
+      }
+    }, err => console.error(err));
+  }
+  function renderMensagens(msgs) {
+    const c = document.getElementById('msg-lista'); if(!c) return;
+    if (msgs.length===0) { c.innerHTML='<div class="msg-vazio">Nenhuma mensagem ainda. Seja o primeiro!</div>'; return; }
+    const meuId = usuarioLogado ? usuarioLogado.uid : membroDocId;
+    let html = '', ultimaData = '';
+    msgs.forEach(m => {
+      const dt = m.criadoEm?.toDate ? m.criadoEm.toDate() : (m.createdAt?.toDate ? m.createdAt.toDate() : new Date());
+      const dataStr = dt.toLocaleDateString('pt-BR',{day:'2-digit',month:'short'});
+      if (dataStr !== ultimaData) { html+='<div class="msg-data-sep">'+dataStr+'</div>'; ultimaData=dataStr; }
+      // Mensagem de sistema (aniversário)
+      if (m.sistema) {
+        html += '<div class="msg-sistema">' +
+          '<span class="msg-sistema-texto">' + esc(m.texto) + '</span>' +
+          '</div>';
+        return;
+      }
+      const minha = m.autorId === meuId;
+      const hora  = dt.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+      const podeDel = usuarioLogado || minha; // líder apaga tudo, membro apaga só a sua
+      const btnDel  = podeDel
+        ? '<button class="msg-del-btn" onclick="apagarMensagem(\'' + m.id + '\')" title="Apagar mensagem">✕</button>'
+        : '';
+      html+='<div class="msg-linha '+(minha?'minha':'deles')+'" id="msg-'+m.id+'">'+
+        (!minha?'<div class="msg-avatar">'+(m.autorNome||'?')[0].toUpperCase()+'</div>':'')+
+        '<div class="msg-balao">'+
+          (!minha?'<div class="msg-autor">'+esc(m.autorNome||'Membro')+'</div>':'')+
+          '<div class="msg-texto">'+esc(m.texto)+'</div>'+
+          '<div class="msg-hora">'+hora+(m.lider?' 👑':'')+btnDel+'</div>'+
+        '</div></div>';
+    });
+    // Toca som se chegou mensagem nova de outro membro
+    const meuId2 = usuarioLogado ? usuarioLogado.uid : membroDocId;
+    const totalAtual = msgs.length;
+    if (_ultimoTotalMsgs > 0 && totalAtual > _ultimoTotalMsgs) {
+      // Pega as mensagens novas
+      const novas = msgs.slice(_ultimoTotalMsgs);
+      const temMsgDeOutro = novas.some(m => !m.sistema && m.autorId !== meuId2);
+      if (temMsgDeOutro) tocarSomMensagem();
+    }
+    _ultimoTotalMsgs = totalAtual;
+
+    c.innerHTML = html;
+    c.scrollTop = c.scrollHeight;
+  }
+  window.enviarMensagem = async function() {
+    const input = document.getElementById('msg-input');
+    const texto = input.value.trim();
+    if (!texto) return;
+    const autorNome = usuarioLogado ? (usuarioLogado.displayName || nomeIgrejaAtual || 'Lider') : (membroNome || 'Membro');
+    const autorId   = usuarioLogado ? usuarioLogado.uid : membroDocId;
+    input.value = '';
+    try {
+      await addDoc(collection(db,'mensagens'), { texto, autorNome, autorId, lider:!!usuarioLogado, igrejaId, createdAt:serverTimestamp() });
+    } catch(err) { showToast('Erro ao enviar','danger'); input.value=texto; }
+  };
+  window.msgKeydown = function(e) { if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); enviarMensagem(); } };
+
+  // ── Apagar mensagem individual ──
+  window.apagarMensagem = async function(id) {
+    const meuId = usuarioLogado ? usuarioLogado.uid : membroDocId;
+    // Busca a mensagem para checar autoria
+    try {
+      const snap = await getDoc(doc(db,'mensagens',id));
+      if (!snap.exists()) return;
+      const dados = snap.data();
+      if (!usuarioLogado && dados.autorId !== meuId) {
+        showToast('Você só pode apagar suas próprias mensagens.','danger'); return;
+      }
+      if (!confirm('Apagar esta mensagem?')) return;
+      await deleteDoc(doc(db,'mensagens',id));
+    } catch(err) { showToast('Erro ao apagar mensagem.','danger'); }
+  };
+
+  // ── Limpar todo o chat (só líder) ──
+  window.confirmarLimparChat = function() {
+    if (!isLider()) { showToast('Apenas o líder pode limpar o chat.','danger'); return; }
+    if (!confirm('Apagar TODAS as mensagens do chat? Esta ação não pode ser desfeita.')) return;
+    limparChat();
+  };
+  async function limparChat() {
+    const btn = document.getElementById('btn-limpar-chat');
+    if(btn){ btn.disabled=true; btn.textContent='Limpando...'; }
+    try {
+      const snap = await getDocs(query(collection(db,'mensagens'), where('igrejaId','==',igrejaId)));
+      const lote = [];
+      snap.forEach(d => lote.push(deleteDoc(doc(db,'mensagens',d.id))));
+      await Promise.all(lote);
+      _ultimoTotalMsgs = 0;
+      showToast('Chat limpo!','success');
+    } catch(err) { showToast('Erro ao limpar chat.','danger'); }
+    if(btn){ btn.disabled=false; btn.textContent='🗑️ Limpar tudo'; }
+  }
+
+  // ── Som de mensagem (pop suave) ──
+  let _audioCtx = null;
+  function getAudioCtx() {
+    if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    return _audioCtx;
+  }
+  function tocarSomMensagem() {
+    try {
+      const ctx = getAudioCtx();
+      // Pop suave: dois osciladores sobrepostos com envelope rápido
+      const t = ctx.currentTime;
+
+      // Oscilador principal (toque suave)
+      const osc1 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(880, t);
+      osc1.frequency.exponentialRampToValueAtTime(660, t + 0.12);
+      gain1.gain.setValueAtTime(0, t);
+      gain1.gain.linearRampToValueAtTime(0.18, t + 0.02);
+      gain1.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+      osc1.connect(gain1); gain1.connect(ctx.destination);
+      osc1.start(t); osc1.stop(t + 0.25);
+
+      // Segundo toque (eco suave, ligeiramente mais alto)
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(1100, t + 0.1);
+      osc2.frequency.exponentialRampToValueAtTime(880, t + 0.22);
+      gain2.gain.setValueAtTime(0, t + 0.1);
+      gain2.gain.linearRampToValueAtTime(0.12, t + 0.13);
+      gain2.gain.exponentialRampToValueAtTime(0.001, t + 0.32);
+      osc2.connect(gain2); gain2.connect(ctx.destination);
+      osc2.start(t + 0.1); osc2.stop(t + 0.35);
+    } catch(e) { /* silencia erros de áudio */ }
+  }
+
+  // Guarda último count para detectar mensagem nova
+  let _ultimoTotalMsgs = 0;
+
+
+
+
 </script>
 
 <style>
@@ -900,10 +1563,38 @@ html{font-size:16px;scroll-behavior:smooth;}
 body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text-main);min-height:100vh;-webkit-tap-highlight-color:transparent;}
 
 .func-emoji {
-  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Android Emoji", sans-serif;
-  font-style: normal;
-  display: inline-block;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px; font-weight: 700;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, rgba(0,229,255,0.15), rgba(124,58,237,0.15));
+  border: 1px solid rgba(0,229,255,0.3);
+  color: var(--accent);
+  border-radius: 5px; padding: 2px 5px;
+  letter-spacing: 0.5px; min-width: 32px;
 }
+.func-icone {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid;
+  flex-shrink: 0;
+  padding: 5px;
+  box-sizing: border-box;
+}
+.func-icone svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.func-nome {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
 
 /* ══ PWA INSTALL BUTTON ══ */
 .btn-pwa-install{
@@ -1225,6 +1916,138 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
 .btn-dialog-cancel{background:rgba(255,255,255,0.06);color:var(--text-muted);}
 .btn-dialog-confirm{background:var(--danger);color:#fff;}
 #panel-id-igreja{position:fixed;bottom:0;left:0;right:0;background:rgba(4,8,15,0.96);border-top:1px solid rgba(0,229,255,0.15);padding:8px 16px;z-index:50;text-align:center;backdrop-filter:blur(10px);font-size:11px;}
+
+/* ══ EVENTOS ══ */
+.eventos-panel { padding: 12px 0; }
+.eventos-topo { display:flex; align-items:center; justify-content:space-between; padding:0 4px 12px; }
+.eventos-titulo { font-size:18px; font-weight:700; color:var(--accent); margin:0; }
+.eventos-secao-titulo { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:var(--text-muted); padding:0 4px 8px; }
+.evento-card {
+  background:var(--bg-card); border:1px solid var(--border);
+  border-radius:var(--radius); padding:14px; margin-bottom:10px;
+  transition:border-color .2s;
+}
+.evento-card:hover { border-color:var(--border-neon); }
+.evento-card.passada { opacity:0.55; }
+.evento-card-topo { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; margin-bottom:10px; }
+.evento-date-block { display:flex; align-items:center; gap:10px; }
+.evento-emoji { font-size:26px; flex-shrink:0; font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif; }
+.evento-titulo-text { font-size:15px; font-weight:700; color:var(--text-main); }
+.evento-tipo-label { font-size:11px; color:var(--accent); font-weight:600; text-transform:uppercase; letter-spacing:.5px; margin-top:2px; }
+.evento-info-row { display:flex; flex-wrap:wrap; gap:10px; font-size:12px; color:var(--text-muted); margin-bottom:8px; }
+.evento-descricao { font-size:13px; color:var(--text-main); background:rgba(0,229,255,0.04); border-left:3px solid var(--border-neon); padding:8px 10px; border-radius:0 6px 6px 0; margin-top:4px; white-space:pre-line; }
+.evento-acoes { display:flex; gap:6px; margin-top:10px; }
+
+/* ══ MENSAGENS / CHAT ══ */
+.msg-panel { display:flex; flex-direction:column; height:calc(100vh - 140px); min-height:400px; }
+.msg-header-bar { display:flex; align-items:center; justify-content:space-between; padding:10px 4px; border-bottom:1px solid var(--border); margin-bottom:4px; }
+.msg-titulo { font-size:16px; font-weight:700; color:var(--accent); }
+.msg-lista { flex:1; overflow-y:auto; padding:8px 2px; display:flex; flex-direction:column; gap:4px; scroll-behavior:smooth; }
+.msg-lista::-webkit-scrollbar { width:4px; }
+.msg-lista::-webkit-scrollbar-thumb { background:var(--border); border-radius:4px; }
+.msg-vazio { text-align:center; color:var(--text-muted); font-size:13px; margin-top:40px; line-height:1.7; }
+.msg-data-sep { text-align:center; font-size:11px; color:var(--text-muted); margin:8px 0 4px; }
+.msg-linha { display:flex; align-items:flex-end; gap:7px; max-width:88%; }
+.msg-linha.minha { margin-left:auto; flex-direction:row-reverse; }
+.msg-linha.deles { margin-right:auto; }
+.msg-avatar {
+  width:28px; height:28px; border-radius:50%; flex-shrink:0;
+  background:linear-gradient(135deg,var(--accent2),var(--accent));
+  display:flex; align-items:center; justify-content:center;
+  font-size:12px; font-weight:700; color:#fff;
+}
+.msg-balao {
+  padding:8px 12px; border-radius:16px; max-width:100%;
+  word-break:break-word; line-height:1.45;
+}
+.msg-linha.minha .msg-balao {
+  background:linear-gradient(135deg,#1a3a6e,#0f2a52);
+  border:1px solid rgba(0,229,255,0.25);
+  border-bottom-right-radius:4px;
+}
+.msg-linha.deles .msg-balao {
+  background:var(--bg-card);
+  border:1px solid var(--border);
+  border-bottom-left-radius:4px;
+}
+.msg-autor { font-size:10px; font-weight:700; color:var(--accent); margin-bottom:2px; }
+.msg-texto { font-size:14px; color:var(--text-main); }
+.msg-hora { font-size:10px; color:var(--text-muted); margin-top:3px; text-align:right; }
+.msg-input-area {
+  display:flex; gap:8px; padding:10px 0 4px;
+  border-top:1px solid var(--border); margin-top:4px;
+}
+.msg-input {
+  flex:1; background:var(--bg-input); border:1px solid var(--border);
+  border-radius:22px; padding:10px 16px; color:var(--text-main);
+  font-family:'DM Sans',sans-serif; font-size:14px; outline:none;
+  transition:border-color .2s;
+}
+.msg-input:focus { border-color:var(--border-neon); }
+.msg-send-btn {
+  width:42px; height:42px; border-radius:50%; border:none; cursor:pointer;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  color:#fff; font-size:16px; display:flex; align-items:center; justify-content:center;
+  flex-shrink:0; transition:opacity .2s;
+}
+.msg-send-btn:active { opacity:.7; }
+
+/* ══ BOTÃO APAGAR MENSAGEM ══ */
+.msg-del-btn {
+  background: transparent; border: none; cursor: pointer;
+  color: rgba(239,68,68,0.4); font-size: 11px; font-weight: 700;
+  padding: 0 0 0 6px; line-height: 1; vertical-align: middle;
+  transition: color 0.15s;
+}
+.msg-del-btn:hover, .msg-del-btn:active { color: #f87171; }
+
+/* ══ MENSAGEM DE SISTEMA (aniversário) ══ */
+.msg-sistema {
+  display: flex; justify-content: center; margin: 6px 0;
+}
+.msg-sistema-texto {
+  background: linear-gradient(135deg, rgba(251,191,36,0.12), rgba(245,158,11,0.08));
+  border: 1px solid rgba(251,191,36,0.35);
+  color: #fbbf24;
+  font-size: 13px; font-weight: 600;
+  padding: 8px 16px; border-radius: 20px;
+  text-align: center; max-width: 90%;
+  box-shadow: 0 0 12px rgba(251,191,36,0.15);
+  line-height: 1.5;
+}
+
+/* ══ PIN PAD ══ */
+.pin-display {
+  display: flex; justify-content: center; gap: 16px; margin-bottom: 24px;
+}
+.pin-dot {
+  width: 18px; height: 18px; border-radius: 50%;
+  border: 2px solid var(--border-neon);
+  background: transparent;
+  transition: background .15s, transform .15s;
+  display: inline-block;
+}
+.pin-dot.filled {
+  background: var(--accent);
+  transform: scale(1.15);
+  box-shadow: 0 0 8px var(--accent);
+}
+.pin-pad {
+  display: grid; grid-template-columns: repeat(3,1fr); gap: 10px;
+  max-width: 220px; margin: 0 auto;
+}
+.pin-btn {
+  height: 56px; border-radius: 12px;
+  background: var(--bg-card); border: 1px solid var(--border);
+  color: var(--text-main); font-size: 20px; font-weight: 700;
+  cursor: pointer; transition: background .15s, transform .1s;
+  font-family: 'DM Sans', sans-serif;
+}
+.pin-btn:active { background: rgba(0,229,255,0.15); transform: scale(0.95); }
+.pin-btn-empty { visibility: hidden; }
+.pin-btn-del { font-size: 18px; color: var(--text-muted); }
+.pin-step { animation: fadeIn .2s ease; }
+
 </style>
 </head>
 <body>
@@ -1234,7 +2057,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
   <div class="tela-inicio">
     <div class="logo-wrap">
       <div class="logo-inner">
-        <img src="icons/icon-192x192.png" alt="Escala do Louvor" class="logo-img" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+        <img src="guitarra-192.png" alt="Escala do Louvor" class="logo-img" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
         <span class="logo-emoji" style="display:none;">&#127925;</span>
       </div>
     </div>
@@ -1245,10 +2068,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
         <div class="membro-box-label">Acesso da Equipe</div>
         <form onsubmit="handleAuthMembro(event)">
           <input type="text"     id="membro-nome"  class="input-neon" placeholder="Seu nome (como cadastrado)" autocomplete="name">
-          <input type="password" id="membro-senha" class="input-neon" placeholder="Senha (padrao: 1234)">
+          <input type="password" id="membro-senha" class="input-neon" placeholder="PIN ou senha (4-20 caracteres)" autocomplete="current-password">
           <p id="membro-erro" class="erro-msg-inicio"></p>
           <button type="submit" id="btn-membro-auth" class="btn-inicio btn-inicio-membro">Entrar</button>
         </form>
+        <button type="button" onclick="mostrarRedefinirSenhaMembro()" style="display:block;width:100%;padding:8px;margin-top:6px;background:transparent;border:none;color:var(--accent);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;text-align:center;">Esqueci / Redefinir minha senha</button>
       </div>
       <button class="btn-inicio btn-inicio-lider" onclick="mostrarTelaLider()">Cadastrar / Entrar como Lider</button>
       <!-- Botão de instalar PWA (aparece automaticamente no Android) -->
@@ -1276,11 +2100,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
           <label>Nome da Igreja</label>
           <input type="text" id="lider-nome-igreja" placeholder="Ex: Igreja Batista Central">
         </div>
-        <div id="group-codigo-lider" class="field-group" style="display:none;">
-          <label>Codigo de Ativacao</label>
-          <input type="text" id="lider-codigo" placeholder="Codigo fornecido pelo suporte">
-          <div class="field-hint" style="color:#334155;">Recebido no momento da compra.</div>
-        </div>
         <div class="field-group">
           <label>Email</label>
           <input type="email" id="lider-email" placeholder="seu@email.com" autocomplete="email">
@@ -1298,6 +2117,49 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
   </div>
 </div>
 
+<!-- TELA CÓDIGO DA IGREJA (após cadastro) -->
+<div id="tela-codigo-igreja" style="display:none;position:fixed;inset:0;z-index:400;align-items:center;justify-content:center;background:radial-gradient(ellipse at 50% 0%,rgba(0,229,255,0.18) 0%,transparent 60%),linear-gradient(180deg,#04080f,#070d1a);">
+  <div class="auth-card" style="border-color:rgba(0,229,255,0.4);text-align:center;">
+    <div class="auth-logo">🎉</div>
+    <h2 style="color:var(--accent);">Igreja Cadastrada!</h2>
+    <p id="codigo-igreja-nome" style="color:var(--text-main);font-weight:700;font-size:15px;margin-bottom:4px;"></p>
+    <p style="font-size:13px;color:var(--text-muted);margin-bottom:18px;">Guarde o codigo de acesso da sua igreja:</p>
+    <div style="background:rgba(0,229,255,0.08);border:2px solid rgba(0,229,255,0.4);border-radius:12px;padding:18px;margin-bottom:18px;">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:8px;">Codigo de Acesso</div>
+      <div id="codigo-igreja-valor" style="font-family:'Share Tech Mono',monospace;font-size:28px;font-weight:700;color:var(--accent);text-shadow:0 0 20px rgba(0,229,255,0.5);letter-spacing:4px;"></div>
+    </div>
+    <p style="font-size:12px;color:#fbbf24;margin-bottom:20px;line-height:1.5;">⚠️ Anote este codigo! Ele pode ser necessario para recuperacao ou suporte.</p>
+    <button onclick="continuarParaApp()" class="btn btn-primary" style="margin-top:0;">Entrar no App →</button>
+  </div>
+</div>
+
+<!-- TELA REDEFINIR SENHA MEMBRO -->
+<div id="tela-redef-senha" style="display:none;position:fixed;inset:0;z-index:400;align-items:center;justify-content:center;background:radial-gradient(ellipse at 50% 0%,rgba(124,58,237,0.18) 0%,transparent 60%),linear-gradient(180deg,#04080f,#070d1a);">
+  <div class="auth-card" style="border-color:rgba(124,58,237,0.3);">
+    <button class="btn-fechar-card" onclick="voltarInicioDeRedef()" title="Fechar">X</button>
+    <div class="auth-logo">🔑</div>
+    <h2 style="color:#c4b5fd;">Redefinir Senha</h2>
+    <p>Digite seu nome e crie uma senha com pelo menos 6 caracteres (letras e numeros).</p>
+    <form onsubmit="confirmarRedefinicaoSenha(event)">
+      <div class="field-group">
+        <label>Seu Nome (como cadastrado)</label>
+        <input type="text" id="redef-nome" placeholder="Ex: Joao Silva" autocomplete="name">
+      </div>
+      <div class="field-group">
+        <label>Nova Senha</label>
+        <input type="password" id="redef-nova-senha" placeholder="Min. 6 caracteres (letras e numeros)" autocomplete="new-password">
+      </div>
+      <div class="field-group">
+        <label>Confirmar Nova Senha</label>
+        <input type="password" id="redef-confirma-senha" placeholder="Repita a nova senha" autocomplete="new-password">
+      </div>
+      <p id="redef-erro" class="erro-msg"></p>
+      <button type="submit" id="btn-redef-senha" class="btn btn-primary">Redefinir Senha</button>
+      <button type="button" class="btn-voltar" onclick="voltarInicioDeRedef()">Voltar</button>
+    </form>
+  </div>
+</div>
+
 <!-- APP PRINCIPAL -->
 <div id="app-content" style="display:none;">
   <header class="app-header">
@@ -1312,6 +2174,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
           <span id="status-text">Conectando...</span>
         </div>
         <button id="btn-sair" class="btn-sair" onclick="sair()">Sair</button>
+    <button id="btn-admin" onclick="abrirAdmin()" style="display:none;background:rgba(250,204,21,0.1);border:1px solid rgba(250,204,21,0.3);color:#facc15;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;margin-left:4px;">⚙️</button>
         <button class="btn-fechar-header" onclick="fecharApp()" title="Fechar aplicativo">X</button>
       </div>
     </div>
@@ -1323,6 +2186,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
     </button>
     <button id="tab-proxima-escala" class="nav-tab"                 onclick="switchTab('proxima-escala')">Proxima</button>
     <button id="tab-cifras"         class="nav-tab"                 onclick="switchTab('cifras')">Cifras</button>
+    <button id="tab-eventos"        class="nav-tab"                 onclick="switchTab('eventos')">Eventos</button>
+    <button id="tab-mensagens"      class="nav-tab"                 onclick="switchTab('mensagens')">Chat <span id="badge-msg" class="badge" style="display:none;">0</span></button>
     <button id="tab-nova"           class="nav-tab" style="display:none;" onclick="switchTab('nova')">+ Nova</button>
     <button id="tab-equipe"         class="nav-tab" style="display:none;" onclick="switchTab('equipe')">Equipe</button>
   </nav>
@@ -1498,6 +2363,47 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
       </div>
     </div>
 
+
+    <!-- PANEL EVENTOS -->
+    <div id="panel-eventos" class="panel">
+      <div class="eventos-panel">
+        <div id="eventos-lider-form" style="display:none;" class="form-card">
+          <div class="form-card-title"><span id="evento-form-title">Novo Evento</span></div>
+          <div class="field-group"><label>Titulo</label><input type="text" id="ev-titulo" placeholder="Ex: Ensaio Geral, Retiro..."></div>
+          <div class="field-row">
+            <div class="field-group"><label>Data</label><input type="date" id="ev-data"></div>
+            <div class="field-group"><label>Hora</label><input type="time" id="ev-hora"></div>
+          </div>
+          <div class="field-group"><label>Local</label><input type="text" id="ev-local" placeholder="Ex: Salao principal..."></div>
+          <div class="field-group"><label>Descricao</label><textarea id="ev-descricao" class="campo-textarea" placeholder="Detalhes do evento..."></textarea></div>
+          <div class="field-group"><label>Tipo</label><select id="ev-tipo"><option value="ensaio">Ensaio</option><option value="culto">Culto Especial</option><option value="retiro">Retiro</option><option value="reuniao">Reuniao</option><option value="outro">Outro</option></select></div>
+          <div style="display:flex;gap:8px;margin-top:4px;">
+            <button class="btn btn-primary" onclick="salvarEvento()">Salvar Evento</button>
+            <button class="btn" style="background:rgba(255,255,255,0.06);color:var(--text-muted);" onclick="fecharFormEvento()">Cancelar</button>
+          </div>
+        </div>
+        <div class="eventos-topo">
+          <h2 class="eventos-titulo">Eventos</h2>
+          <button id="btn-novo-evento" class="btn-nova-cifra" style="display:none;" onclick="abrirFormEvento()">+ Novo Evento</button>
+        </div>
+        <div id="lista-eventos"></div>
+      </div>
+    </div>
+
+    <!-- PANEL MENSAGENS -->
+    <div id="panel-mensagens" class="panel">
+      <div class="msg-panel">
+        <div class="msg-header-bar">
+          <span class="msg-titulo">Chat da Equipe</span>
+          <button id="btn-limpar-chat" onclick="confirmarLimparChat()" style="display:none;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.3);color:#f87171;font-size:11px;font-weight:700;padding:5px 12px;border-radius:20px;cursor:pointer;font-family:'DM Sans',sans-serif;">🗑️ Limpar tudo</button>
+        </div>
+        <div id="msg-lista" class="msg-lista"></div>
+        <div class="msg-input-area">
+          <input type="text" id="msg-input" class="msg-input" placeholder="Digite uma mensagem..." maxlength="500" onkeydown="msgKeydown(event)">
+          <button class="msg-send-btn" onclick="enviarMensagem()">Enviar</button>
+        </div>
+      </div>
+    </div>
     <div id="panel-equipe" class="panel">
       <div class="equipe-form">
         <h3>Cadastrar Membro da Equipe</h3>
@@ -1552,6 +2458,15 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
             </select>
           </div>
         </div>
+        <div class="field-group" style="background:rgba(0,229,255,0.04);border:1px solid rgba(0,229,255,0.18);border-radius:10px;padding:12px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:18px;">🔒</span>
+            <div>
+              <div style="font-size:13px;font-weight:700;color:var(--text-main);">Senha provisoria: <span style="color:var(--accent);font-family:'Share Tech Mono',monospace;font-size:15px;">1234</span></div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">O membro sera obrigado a trocar no primeiro acesso.</div>
+            </div>
+          </div>
+        </div>
         <button class="btn btn-primary" style="margin-top:8px;" onclick="salvarMembro()">Cadastrar Membro</button>
       </div>
       <div class="equipe-lista-card">
@@ -1560,6 +2475,54 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
       </div>
     </div>
   </main>
+
+  <!-- TELA TROCA DE SENHA OBRIGATORIA -->
+  <!-- TELA PIN PRIMEIRO ACESSO -->
+  <div id="tela-troca-senha" style="display:none;position:fixed;inset:0;z-index:300;align-items:center;justify-content:center;background:radial-gradient(ellipse at 50% 0%,rgba(0,229,255,0.15) 0%,transparent 60%),linear-gradient(180deg,#04080f,#070d1a);">
+    <div class="auth-card" style="border-color:rgba(0,229,255,0.3);max-width:340px;">
+      <div class="auth-logo">🔐</div>
+      <h2 style="color:var(--accent);">Primeiro Acesso</h2>
+      <p id="troca-senha-nome-igreja" style="color:var(--accent);font-weight:700;font-size:13px;text-align:center;margin-bottom:4px;"></p>
+      <p style="font-size:13px;color:var(--text-muted);text-align:center;margin-bottom:20px;">Crie seu PIN de 4 dígitos pessoal.<br>Só você saberá.</p>
+      <div class="pin-step" id="pin-step-1">
+        <label style="font-size:12px;color:var(--text-muted);text-align:center;display:block;margin-bottom:10px;">NOVO PIN</label>
+        <div class="pin-display" id="pin-display-1">
+          <span class="pin-dot" id="pd1-1"></span>
+          <span class="pin-dot" id="pd1-2"></span>
+          <span class="pin-dot" id="pd1-3"></span>
+          <span class="pin-dot" id="pd1-4"></span>
+        </div>
+        <div class="pin-pad" id="pin-pad-1"></div>
+      </div>
+      <div class="pin-step" id="pin-step-2" style="display:none;">
+        <label style="font-size:12px;color:var(--text-muted);text-align:center;display:block;margin-bottom:10px;">CONFIRME SEU PIN</label>
+        <div class="pin-display" id="pin-display-2">
+          <span class="pin-dot" id="pd2-1"></span>
+          <span class="pin-dot" id="pd2-2"></span>
+          <span class="pin-dot" id="pd2-3"></span>
+          <span class="pin-dot" id="pd2-4"></span>
+        </div>
+        <div class="pin-pad" id="pin-pad-2"></div>
+      </div>
+      <p id="troca-senha-erro" class="erro-msg" style="text-align:center;margin-top:8px;"></p>
+    </div>
+  </div>
+
+  <!-- TELA ADMIN GERAL -->
+  <div id="tela-admin" style="display:none;position:fixed;inset:0;z-index:400;background:linear-gradient(180deg,#04080f,#070d1a);overflow-y:auto;">
+    <div style="max-width:700px;margin:0 auto;padding:20px 16px 40px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
+        <div>
+          <div style="font-size:22px;font-weight:700;color:var(--accent);">⚙️ Admin Geral</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Gestão de todas as igrejas</div>
+        </div>
+        <button onclick="fecharAdmin()" style="background:rgba(255,255,255,0.08);border:1px solid var(--border);color:var(--text-main);padding:8px 16px;border-radius:8px;cursor:pointer;font-size:13px;">✕ Fechar</button>
+      </div>
+      <div id="admin-stats" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px;"></div>
+      <div style="font-size:13px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;">Igrejas Cadastradas</div>
+      <div id="admin-lista-igrejas"></div>
+    </div>
+  </div>
 
   <div id="overlay" class="overlay" onclick="fecharDialog(event)">
     <div class="dialog">
