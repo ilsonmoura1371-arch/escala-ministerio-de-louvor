@@ -1771,10 +1771,20 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
         </div>
         <!-- AFINADOR -->
         <div id="msub-area-afinador" class="metro-area">
+          <!-- Badge modo cromático -->
+          <div style="display:flex;justify-content:center;margin-bottom:14px;">
+            <span style="display:inline-flex;align-items:center;gap:6px;background:rgba(0,229,255,0.08);border:1px solid rgba(0,229,255,0.25);border-radius:20px;padding:5px 14px;font-size:11px;font-weight:700;color:#00e5ff;letter-spacing:.5px;">
+              🎵 MODO CROMÁTICO AUTOMÁTICO
+            </span>
+          </div>
           <div class="afinador-card">
+            <!-- Nota detectada -->
             <div class="afin-nota-grande" id="afin-nota">—</div>
             <div class="afin-oitava" id="afin-oitava"></div>
             <div class="afin-freq" id="afin-freq">— Hz</div>
+            <!-- Cents com sinal -->
+            <div id="afin-cents-display" style="font-family:'Share Tech Mono',monospace;font-size:22px;font-weight:700;color:#64748b;margin-bottom:10px;min-height:28px;transition:color .15s;">— ¢</div>
+            <!-- Medidor visual -->
             <div class="afin-meter-wrap">
               <div class="afin-meter-bar">
                 <div class="afin-meter-fill" id="afin-meter-fill"></div>
@@ -1784,7 +1794,13 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
             </div>
             <div class="afin-status" id="afin-status">Toque em Ativar para começar</div>
           </div>
-          <div class="metro-section-title" style="margin-top:16px;">Referência — Violão / Guitarra</div>
+          <button class="metro-play-btn" id="afin-btn" onclick="afinToggle()" style="margin-top:20px;">
+            <span id="afin-icon">&#127908;</span>
+            <span id="afin-label">Ativar Afinador</span>
+          </button>
+          <p style="font-size:11px;color:#64748b;text-align:center;margin-top:10px;line-height:1.6;">Toque qualquer corda ou note — o afinador detecta automaticamente.<br>Permita o acesso ao microfone quando solicitado.</p>
+          <!-- Referência sonora (opcional) -->
+          <div class="metro-section-title" style="margin-top:20px;">Referência Sonora — Violão / Guitarra</div>
           <div class="afin-cordas-row">
             <button class="afin-corda-btn" onclick="afinTocarNota(82.41,'E2')">E2</button>
             <button class="afin-corda-btn" onclick="afinTocarNota(110.00,'A2')">A2</button>
@@ -1793,7 +1809,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
             <button class="afin-corda-btn" onclick="afinTocarNota(246.94,'B3')">B3</button>
             <button class="afin-corda-btn" onclick="afinTocarNota(329.63,'E4')">E4</button>
           </div>
-          <div class="metro-section-title" style="margin-top:14px;">Referência — Baixo</div>
+          <div class="metro-section-title" style="margin-top:14px;">Referência Sonora — Baixo</div>
           <div class="afin-cordas-row">
             <button class="afin-corda-btn" onclick="afinTocarNota(41.20,'B1')">B1</button>
             <button class="afin-corda-btn" onclick="afinTocarNota(55.00,'E2')">E2</button>
@@ -1801,11 +1817,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
             <button class="afin-corda-btn" onclick="afinTocarNota(98.00,'D3')">D3</button>
             <button class="afin-corda-btn" onclick="afinTocarNota(130.81,'G3')">G3</button>
           </div>
-          <button class="metro-play-btn" id="afin-btn" onclick="afinToggle()" style="margin-top:20px;">
-            <span id="afin-icon">&#127908;</span>
-            <span id="afin-label">Ativar Afinador</span>
-          </button>
-          <p style="font-size:11px;color:#64748b;text-align:center;margin-top:10px;line-height:1.6;">O afinador usa o microfone do celular.<br>Permita o acesso quando solicitado.</p>
         </div>
       </div>
     </div>
@@ -2392,16 +2403,192 @@ window.metroHomeAbrir = function(sub) {
   setTimeout(function(){ buildBeats(); updUI(); },400);
 })();
 
-// ══ AFINADOR ══
+// ══ AFINADOR — MODO CROMÁTICO AUTOMÁTICO ══
 (function(){
   var ativo=false,stream=null,actx=null,analyser=null,rafId=null,refCtx=null;
   var NOTAS=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
-  function f2n(f){ if(f<20||f>5000) return null; var s=12*Math.log2(f/440),m=Math.round(s)+69,o=Math.floor(m/12)-1,n=NOTAS[((m%12)+12)%12],fi=440*Math.pow(2,(m-69)/12),c=1200*Math.log2(f/fi); return {nota:n,oitava:o,cents:c}; }
-  function detectFreq(buf,sr){ var N=buf.length,rms=0; for(var i=0;i<N;i++) rms+=buf[i]*buf[i]; rms=Math.sqrt(rms/N); if(rms<0.01) return -1; var co=new Float32Array(N/2); for(var lag=0;lag<N/2;lag++){ var s=0; for(var j=0;j<N/2;j++) s+=buf[j]*buf[j+lag]; co[lag]=s; } var d=1; while(d<co.length-1&&co[d]>co[d+1]) d++; var mv=-1,mp=-1; for(var k=d;k<co.length;k++) if(co[k]>mv){ mv=co[k]; mp=k; } if(mp<2) return -1; if(co[0]>0&&mv/co[0]<0.4) return -1; var T=mp; if(mp>0&&mp<co.length-1){ var a=co[mp-1],b=co[mp],cc=co[mp+1]; T=mp+(cc-a)/(2*(2*b-a-cc)); } return sr/T; }
-  function loop(){ if(!ativo||!analyser) return; var buf=new Float32Array(analyser.fftSize); analyser.getFloatTimeDomainData(buf); var freq=detectFreq(buf,actx.sampleRate); if(freq>0){ var info=f2n(freq); if(info){ document.getElementById('afin-nota').textContent=info.nota; document.getElementById('afin-oitava').textContent='Oitava '+info.oitava; document.getElementById('afin-freq').textContent=freq.toFixed(1)+' Hz'; var c=Math.max(-50,Math.min(50,info.cents)),pct=50+c; document.getElementById('afin-meter-fill').style.left=pct+'%'; var abs=Math.abs(c),fill=document.getElementById('afin-meter-fill'),st=document.getElementById('afin-status'),no=document.getElementById('afin-nota'); if(abs<5){ fill.className='afin-meter-fill afinado'; st.textContent='✓ Afinado!'; st.className='afin-status afinado'; no.className='afin-nota-grande afinado'; } else if(abs<15){ fill.className='afin-meter-fill perto'; st.textContent=c>0?'↓ Um pouco alto':'↑ Um pouco baixo'; st.className='afin-status perto'; no.className='afin-nota-grande'; } else { fill.className='afin-meter-fill longe'; st.textContent=c>0?'↓ Abaixar':'↑ Subir'; st.className='afin-status longe'; no.className='afin-nota-grande'; } } } else { document.getElementById('afin-nota').textContent='—'; document.getElementById('afin-nota').className='afin-nota-grande'; document.getElementById('afin-freq').textContent='— Hz'; var s2=document.getElementById('afin-status'); if(s2){ s2.textContent='Aguardando som...'; s2.className='afin-status'; } document.getElementById('afin-meter-fill').style.left='50%'; document.getElementById('afin-meter-fill').className='afin-meter-fill'; } rafId=requestAnimationFrame(loop); }
-  window.afinToggle=async function(){ if(ativo){ ativo=false; if(rafId) cancelAnimationFrame(rafId); if(stream) stream.getTracks().forEach(function(t){ t.stop(); }); if(actx){ actx.close(); actx=null; } analyser=null; stream=null; var b=document.getElementById('afin-btn'); if(b){ b.classList.remove('stop'); document.getElementById('afin-icon').textContent='🎙️'; document.getElementById('afin-label').textContent='Ativar Afinador'; } document.getElementById('afin-nota').textContent='—'; var s=document.getElementById('afin-status'); if(s){ s.textContent='Toque em Ativar para começar'; s.className='afin-status'; } return; } try{ stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false},video:false}); actx=new(window.AudioContext||window.webkitAudioContext)(); var src=actx.createMediaStreamSource(stream); analyser=actx.createAnalyser(); analyser.fftSize=2048; analyser.smoothingTimeConstant=0.3; src.connect(analyser); ativo=true; var b2=document.getElementById('afin-btn'); if(b2){ b2.classList.add('stop'); document.getElementById('afin-icon').textContent='⏹'; document.getElementById('afin-label').textContent='Parar Afinador'; } var s2=document.getElementById('afin-status'); if(s2) s2.textContent='Ouvindo...'; loop(); }catch(err){ var msg=err.name==='NotAllowedError'?'Permissão de microfone negada.':'Erro ao acessar microfone.'; var s3=document.getElementById('afin-status'); if(s3){ s3.textContent=msg; s3.className='afin-status longe'; } } };
-  window.afinTocarNota=function(freq,nome){ if(!refCtx||refCtx.state==='closed') refCtx=new(window.AudioContext||window.webkitAudioContext)(); if(refCtx.state==='suspended') refCtx.resume(); var osc=refCtx.createOscillator(),g=refCtx.createGain(); osc.type='sine'; osc.frequency.value=freq; osc.connect(g); g.connect(refCtx.destination); g.gain.setValueAtTime(0,refCtx.currentTime); g.gain.linearRampToValueAtTime(0.5,refCtx.currentTime+0.02); g.gain.setValueAtTime(0.5,refCtx.currentTime+0.8); g.gain.linearRampToValueAtTime(0,refCtx.currentTime+1.2); osc.start(refCtx.currentTime); osc.stop(refCtx.currentTime+1.25); document.querySelectorAll('.afin-corda-btn').forEach(function(b){ b.classList.toggle('tocando',b.textContent===nome); }); setTimeout(function(){ document.querySelectorAll('.afin-corda-btn').forEach(function(b){ b.classList.remove('tocando'); }); },1300); };
-  var _sw2=window.switchTab; window.switchTab=function(tab){ if(tab!=='metro'&&ativo) afinToggle(); if(_sw2) _sw2(tab); };
+
+  // Smoothing: média dos últimos N valores de cents para estabilizar o ponteiro
+  var centsHistory=[], SMOOTH_N=6;
+
+  // Converte frequência → nota cromática mais próxima + desvio em cents
+  function f2n(f){
+    if(f<20||f>5000) return null;
+    var s=12*Math.log2(f/440), m=Math.round(s)+69;
+    var o=Math.floor(m/12)-1;
+    var n=NOTAS[((m%12)+12)%12];
+    var fi=440*Math.pow(2,(m-69)/12);
+    var c=1200*Math.log2(f/fi);
+    return {nota:n, oitava:o, cents:c, freqIdeal:fi};
+  }
+
+  // Autocorrelação YIN-like para detecção de pitch robusta
+  function detectFreq(buf,sr){
+    var N=buf.length, rms=0;
+    for(var i=0;i<N;i++) rms+=buf[i]*buf[i];
+    rms=Math.sqrt(rms/N);
+    if(rms<0.008) return -1; // silêncio — limiar ligeiramente mais sensível
+    var half=N/2;
+    var co=new Float32Array(half);
+    for(var lag=0;lag<half;lag++){
+      var s=0;
+      for(var j=0;j<half;j++) s+=buf[j]*buf[j+lag];
+      co[lag]=s;
+    }
+    // Encontra primeiro vale depois do pico inicial
+    var d=1;
+    while(d<co.length-1&&co[d]>co[d+1]) d++;
+    var mv=-1,mp=-1;
+    for(var k=d;k<co.length;k++) if(co[k]>mv){ mv=co[k]; mp=k; }
+    if(mp<2) return -1;
+    if(co[0]>0&&mv/co[0]<0.4) return -1; // confiança mínima
+    // Interpolação parabólica para precisão sub-sample
+    var T=mp;
+    if(mp>0&&mp<co.length-1){
+      var a=co[mp-1],b=co[mp],cc=co[mp+1];
+      T=mp+(cc-a)/(2*(2*b-a-cc));
+    }
+    return sr/T;
+  }
+
+  function smoothCents(c){
+    centsHistory.push(c);
+    if(centsHistory.length>SMOOTH_N) centsHistory.shift();
+    var sum=0; for(var i=0;i<centsHistory.length;i++) sum+=centsHistory[i];
+    return sum/centsHistory.length;
+  }
+
+  function loop(){
+    if(!ativo||!analyser) return;
+    var buf=new Float32Array(analyser.fftSize);
+    analyser.getFloatTimeDomainData(buf);
+    var freq=detectFreq(buf,actx.sampleRate);
+
+    if(freq>0){
+      var info=f2n(freq);
+      if(info){
+        var cSmooth=smoothCents(info.cents);
+        var c=Math.max(-50,Math.min(50,cSmooth));
+        var pct=50+c;
+        var abs=Math.abs(c);
+        var sinal=c>=0?'+':'-';
+        var centsAbs=Math.abs(Math.round(c));
+
+        // Nota
+        var noEl=document.getElementById('afin-nota');
+        noEl.textContent=info.nota;
+
+        // Oitava e freq
+        document.getElementById('afin-oitava').textContent='Oitava '+info.oitava+' • ideal: '+info.freqIdeal.toFixed(1)+' Hz';
+        document.getElementById('afin-freq').textContent=freq.toFixed(1)+' Hz (captado)';
+
+        // Cents com sinal — destaque visual
+        var cdEl=document.getElementById('afin-cents-display');
+        if(cdEl){
+          if(abs<5){
+            cdEl.textContent='0 ¢';
+            cdEl.style.color='#34d399';
+          } else {
+            cdEl.textContent=sinal+centsAbs+' ¢';
+            cdEl.style.color=abs<15?'#fbbf24':'#f87171';
+          }
+        }
+
+        // Medidor
+        var fill=document.getElementById('afin-meter-fill');
+        fill.style.left=pct+'%';
+
+        // Status + cores
+        var st=document.getElementById('afin-status');
+        if(abs<5){
+          fill.className='afin-meter-fill afinado';
+          st.textContent='✓ Afinado!';
+          st.className='afin-status afinado';
+          noEl.className='afin-nota-grande afinado';
+        } else if(abs<15){
+          fill.className='afin-meter-fill perto';
+          st.textContent=c>0?'↓ Um pouco alto (abaixar)':'↑ Um pouco baixo (subir)';
+          st.className='afin-status perto';
+          noEl.className='afin-nota-grande';
+        } else {
+          fill.className='afin-meter-fill longe';
+          st.textContent=c>0?'↓ Está alto — abaixar a corda':'↑ Está baixo — subir a corda';
+          st.className='afin-status longe';
+          noEl.className='afin-nota-grande';
+        }
+      }
+    } else {
+      // Silêncio — resetar
+      centsHistory=[];
+      document.getElementById('afin-nota').textContent='—';
+      document.getElementById('afin-nota').className='afin-nota-grande';
+      document.getElementById('afin-freq').textContent='— Hz';
+      document.getElementById('afin-oitava').textContent='';
+      var cdEl2=document.getElementById('afin-cents-display');
+      if(cdEl2){ cdEl2.textContent='— ¢'; cdEl2.style.color='#64748b'; }
+      var s2=document.getElementById('afin-status');
+      if(s2){ s2.textContent='Aguardando som...'; s2.className='afin-status'; }
+      document.getElementById('afin-meter-fill').style.left='50%';
+      document.getElementById('afin-meter-fill').className='afin-meter-fill';
+    }
+    rafId=requestAnimationFrame(loop);
+  }
+
+  window.afinToggle=async function(){
+    if(ativo){
+      ativo=false;
+      if(rafId) cancelAnimationFrame(rafId);
+      if(stream) stream.getTracks().forEach(function(t){ t.stop(); });
+      if(actx){ actx.close(); actx=null; }
+      analyser=null; stream=null; centsHistory=[];
+      var b=document.getElementById('afin-btn');
+      if(b){ b.classList.remove('stop'); document.getElementById('afin-icon').textContent='🎙️'; document.getElementById('afin-label').textContent='Ativar Afinador'; }
+      document.getElementById('afin-nota').textContent='—';
+      document.getElementById('afin-oitava').textContent='';
+      var cdEl=document.getElementById('afin-cents-display');
+      if(cdEl){ cdEl.textContent='— ¢'; cdEl.style.color='#64748b'; }
+      var s=document.getElementById('afin-status');
+      if(s){ s.textContent='Toque em Ativar para começar'; s.className='afin-status'; }
+      return;
+    }
+    try{
+      stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false},video:false});
+      actx=new(window.AudioContext||window.webkitAudioContext)();
+      var src=actx.createMediaStreamSource(stream);
+      analyser=actx.createAnalyser();
+      analyser.fftSize=4096; // buffer maior = detecção mais precisa especialmente em graves
+      analyser.smoothingTimeConstant=0.5;
+      src.connect(analyser);
+      ativo=true;
+      var b2=document.getElementById('afin-btn');
+      if(b2){ b2.classList.add('stop'); document.getElementById('afin-icon').textContent='⏹'; document.getElementById('afin-label').textContent='Parar Afinador'; }
+      var s2=document.getElementById('afin-status');
+      if(s2){ s2.textContent='Ouvindo — toque uma nota...'; s2.className='afin-status'; }
+      loop();
+    }catch(err){
+      var msg=err.name==='NotAllowedError'?'Permissão de microfone negada.':'Erro ao acessar microfone.';
+      var s3=document.getElementById('afin-status');
+      if(s3){ s3.textContent=msg; s3.className='afin-status longe'; }
+    }
+  };
+
+  window.afinTocarNota=function(freq,nome){
+    if(!refCtx||refCtx.state==='closed') refCtx=new(window.AudioContext||window.webkitAudioContext)();
+    if(refCtx.state==='suspended') refCtx.resume();
+    var osc=refCtx.createOscillator(),g=refCtx.createGain();
+    osc.type='sine'; osc.frequency.value=freq;
+    osc.connect(g); g.connect(refCtx.destination);
+    g.gain.setValueAtTime(0,refCtx.currentTime);
+    g.gain.linearRampToValueAtTime(0.5,refCtx.currentTime+0.02);
+    g.gain.setValueAtTime(0.5,refCtx.currentTime+0.8);
+    g.gain.linearRampToValueAtTime(0,refCtx.currentTime+1.2);
+    osc.start(refCtx.currentTime); osc.stop(refCtx.currentTime+1.25);
+    document.querySelectorAll('.afin-corda-btn').forEach(function(b){ b.classList.toggle('tocando',b.textContent===nome); });
+    setTimeout(function(){ document.querySelectorAll('.afin-corda-btn').forEach(function(b){ b.classList.remove('tocando'); }); },1300);
+  };
+
+  var _sw2=window.switchTab;
+  window.switchTab=function(tab){ if(tab!=='metro'&&ativo) afinToggle(); if(_sw2) _sw2(tab); };
 })();
 </script>
 
