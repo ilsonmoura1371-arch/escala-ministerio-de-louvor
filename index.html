@@ -4,31 +4,31 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no">
 
-<!-- ═══════════════════════════════════════
+<!-- =
      PWA META TAGS
-═══════════════════════════════════════ -->
+= -->
 <meta name="theme-color" content="#060c18">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAADACAIAAADdvvtQAAAEVUlEQVR4nO3aTW4baRAEUa24mgP4/nfzOWY2gn8wVlc3U82MsgJ4S0NKfhWQN3x7/PNNetpbfYFWMyBFDEgRA1LEgBQxIEUMSBEDUsSAFDEgRQxIEQNSxIAUMSBFDEgRA1LEgBQxIEUMSBEDUsSAFDEgRQxIEQNSxIAUMSBFDEgRA1LEgBQxIEUMSBEDUsSAFDEgRQxIEQNSxIAUMSCot+///lAfc7SzvkB/ZECKGJAiBqSIASliQIoYkCIGpIgBKWJAihiQIgakiAEpYkCKGNBKv56No/4sRy9WX4BSb8WAdqu3YkC71VsxoN3qrRjQbvVWDGi3eisGtFu9FQPard6KAe1Wb8WAdqu3YkC71VsxoN04Z+MsGXbWF6BwzsZZMuysL0DhnI2zZNhZX4DCORtnybCzvgCFczbOkmFnfQEK52ycJcPO+gIUztk4S4ad9QUonLNxlgw76wtQOGfjLBl21hegcM7GWTLsrC9A4ZyNs2TYWV+AwjkbZ8mws74AhXM2zpJhZ30BCudsnCXDzvoCFM7ZOEuGnfUFKJyzcZYMO+sLUDhn4ywZdtYXoHDOxlky7KwvQOGcjbNk2FlfgMI5G2fJsLO+AIVzNs6SYWd9AQrnbJwlw876AhTO2ThLhp31BSics3GWDDvrC1A4Z+MsGXbWF6BwzsZZMuysL0DhnI2zZNhZX4DCORtnybCzvgCFczbOkmFnfQEK52ycJcPO+gIUztk4S4ad9QUoN53tiZ9mQCvlZ/v1J4xuXfKiF6svQHn6bJe6OVOSAa30xNnCdD76jQa00qWzfWI6//+9BrTS+bPdVM+PX21AK5082631HP/XRmNAvz/HibO9uB4D2mQ82+vrMaBNjs9WqceANjGgyy9WX4BycLZWPQa0iQFdfrH6AhQDuvxi9QUoBnT5xeoLUD46W7EeeEMG9Ptz+Bfo6ovVF6AY0OUXqy9AMaDLL1ZfcNcHe+rdDejyi9UXfMJn+LxjHP9L6/nDm9QXPD/9hsMY0JcI6L7zXCrMevYFdPedzhzPerYG9IJrnbyf9ewL6DU3O39C69kU0AvqeeKK1rMjoEo95w/5ZdPZEVCrnqvn/ILpPAzojqN+kW5+ft76gs86BiSgjz5I/THvulF9wfG7/x0B/cUMyICyG9UXHI0zIDxuQN16DOjsmeoLjsZZD54BGVB2o/qCo3EGhGdABpTdqL5g2Gc9bAZkQNmB6gvmidYDtiCgh98iBdsR0MNvkVKtCejht0iRNgX08FukPMsCeh9tOhgrA3qfbjoAiwP6+Rnspvj49QV3fTBbec071xdoNQNSxIAUMSBFDEgRA1LEgBQxIEUMSBEDUsSAFDEgRQxIEQNSxIAUMSBFDEgRA1LEgBQxIEUMSBEDUsSAFDEgRQxIEQNSxIAUMSBFDEgRA1LEgBQxIEUMSBEDUsSAFDEgRQxIEQNSxIAUMSBFDEgRA1LEgBQxIEUMSBEDUuQ/k3wHtaKs7joAAAAASUVORK5CYII=">
+<link rel="apple-touch-icon" sizes="152x152" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAADACAIAAADdvvtQAAAEVUlEQVR4nO3aTW4baRAEUa24mgP4/nfzOWY2gn8wVlc3U82MsgJ4S0NKfhWQN3x7/PNNetpbfYFWMyBFDEgRA1LEgBQxIEUMSBEDUsSAFDEgRQxIEQNSxIAUMSBFDEgRA1LEgBQxIEUMSBEDUsSAFDEgRQxIEQNSxIAUMSBFDEgRA1LEgBQxIEUMSBEDUsSAFDEgRQxIEQNSxIAUMSCot+///lAfc7SzvkB/ZECKGJAiBqSIASliQIoYkCIGpIgBKWJAihiQIgakiAEpYkCKGNBKv56No/4sRy9WX4BSb8WAdqu3YkC71VsxoN3qrRjQbvVWDGi3eisGtFu9FQPard6KAe1Wb8WAdqu3YkC71VsxoN04Z+MsGXbWF6BwzsZZMuysL0DhnI2zZNhZX4DCORtnybCzvgCFczbOkmFnfQEK52ycJcPO+gIUztk4S4ad9QUonLNxlgw76wtQOGfjLBl21hegcM7GWTLsrC9A4ZyNs2TYWV+AwjkbZ8mws74AhXM2zpJhZ30BCudsnCXDzvoCFM7ZOEuGnfUFKJyzcZYMO+sLUDhn4ywZdtYXoHDOxlky7KwvQOGcjbNk2FlfgMI5G2fJsLO+AIVzNs6SYWd9AQrnbJwlw876AhTO2ThLhp31BSics3GWDDvrC1A4Z+MsGXbWF6BwzsZZMuysL0DhnI2zZNhZX4DCORtnybCzvgCFczbOkmFnfQEK52ycJcPO+gIUztk4S4ad9QUoN53tiZ9mQCvlZ/v1J4xuXfKiF6svQHn6bJe6OVOSAa30xNnCdD76jQa00qWzfWI6//+9BrTS+bPdVM+PX21AK5082631HP/XRmNAvz/HibO9uB4D2mQ82+vrMaBNjs9WqceANjGgyy9WX4BycLZWPQa0iQFdfrH6AhQDuvxi9QUoBnT5xeoLUD46W7EeeEMG9Ptz+Bfo6ovVF6AY0OUXqy9AMaDLL1ZfcNcHe+rdDejyi9UXfMJn+LxjHP9L6/nDm9QXPD/9hsMY0JcI6L7zXCrMevYFdPedzhzPerYG9IJrnbyf9ewL6DU3O39C69kU0AvqeeKK1rMjoEo95w/5ZdPZEVCrnqvn/ILpPAzojqN+kW5+ft76gs86BiSgjz5I/THvulF9wfG7/x0B/cUMyICyG9UXHI0zIDxuQN16DOjsmeoLjsZZD54BGVB2o/qCo3EGhGdABpTdqL5g2Gc9bAZkQNmB6gvmidYDtiCgh98iBdsR0MNvkVKtCejht0iRNgX08FukPMsCeh9tOhgrA3qfbjoAiwP6+Rnspvj49QV3fTBbec071xdoNQNSxIAUMSBFDEgRA1LEgBQxIEUMSBEDUsSAFDEgRQxIEQNSxIAUMSBFDEgRA1LEgBQxIEUMSBEDUsSAFDEgRQxIEQNSxIAUMSBFDEgRA1LEgBQxIEUMSBEDUsSAFDEgRQxIEQNSxIAUMSBFDEgRA1LEgBQxIEUMSBEDUuQ/k3wHtaKs7joAAAAASUVORK5CYII=">
+<link rel="apple-touch-icon" sizes="180x180" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAADACAIAAADdvvtQAAAEVUlEQVR4nO3aTW4baRAEUa24mgP4/nfzOWY2gn8wVlc3U82MsgJ4S0NKfhWQN3x7/PNNetpbfYFWMyBFDEgRA1LEgBQxIEUMSBEDUsSAFDEgRQxIEQNSxIAUMSBFDEgRA1LEgBQxIEUMSBEDUsSAFDEgRQxIEQNSxIAUMSBFDEgRA1LEgBQxIEUMSBEDUsSAFDEgRQxIEQNSxIAUMSCot+///lAfc7SzvkB/ZECKGJAiBqSIASliQIoYkCIGpIgBKWJAihiQIgakiAEpYkCKGNBKv56No/4sRy9WX4BSb8WAdqu3YkC71VsxoN3qrRjQbvVWDGi3eisGtFu9FQPard6KAe1Wb8WAdqu3YkC71VsxoN04Z+MsGXbWF6BwzsZZMuysL0DhnI2zZNhZX4DCORtnybCzvgCFczbOkmFnfQEK52ycJcPO+gIUztk4S4ad9QUonLNxlgw76wtQOGfjLBl21hegcM7GWTLsrC9A4ZyNs2TYWV+AwjkbZ8mws74AhXM2zpJhZ30BCudsnCXDzvoCFM7ZOEuGnfUFKJyzcZYMO+sLUDhn4ywZdtYXoHDOxlky7KwvQOGcjbNk2FlfgMI5G2fJsLO+AIVzNs6SYWd9AQrnbJwlw876AhTO2ThLhp31BSics3GWDDvrC1A4Z+MsGXbWF6BwzsZZMuysL0DhnI2zZNhZX4DCORtnybCzvgCFczbOkmFnfQEK52ycJcPO+gIUztk4S4ad9QUoN53tiZ9mQCvlZ/v1J4xuXfKiF6svQHn6bJe6OVOSAa30xNnCdD76jQa00qWzfWI6//+9BrTS+bPdVM+PX21AK5082631HP/XRmNAvz/HibO9uB4D2mQ82+vrMaBNjs9WqceANjGgyy9WX4BycLZWPQa0iQFdfrH6AhQDuvxi9QUoBnT5xeoLUD46W7EeeEMG9Ptz+Bfo6ovVF6AY0OUXqy9AMaDLL1ZfcNcHe+rdDejyi9UXfMJn+LxjHP9L6/nDm9QXPD/9hsMY0JcI6L7zXCrMevYFdPedzhzPerYG9IJrnbyf9ewL6DU3O39C69kU0AvqeeKK1rMjoEo95w/5ZdPZEVCrnqvn/ILpPAzojqN+kW5+ft76gs86BiSgjz5I/THvulF9wfG7/x0B/cUMyICyG9UXHI0zIDxuQN16DOjsmeoLjsZZD54BGVB2o/qCo3EGhGdABpTdqL5g2Gc9bAZkQNmB6gvmidYDtiCgh98iBdsR0MNvkVKtCejht0iRNgX08FukPMsCeh9tOhgrA3qfbjoAiwP6+Rnspvj49QV3fTBbec071xdoNQNSxIAUMSBFDEgRA1LEgBQxIEUMSBEDUsSAFDEgRQxIEQNSxIAUMSBFDEgRA1LEgBQxIEUMSBEDUsSAFDEgRQxIEQNSxIAUMSBFDEgRA1LEgBQxIEUMSBEDUsSAFDEgRQxIEQNSxIAUMSBFDEgRA1LEgBQxIEUMSBEDUuQ/k3wHtaKs7joAAAAASUVORK5CYII=">
+<link rel="apple-touch-icon" sizes="192x192" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAADACAIAAADdvvtQAAAEVUlEQVR4nO3aTW4baRAEUa24mgP4/nfzOWY2gn8wVlc3U82MsgJ4S0NKfhWQN3x7/PNNetpbfYFWMyBFDEgRA1LEgBQxIEUMSBEDUsSAFDEgRQxIEQNSxIAUMSBFDEgRA1LEgBQxIEUMSBEDUsSAFDEgRQxIEQNSxIAUMSBFDEgRA1LEgBQxIEUMSBEDUsSAFDEgRQxIEQNSxIAUMSCot+///lAfc7SzvkB/ZECKGJAiBqSIASliQIoYkCIGpIgBKWJAihiQIgakiAEpYkCKGNBKv56No/4sRy9WX4BSb8WAdqu3YkC71VsxoN3qrRjQbvVWDGi3eisGtFu9FQPard6KAe1Wb8WAdqu3YkC71VsxoN04Z+MsGXbWF6BwzsZZMuysL0DhnI2zZNhZX4DCORtnybCzvgCFczbOkmFnfQEK52ycJcPO+gIUztk4S4ad9QUonLNxlgw76wtQOGfjLBl21hegcM7GWTLsrC9A4ZyNs2TYWV+AwjkbZ8mws74AhXM2zpJhZ30BCudsnCXDzvoCFM7ZOEuGnfUFKJyzcZYMO+sLUDhn4ywZdtYXoHDOxlky7KwvQOGcjbNk2FlfgMI5G2fJsLO+AIVzNs6SYWd9AQrnbJwlw876AhTO2ThLhp31BSics3GWDDvrC1A4Z+MsGXbWF6BwzsZZMuysL0DhnI2zZNhZX4DCORtnybCzvgCFczbOkmFnfQEK52ycJcPO+gIUztk4S4ad9QUoN53tiZ9mQCvlZ/v1J4xuXfKiF6svQHn6bJe6OVOSAa30xNnCdD76jQa00qWzfWI6//+9BrTS+bPdVM+PX21AK5082631HP/XRmNAvz/HibO9uB4D2mQ82+vrMaBNjs9WqceANjGgyy9WX4BycLZWPQa0iQFdfrH6AhQDuvxi9QUoBnT5xeoLUD46W7EeeEMG9Ptz+Bfo6ovVF6AY0OUXqy9AMaDLL1ZfcNcHe+rdDejyi9UXfMJn+LxjHP9L6/nDm9QXPD/9hsMY0JcI6L7zXCrMevYFdPedzhzPerYG9IJrnbyf9ewL6DU3O39C69kU0AvqeeKK1rMjoEo95w/5ZdPZEVCrnqvn/ILpPAzojqN+kW5+ft76gs86BiSgjz5I/THvulF9wfG7/x0B/cUMyICyG9UXHI0zIDxuQN16DOjsmeoLjsZZD54BGVB2o/qCo3EGhGdABpTdqL5g2Gc9bAZkQNmB6gvmidYDtiCgh98iBdsR0MNvkVKtCejht0iRNgX08FukPMsCeh9tOhgrA3qfbjoAiwP6+Rnspvj49QV3fTBbec071xdoNQNSxIAUMSBFDEgRA1LEgBQxIEUMSBEDUsSAFDEgRQxIEQNSxIAUMSBFDEgRA1LEgBQxIEUMSBEDUsSAFDEgRQxIEQNSxIAUMSBFDEgRA1LEgBQxIEUMSBEDUsSAFDEgRQxIEQNSxIAUMSBFDEgRA1LEgBQxIEUMSBEDUuQ/k3wHtaKs7joAAAAASUVORK5CYII=">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Louvor">
 <meta name="description" content="Gerencie a escala do ministerio de musica da sua igreja">
 <meta name="application-name" content="Escala do Louvor">
 <meta name="msapplication-TileColor" content="#060c18">
-<meta name="msapplication-TileImage" content="guitarra-144.png">
+<meta name="msapplication-TileImage" content="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxOTIgMTkyIj4KICA8cmVjdCB3aWR0aD0iMTkyIiBoZWlnaHQ9IjE5MiIgcng9IjQwIiBmaWxsPSIjMDYwYzE4Ii8+CiAgPGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoOTYsOTYpIj4KICAgIDwhLS0gY29ycG8gZGEgZ3VpdGFycmEgLS0+CiAgICA8ZWxsaXBzZSBjeD0iMCIgY3k9IjI4IiByeD0iMzIiIHJ5PSIzOCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMDBlNWZmIiBzdHJva2Utd2lkdGg9IjQiLz4KICAgIDwhLS0gYnVyYWNvIHNvbm9ybyAtLT4KICAgIDxjaXJjbGUgY3g9IjAiIGN5PSIyOCIgcj0iMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzAwZTVmZiIgc3Ryb2tlLXdpZHRoPSIyLjUiLz4KICAgIDwhLS0gYnJhw6dvIC0tPgogICAgPHJlY3QgeD0iLTUiIHk9Ii03MiIgd2lkdGg9IjEwIiBoZWlnaHQ9IjcyIiByeD0iNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMDBlNWZmIiBzdHJva2Utd2lkdGg9IjQiLz4KICAgIDwhLS0gY2FiZcOnYSAtLT4KICAgIDxyZWN0IHg9Ii0xMCIgeT0iLTg4IiB3aWR0aD0iMjAiIGhlaWdodD0iMTgiIHJ4PSI0IiBmaWxsPSJub25lIiBzdHJva2U9IiMwMGU1ZmYiIHN0cm9rZS13aWR0aD0iMyIvPgogICAgPCEtLSBjb3JkYXMgLS0+CiAgICA8bGluZSB4MT0iLTMiIHkxPSItNzIiIHgyPSItMyIgeTI9Ii0xMCIgc3Ryb2tlPSIjMDBlNWZmIiBzdHJva2Utd2lkdGg9IjEuMiIgb3BhY2l0eT0iMC42Ii8+CiAgICA8bGluZSB4MT0iMCIgeTE9Ii03MiIgeDI9IjAiIHkyPSItMTAiIHN0cm9rZT0iIzAwZTVmZiIgc3Ryb2tlLXdpZHRoPSIxLjUiIG9wYWNpdHk9IjAuOCIvPgogICAgPGxpbmUgeDE9IjMiIHkxPSItNzIiIHgyPSIzIiB5Mj0iLTEwIiBzdHJva2U9IiMwMGU1ZmYiIHN0cm9rZS13aWR0aD0iMS4yIiBvcGFjaXR5PSIwLjYiLz4KICAgIDwhLS0gYnJpbGhvIC0tPgogICAgPGVsbGlwc2UgY3g9Ii0xMCIgY3k9IjEyIiByeD0iOCIgcnk9IjE0IiBmaWxsPSJyZ2JhKDAsMjI5LDI1NSwwLjA4KSIgdHJhbnNmb3JtPSJyb3RhdGUoLTIwKSIvPgogIDwvZz4KPC9zdmc+">
 
 <!-- Manifesto PWA -->
-<link rel="manifest" href="manifest.json">
+<!-- manifest inline -->
 
 <!-- Favicon -->
-<link rel="icon" type="image/png" sizes="32x32" href="guitarra-48.png">
+<link rel="icon" type="image/png" sizes="32x32" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxOTIgMTkyIj4KICA8cmVjdCB3aWR0aD0iMTkyIiBoZWlnaHQ9IjE5MiIgcng9IjQwIiBmaWxsPSIjMDYwYzE4Ii8+CiAgPGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoOTYsOTYpIj4KICAgIDwhLS0gY29ycG8gZGEgZ3VpdGFycmEgLS0+CiAgICA8ZWxsaXBzZSBjeD0iMCIgY3k9IjI4IiByeD0iMzIiIHJ5PSIzOCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMDBlNWZmIiBzdHJva2Utd2lkdGg9IjQiLz4KICAgIDwhLS0gYnVyYWNvIHNvbm9ybyAtLT4KICAgIDxjaXJjbGUgY3g9IjAiIGN5PSIyOCIgcj0iMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzAwZTVmZiIgc3Ryb2tlLXdpZHRoPSIyLjUiLz4KICAgIDwhLS0gYnJhw6dvIC0tPgogICAgPHJlY3QgeD0iLTUiIHk9Ii03MiIgd2lkdGg9IjEwIiBoZWlnaHQ9IjcyIiByeD0iNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMDBlNWZmIiBzdHJva2Utd2lkdGg9IjQiLz4KICAgIDwhLS0gY2FiZcOnYSAtLT4KICAgIDxyZWN0IHg9Ii0xMCIgeT0iLTg4IiB3aWR0aD0iMjAiIGhlaWdodD0iMTgiIHJ4PSI0IiBmaWxsPSJub25lIiBzdHJva2U9IiMwMGU1ZmYiIHN0cm9rZS13aWR0aD0iMyIvPgogICAgPCEtLSBjb3JkYXMgLS0+CiAgICA8bGluZSB4MT0iLTMiIHkxPSItNzIiIHgyPSItMyIgeTI9Ii0xMCIgc3Ryb2tlPSIjMDBlNWZmIiBzdHJva2Utd2lkdGg9IjEuMiIgb3BhY2l0eT0iMC42Ii8+CiAgICA8bGluZSB4MT0iMCIgeTE9Ii03MiIgeDI9IjAiIHkyPSItMTAiIHN0cm9rZT0iIzAwZTVmZiIgc3Ryb2tlLXdpZHRoPSIxLjUiIG9wYWNpdHk9IjAuOCIvPgogICAgPGxpbmUgeDE9IjMiIHkxPSItNzIiIHgyPSIzIiB5Mj0iLTEwIiBzdHJva2U9IiMwMGU1ZmYiIHN0cm9rZS13aWR0aD0iMS4yIiBvcGFjaXR5PSIwLjYiLz4KICAgIDwhLS0gYnJpbGhvIC0tPgogICAgPGVsbGlwc2UgY3g9Ii0xMCIgY3k9IjEyIiByeD0iOCIgcnk9IjE0IiBmaWxsPSJyZ2JhKDAsMjI5LDI1NSwwLjA4KSIgdHJhbnNmb3JtPSJyb3RhdGUoLTIwKSIvPgogIDwvZz4KPC9zdmc+">
 
 <!-- Apple Touch Icons para iOS -->
-<link rel="apple-touch-icon" href="guitarra-192.png">
-<link rel="apple-touch-icon" sizes="152x152" href="guitarra-144.png">
-<link rel="apple-touch-icon" sizes="192x192" href="guitarra-192.png">
-<link rel="apple-touch-icon" sizes="512x512" href="guitarra-512.png">
-<!-- ═══════════════════════════════════════ -->
+<!-- = -->
 
 <title>Escala do Louvor</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -40,7 +40,7 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
   import {
     getFirestore, collection, addDoc, updateDoc, deleteDoc,
-    doc, onSnapshot, query, where, orderBy, serverTimestamp, getDoc, setDoc, getDocs
+    doc, onSnapshot, query, where, orderBy, serverTimestamp, getDoc, setDoc, getDocs, arrayUnion
   } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
   import {
     getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword,
@@ -70,15 +70,83 @@
   let nomeIgrejaAtual = '';
   let membroLogado    = false;
   let membroDocId     = null;
+
+  // = SESSÃO PERSISTENTE =
+  const SESSION_KEY_MEMBRO = 'louvor_sessao_membro';
+  const SESSION_KEY_LIDER  = 'louvor_sessao_lider';
+  const DEVICE_TOKEN_KEY   = 'louvor_device_token';
+
+  function obterOuCriarTokenDispositivo() {
+    let token = localStorage.getItem(DEVICE_TOKEN_KEY);
+    if (!token) {
+      token = 'dev_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10);
+      localStorage.setItem(DEVICE_TOKEN_KEY, token);
+    }
+    return token;
+  }
+
+  async function registrarTokenDispositivo(membroDocId) {
+    try {
+      const token = obterOuCriarTokenDispositivo();
+      await updateDoc(doc(db, 'musicos', membroDocId), { deviceTokens: arrayUnion(token) });
+    } catch(e) { console.warn('Token nao registrado:', e); }
+  }
+
+  async function verificarTokenDispositivo(membroDocId) {
+    try {
+      const token = localStorage.getItem(DEVICE_TOKEN_KEY);
+      if (!token) return false;
+      const snap = await getDoc(doc(db, 'musicos', membroDocId));
+      if (!snap.exists()) return false;
+      const tokens = snap.data().deviceTokens || [];
+      return tokens.includes(token);
+    } catch(e) { return false; }
+  }
+
+  function salvarSessaoMembro(docId, nome, igId, igNome) {
+    localStorage.setItem(SESSION_KEY_MEMBRO, JSON.stringify({
+      docId, nome, igId, igNome, ts: Date.now()
+    }));
+  }
+  function salvarSessaoLider() {
+    // Líder usa Firebase Auth - só marca flag para saber que estava logado
+    localStorage.setItem(SESSION_KEY_LIDER, '1');
+  }
+  function limparSessao() {
+    localStorage.removeItem(SESSION_KEY_MEMBRO);
+    localStorage.removeItem(SESSION_KEY_LIDER);
+  }
+  async function tentarRestaurarSessaoMembro() {
+    const raw = localStorage.getItem(SESSION_KEY_MEMBRO);
+    if (!raw) return false;
+    try {
+      const s = JSON.parse(raw);
+      if (!s.docId || !s.igId) { limparSessao(); return false; }
+      // Verifica se membro ainda existe e acesso não foi revogado
+      const snap = await getDoc(doc(db, 'musicos', s.docId));
+      if (!snap.exists()) { limparSessao(); return false; }
+      const dados = snap.data();
+      if (dados.acessoRevogado) { limparSessao(); return false; }
+      // Restaura estado
+      igrejaId       = s.igId;
+      nomeIgrejaAtual = s.igNome || 'Ministerio de Musica';
+      membroLogado   = true;
+      membroDocId    = s.docId;
+      membroNome     = s.nome;
+      usuarioLogado  = null;
+      entrarNoApp(nomeIgrejaAtual, false);
+      return true;
+    } catch(err) { limparSessao(); return false; }
+  }
   let membroNome      = "";
   let filtroMes = new Date().getMonth();
   let filtroAno = new Date().getFullYear();
   let unsubEscalas = null;
   let unsubMusicos = null;
 
-  const MESES_FULL = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const MESES_FULL = ['Janeiro','Fevereiro','Marco','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
   const MESES      = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
-  const SEMANA     = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+  const SEMANA     = ['Domingo','Segunda','Terca','Quarta','Quinta','Sexta','Sábado'];
   const SENHA_MEMBRO_PADRAO = "1234";
   const ADMIN_EMAIL = 'ilsonmoura1371@gmail.com';
 
@@ -91,6 +159,64 @@
     }
     return codigo;
   }
+
+  function gerarSenhaProvisoria(nomeIgreja) {
+    const prefixos = ['Louvor','Graca','Fiel','Paz','Luz','Cruz','Fe'];
+    const prefixo = prefixos[Math.floor(Math.random() * prefixos.length)];
+    const num = Math.floor(100 + Math.random() * 900);
+    return prefixo + num;
+  }
+
+  function mostrarModalSenhaMembro(nome, senha) {
+    var url = window.location.href.split('?')[0];
+    var msgWhats = encodeURIComponent(
+      'Escala do Louvor' +
+      '\n\nOla ' + nome + '! Voce foi cadastrado(a) no sistema.' +
+      '\n\nAcesse: ' + url +
+      '\n\nSeu nome de acesso: ' + nome +
+      '\nSenha provisoria: ' + senha +
+      '\n\nNo primeiro acesso voce criara sua senha pessoal.'
+    );
+    var old = document.getElementById('modal-senha-membro');
+    if (old) old.remove();
+    var overlay = document.createElement('div');
+    overlay.id = 'modal-senha-membro';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0.7);backdrop-filter:blur(6px);padding:16px;';
+    var inner = document.createElement('div');
+    inner.style.cssText = 'background:#0d1526;border:1px solid rgba(0,229,255,0.25);border-radius:24px;padding:24px;width:100%;max-width:400px;margin-bottom:8px;';
+    inner.innerHTML =
+      '<div style="text-align:center;margin-bottom:16px;">' +
+        '<div style="font-size:36px;">OK</div>' +
+        '<div style="font-size:16px;font-weight:700;color:#e2e8f0;margin-top:6px;">' + nome + ' cadastrado!</div>' +
+        '<div style="font-size:13px;color:#94a3b8;margin-top:4px;">Compartilhe as credenciais de acesso</div>' +
+      '</div>' +
+      '<div style="background:rgba(0,229,255,0.06);border:1px solid rgba(0,229,255,0.2);border-radius:14px;padding:16px;margin-bottom:16px;">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">' +
+          '<span style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#64748b;">Nome de acesso</span>' +
+          '<span style="font-size:14px;font-weight:700;color:#e2e8f0;">' + nome + '</span>' +
+        '</div>' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+          '<span style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#64748b;">Senha provisoria</span>' +
+          '<span style="font-family:monospace;font-size:20px;font-weight:700;color:#00e5ff;letter-spacing:2px;">' + senha + '</span>' +
+        '</div>' +
+      '</div>' +
+      '<div style="display:flex;flex-direction:column;gap:10px;">' +
+        '<button id="msm-copiar" style="width:100%;padding:13px;border-radius:12px;background:rgba(0,229,255,0.08);border:1px solid rgba(0,229,255,0.25);color:#00e5ff;font-family:sans-serif;font-size:14px;font-weight:700;cursor:pointer;">Copiar Credenciais</button>' +
+        '<a id="msm-whats" href="https://wa.me/?text=' + msgWhats + '" target="_blank" style="display:block;width:100%;padding:13px;border-radius:12px;background:rgba(37,211,102,0.1);border:1px solid rgba(37,211,102,0.3);color:#25d166;font-family:sans-serif;font-size:14px;font-weight:700;cursor:pointer;text-align:center;text-decoration:none;box-sizing:border-box;">Enviar pelo WhatsApp</a>' +
+        '<button id="msm-fechar" style="width:100%;padding:11px;border-radius:12px;background:transparent;border:1px solid rgba(255,255,255,0.1);color:#64748b;font-family:sans-serif;font-size:14px;font-weight:700;cursor:pointer;">Fechar</button>' +
+      '</div>';
+    overlay.appendChild(inner);
+    document.body.appendChild(overlay);
+    document.getElementById('msm-copiar').onclick = function() {
+      navigator.clipboard.writeText('Nome: ' + nome + '\nSenha: ' + senha + '\nAcesso: ' + url)
+        .then(function(){ showToast('Copiado!','success'); })
+        .catch(function(){ showToast('Copie manualmente: ' + senha, 'success'); });
+    };
+    document.getElementById('msm-fechar').onclick = function() { overlay.remove(); };
+  }
+
+
+
 
   const FUNCOES = [
     { id:'vocal',     label:'Vocal Principal',   icon:'MIC' },
@@ -143,6 +269,7 @@
       igrejaId = user.uid;
       membroLogado = false;
       appJaIniciado = true;
+      salvarSessaoLider();
       try {
         const snap = await getDoc(doc(db,'igrejas',user.uid));
         nomeIgrejaAtual = snap.exists() ? (snap.data().nome || user.displayName || 'Minha Igreja') : (user.displayName || 'Minha Igreja');
@@ -151,10 +278,18 @@
       }
       entrarNoApp(nomeIgrejaAtual, true);
     } else {
-      // Só volta para início se não há membro logado manualmente
+      usuarioLogado = null;
+      // Tenta restaurar sessão de membro salva
       if (!membroLogado) {
-        usuarioLogado = null;
-        if (appJaIniciado) mostrarTelaInicio();
+        const restaurou = await tentarRestaurarSessaoMembro();
+        if (!restaurou) {
+          if (appJaIniciado) mostrarTelaInicio();
+          else {
+            // Primeira carga: mostra tela de início normalmente
+            document.getElementById('tela-inicio').style.display = 'flex';
+          }
+        }
+        appJaIniciado = true;
       }
     }
   });
@@ -190,7 +325,7 @@
     filtroAno = new Date().getFullYear();
 
     iniciarListeners();
-    switchTab('escala-atual');
+    switchTab('home');
   }
 
   window.mostrarTelaLider = function() {
@@ -272,62 +407,110 @@
     document.getElementById('lider-erro').style.display='none';
   };
 
+  let redefPinStep1 = '', redefPinStep2 = '', redefMembroId = null;
+
   window.mostrarRedefinirSenhaMembro = function() {
+    redefPinStep1 = ''; redefPinStep2 = ''; redefMembroId = null;
     document.getElementById('tela-inicio').style.display = 'none';
     document.getElementById('tela-redef-senha').style.display = 'flex';
     document.getElementById('redef-nome').value = '';
-    document.getElementById('redef-nova-senha').value = '';
-    document.getElementById('redef-confirma-senha').value = '';
+    document.getElementById('redef-step-nome').style.display = 'block';
+    document.getElementById('redef-step-pin').style.display = 'none';
     document.getElementById('redef-erro').style.display = 'none';
   };
+
   window.voltarInicioDeRedef = function() {
     document.getElementById('tela-redef-senha').style.display = 'none';
     document.getElementById('tela-inicio').style.display = 'flex';
   };
-  window.confirmarRedefinicaoSenha = async function(e) {
-    if (e) e.preventDefault();
-    const nome     = document.getElementById('redef-nome').value.trim();
-    const nova     = document.getElementById('redef-nova-senha').value.trim();
-    const confirma = document.getElementById('redef-confirma-senha').value.trim();
-    const erroEl   = document.getElementById('redef-erro');
-    const btn      = document.getElementById('btn-redef-senha');
+
+  window.redefAvancar = async function() {
+    const nome = document.getElementById('redef-nome').value.trim();
+    const erroEl = document.getElementById('redef-erro');
     erroEl.style.display = 'none';
-    if (!nome)          { erroEl.style.display='block'; erroEl.textContent='Digite seu nome.'; return; }
-    if (!nova)          { erroEl.style.display='block'; erroEl.textContent='Digite a nova senha.'; return; }
-    if (nova.length < 6){ erroEl.style.display='block'; erroEl.textContent='Senha deve ter pelo menos 6 caracteres.'; return; }
-    if (!/[a-zA-Z]/.test(nova)) { erroEl.style.display='block'; erroEl.textContent='A senha deve conter pelo menos uma letra.'; return; }
-    if (!/[0-9]/.test(nova))    { erroEl.style.display='block'; erroEl.textContent='A senha deve conter pelo menos um numero.'; return; }
-    if (nova !== confirma){ erroEl.style.display='block'; erroEl.textContent='As senhas nao conferem.'; return; }
-    btn.disabled = true; btn.textContent = 'Salvando...';
+    if (!nome) { erroEl.style.display='block'; erroEl.textContent='Digite seu nome.'; return; }
     try {
-      const qRedef = query(collection(db, 'musicos'), where('nome', '==', nome));
-      let snapRedef = await getDocs(qRedef);
-      let membroDoc = null, membroDocIdEncontrado = null;
-      if (!snapRedef.empty) {
-        snapRedef.forEach(d => { if (!membroDoc) { membroDoc = d.data(); membroDocIdEncontrado = d.id; } });
-      }
+      let membroDoc = null;
+      const snap = await getDocs(query(collection(db,'musicos'), where('nome','==',nome)));
+      if (!snap.empty) snap.forEach(d => { if(!membroDoc){ membroDoc=d.data(); redefMembroId=d.id; } });
       if (!membroDoc) {
-        const snapTodos = await getDocs(collection(db, 'musicos'));
-        snapTodos.forEach(d => {
-          const dados = d.data();
-          if (!membroDoc && dados.nome && dados.nome.trim().toLowerCase() === nome.toLowerCase()) {
-            membroDoc = dados; membroDocIdEncontrado = d.id;
-          }
-        });
+        const all = await getDocs(collection(db,'musicos'));
+        all.forEach(d => { const dados=d.data(); if(!membroDoc && dados.nome && dados.nome.trim().toLowerCase()===nome.toLowerCase()){ membroDoc=dados; redefMembroId=d.id; } });
       }
-      if (!membroDoc) throw new Error('Nome não encontrado. Verifique como foi cadastrado pelo líder.');
-      await updateDoc(doc(db,'musicos', membroDocIdEncontrado), {
-        senha: nova, senhaProvisoria: false, updatedAt: serverTimestamp()
-      });
-      showToast('Senha redefinida com sucesso!', 'success');
-      voltarInicioDeRedef();
-    } catch(err) {
-      erroEl.style.display = 'block';
-      erroEl.textContent = err.message || 'Erro ao redefinir senha.';
-    } finally {
-      btn.disabled = false; btn.textContent = 'Redefinir Senha';
-    }
+      if (!membroDoc) { erroEl.style.display='block'; erroEl.textContent='Nome não encontrado.'; return; }
+      document.getElementById('redef-nome-display').textContent = membroDoc.nome;
+      document.getElementById('redef-step-nome').style.display = 'none';
+      document.getElementById('redef-step-pin').style.display = 'block';
+      document.getElementById('redef-pin-step-1').style.display = 'block';
+      document.getElementById('redef-pin-step-2').style.display = 'none';
+      redefPinStep1 = ''; redefPinStep2 = '';
+      updateRedefPin(1,''); updateRedefPin(2,'');
+      buildRedefPinPad('redef-pin-pad-1',1);
+      buildRedefPinPad('redef-pin-pad-2',2);
+    } catch(err) { erroEl.style.display='block'; erroEl.textContent=err.message||'Erro.'; }
   };
+
+  function buildRedefPinPad(padId, step) {
+    const pad = document.getElementById(padId); if(!pad) return;
+    pad.innerHTML = '';
+    ['1','2','3','4','5','6','7','8','9','','0','⌫'].forEach(n => {
+      const btn = document.createElement('button');
+      btn.className = 'pin-btn'+(n===''?' pin-btn-empty':n==='⌫'?' pin-btn-del':'');
+      btn.textContent = n;
+      if (n!=='') btn.onclick = () => redefPinInput(n, step);
+      pad.appendChild(btn);
+    });
+  }
+
+  function updateRedefPin(step, val) {
+    for(let i=1;i<=4;i++){
+      const dot=document.getElementById('rpd'+step+'-'+i);
+      if(dot) dot.classList.toggle('filled',i<=val.length);
+    }
+  }
+
+  function redefPinInput(val, step) {
+    const erroEl = document.getElementById('redef-pin-erro');
+    erroEl.style.display='none';
+    if(step===1){
+      if(val==='⌫') redefPinStep1=redefPinStep1.slice(0,-1);
+      else if(redefPinStep1.length<4) redefPinStep1+=val;
+      updateRedefPin(1,redefPinStep1);
+      if(redefPinStep1.length===4) setTimeout(()=>{ document.getElementById('redef-pin-step-1').style.display='none'; document.getElementById('redef-pin-step-2').style.display='block'; },200);
+    } else {
+      if(val==='⌫') redefPinStep2=redefPinStep2.slice(0,-1);
+      else if(redefPinStep2.length<4) redefPinStep2+=val;
+      updateRedefPin(2,redefPinStep2);
+      if(redefPinStep2.length===4) setTimeout(()=>salvarRedefPin(),200);
+    }
+  }
+
+  async function salvarRedefPin() {
+    const erroEl = document.getElementById('redef-pin-erro');
+    if(redefPinStep1!==redefPinStep2){
+      erroEl.style.display='block'; erroEl.textContent='PINs diferentes. Tente novamente.';
+      redefPinStep2=''; updateRedefPin(2,'');
+      document.getElementById('redef-pin-step-1').style.display='none';
+      document.getElementById('redef-pin-step-2').style.display='block';
+      return;
+    }
+    try {
+      await updateDoc(doc(db,'musicos',redefMembroId),{ senha:redefPinStep1, senhaProvisoria:false, updatedAt:serverTimestamp() });
+      showToast('PIN redefinido!','success');
+      voltarInicioDeRedef();
+    } catch(err) { erroEl.style.display='block'; erroEl.textContent='Erro ao salvar.'; redefPinStep2=''; updateRedefPin(2,''); }
+  }
+
+  window.confirmarRedefinicaoSenha = function(e){ if(e) e.preventDefault(); };
+
+  // Dica de primeiro acesso ao digitar o nome
+  setTimeout(() => {
+    const nomeInput = document.getElementById('membro-nome');
+    if (nomeInput) nomeInput.addEventListener('input', function() {
+      const dica = document.getElementById('dica-senha-membro');
+      if (dica) dica.style.display = this.value.trim().length > 1 ? 'block' : 'none';
+    });
+  }, 500);
 
   window.handleAuthMembro = async function(e) {
     if (e) e.preventDefault();
@@ -339,28 +522,24 @@
     erroEl.style.display = 'none';
     erroEl.textContent   = '';
 
-    if (!nomeMembro) { showToast('Digite seu nome','danger'); return; }
-    if (!senha)      { showToast('Digite a senha','danger'); return; }
+    if (!nomeMembro) { showToast('Digite seu nome', 'danger'); return; }
 
     btn.disabled = true;
     btn.textContent = 'Verificando...';
 
     try {
+      // Busca o membro pelo nome
       const qMembro = query(collection(db, 'musicos'), where('nome', '==', nomeMembro));
       let snapMusicos = await getDocs(qMembro);
-      // fallback: busca case-insensitive se não encontrou exato
       if (snapMusicos.empty) {
         const snapTodos = await getDocs(collection(db, 'musicos'));
         const encontrados = [];
         snapTodos.forEach(d => {
           const dados = d.data();
-          if (dados.nome && dados.nome.trim().toLowerCase() === nomeMembro.toLowerCase()) {
+          if (dados.nome && dados.nome.trim().toLowerCase() === nomeMembro.toLowerCase())
             encontrados.push(d);
-          }
         });
-        if (encontrados.length > 0) {
-          snapMusicos = { docs: encontrados, empty: false };
-        }
+        if (encontrados.length > 0) snapMusicos = { docs: encontrados, empty: false };
       }
       let membroDoc = null, igrejaIdEncontrado = null, membroDocIdEncontrado = null;
       if (!snapMusicos.empty) {
@@ -376,36 +555,62 @@
       try {
         const snapIgreja = await getDoc(doc(db, 'igrejas', igrejaIdEncontrado));
         if (snapIgreja.exists()) {
-          const dadosIgreja = snapIgreja.data();
-          nomeIgreja  = dadosIgreja.nome       || nomeIgreja;
-          senhaIgreja = dadosIgreja.senhaMembro || SENHA_MEMBRO_PADRAO;
+          const d = snapIgreja.data();
+          nomeIgreja  = d.nome       || nomeIgreja;
+          senhaIgreja = d.senhaMembro || SENHA_MEMBRO_PADRAO;
         }
-      } catch(errIgreja) { console.warn('Nao foi possivel carregar dados da igreja:', errIgreja); }
+      } catch(e) {}
 
-      // Aceita: senha individual do membro, senha da igreja ou senha padrão
-      const senhaCorretaMembro = membroDoc.senha || senhaIgreja || SENHA_MEMBRO_PADRAO;
-      if (senha !== senhaCorretaMembro) {
-        throw new Error('Senha incorreta.');
+      const aindaSenhaPadrao = membroDoc.senhaProvisoria === true &&
+        (membroDoc.senha === SENHA_MEMBRO_PADRAO || !membroDoc.senha);
+
+      // -- ACESSO AUTOMÁTICO: celular já reconhecido, sem senha --
+      if (!aindaSenhaPadrao && !senha) {
+        const conhecido = await verificarTokenDispositivo(membroDocIdEncontrado);
+        if (conhecido) {
+          igrejaId = igrejaIdEncontrado; nomeIgrejaAtual = nomeIgreja;
+          membroLogado = true; membroDocId = membroDocIdEncontrado;
+          membroNome = membroDoc.nome; usuarioLogado = null;
+          salvarSessaoMembro(membroDocIdEncontrado, membroDoc.nome, igrejaIdEncontrado, nomeIgreja);
+          entrarNoApp(nomeIgreja, false);
+          showToast('Bem-vindo de volta, ' + membroDoc.nome + '! ', 'success');
+          return;
+        }
+        // Celular não reconhecido - mostra campo de senha
+        erroEl.style.display = 'block';
+        erroEl.textContent = 'Digite sua senha para este aparelho ser reconhecido.';
+        document.getElementById('campo-senha-membro').style.display = 'block';
+        document.getElementById('membro-senha').focus();
+        btn.disabled = false; btn.textContent = 'Entrar'; return;
       }
 
-      igrejaId = igrejaIdEncontrado;
-      nomeIgrejaAtual = nomeIgreja;
-      membroLogado = true;
-      membroDocId  = membroDocIdEncontrado;
-      membroNome   = membroDoc.nome;
-      usuarioLogado = null;
+      // -- VALIDAÇÃO NORMAL DE SENHA --
+      if (!senha) {
+        document.getElementById('campo-senha-membro').style.display = 'block';
+        document.getElementById('membro-senha').focus();
+        btn.disabled = false; btn.textContent = 'Entrar'; return;
+      }
+      const senhaCorreta = membroDoc.senha || senhaIgreja || SENHA_MEMBRO_PADRAO;
+      if (senha !== senhaCorreta) throw new Error('Senha incorreta.');
 
-      // Se senha provisoria E ainda está com senha padrão → criar PIN
-      // Se ja tem PIN proprio (senha != 1234) → deixa entrar normalmente
-      const aindaSenhaPadrao = membroDoc.senhaProvisoria === true && membroDoc.senha === SENHA_MEMBRO_PADRAO;
-      if (aindaSenhaPadrao) {
-        mostrarTelaTrocaSenha(nomeIgreja);
-        showToast('Primeiro acesso: crie seu PIN de 4 dígitos!', 'success');
+      igrejaId = igrejaIdEncontrado; nomeIgrejaAtual = nomeIgreja;
+      membroLogado = true; membroDocId = membroDocIdEncontrado;
+      membroNome = membroDoc.nome; usuarioLogado = null;
+
+      // Primeiro acesso OU senha antiga - força criação de PIN
+      const ehPinNumerico = /^\d{4}$/.test(senhaCorreta);
+      if (aindaSenhaPadrao || !ehPinNumerico) {
+        const msg = aindaSenhaPadrao ? 'Crie seu PIN pessoal de 4 dígitos!' : 'Para sua segurança, crie um novo PIN de 4 dígitos!';
+        mostrarTelaTrocaSenha(nomeIgreja, membroDocIdEncontrado, membroDoc.nome, igrejaIdEncontrado);
+        showToast(msg, 'success');
         return;
       }
 
+      // Login normal - registra dispositivo para acesso automático futuro
+      await registrarTokenDispositivo(membroDocIdEncontrado);
+      salvarSessaoMembro(membroDocIdEncontrado, membroDoc.nome, igrejaIdEncontrado, nomeIgreja);
       entrarNoApp(nomeIgreja, false);
-      showToast('Bem-vindo, ' + membroDoc.nome + '!', 'success');
+      showToast('Bem-vindo, ' + membroDoc.nome + '! Celular salvo ', 'success');
     } catch(err) {
       erroEl.style.display = 'block';
       erroEl.textContent   = err.message;
@@ -415,15 +620,17 @@
     }
   };
 
-  // ══ PIN SYSTEM ══
+  // ══ SISTEMA DE PIN ══
   let pinStep1 = '', pinStep2 = '';
+  // Guarda dados do membro durante criação de PIN
+  let _pinMembroDocId = null, _pinMembroNome = null, _pinIgrejaId = null, _pinNomeIgreja = null;
 
   function buildPinPad(padId, step) {
     const pad = document.getElementById(padId); if(!pad) return;
     pad.innerHTML = '';
-    const nums = ['1','2','3','4','5','6','7','8','9','','0','⌫'];
-    nums.forEach(n => {
+    ['1','2','3','4','5','6','7','8','9','','0','⌫'].forEach(n => {
       const btn = document.createElement('button');
+      btn.type = 'button';
       btn.className = 'pin-btn' + (n===''?' pin-btn-empty': n==='⌫'?' pin-btn-del':'');
       btn.textContent = n;
       if (n !== '') btn.onclick = () => pinInput(n, step);
@@ -433,7 +640,7 @@
 
   function pinInput(val, step) {
     const erroEl = document.getElementById('troca-senha-erro');
-    erroEl.style.display = 'none';
+    if (erroEl) erroEl.style.display = 'none';
     if (step === 1) {
       if (val === '⌫') { pinStep1 = pinStep1.slice(0,-1); }
       else if (pinStep1.length < 4) { pinStep1 += val; }
@@ -464,49 +671,71 @@
   async function salvarPin() {
     const erroEl = document.getElementById('troca-senha-erro');
     if (pinStep1 !== pinStep2) {
-      erroEl.style.display = 'block';
-      erroEl.textContent = 'PINs diferentes. Tente novamente.';
-      pinStep2 = '';
-      updatePinDisplay(2, '');
+      if (erroEl) { erroEl.style.display='block'; erroEl.textContent='PINs diferentes. Tente novamente.'; }
+      pinStep2 = ''; updatePinDisplay(2,'');
       document.getElementById('pin-step-1').style.display = 'none';
       document.getElementById('pin-step-2').style.display = 'block';
       return;
     }
+    // Usa variáveis salvas no momento da chamada de mostrarTelaTrocaSenha
+    const docId    = _pinMembroDocId || membroDocId;
+    const nome     = _pinMembroNome  || membroNome;
+    const igId     = _pinIgrejaId   || igrejaId;
+    const igNome   = _pinNomeIgreja || nomeIgrejaAtual;
+    if (!docId) {
+      if (erroEl) { erroEl.style.display='block'; erroEl.textContent='Erro: sessão expirada. Faça login novamente.'; }
+      setTimeout(() => mostrarTelaInicio(), 2000);
+      return;
+    }
     try {
-      await updateDoc(doc(db,'musicos', membroDocId), {
+      await updateDoc(doc(db,'musicos', docId), {
         senha: pinStep1, senhaProvisoria: false, updatedAt: serverTimestamp()
       });
+      // Atualiza variáveis globais
+      membroDocId = docId; membroNome = nome; igrejaId = igId; nomeIgrejaAtual = igNome;
+      membroLogado = true; usuarioLogado = null;
       document.getElementById('tela-troca-senha').style.display = 'none';
       pinStep1 = ''; pinStep2 = '';
-      entrarNoApp(nomeIgrejaAtual, false);
-      showToast('PIN criado! Bem-vindo, ' + membroNome + '!', 'success');
+      _pinMembroDocId = null; _pinMembroNome = null; _pinIgrejaId = null; _pinNomeIgreja = null;
+      await registrarTokenDispositivo(docId);
+      salvarSessaoMembro(docId, nome, igId, igNome);
+      entrarNoApp(igNome, false);
+      showToast('PIN criado! Bem-vindo, ' + nome + '!', 'success');
     } catch(err) {
-      erroEl.style.display = 'block';
-      erroEl.textContent = 'Erro ao salvar PIN. Tente novamente.';
+      console.error('salvarPin erro:', err);
+      if (erroEl) { erroEl.style.display='block'; erroEl.textContent='Erro ao salvar PIN. Tente novamente.'; }
       pinStep2 = ''; updatePinDisplay(2,'');
     }
   }
 
-  function mostrarTelaTrocaSenha(nomeIgreja) {
+  function mostrarTelaTrocaSenha(nomeIgreja, docId, nome, igId) {
+    // Salva contexto do membro para usar no salvarPin
+    _pinMembroDocId = docId  || membroDocId;
+    _pinMembroNome  = nome   || membroNome;
+    _pinIgrejaId    = igId   || igrejaId;
+    _pinNomeIgreja  = nomeIgreja || nomeIgrejaAtual || 'Ministerio de Musica';
     pinStep1 = ''; pinStep2 = '';
-    document.getElementById('tela-inicio').style.display  = 'none';
-    document.getElementById('tela-lider').style.display   = 'none';
-    document.getElementById('app-content').style.display  = 'none';
+    // Esconde todas as telas
+    document.getElementById('tela-inicio').style.display   = 'none';
+    document.getElementById('tela-lider').style.display    = 'none';
+    document.getElementById('app-content').style.display   = 'none';
     document.getElementById('tela-troca-senha').style.display = 'flex';
-    document.getElementById('troca-senha-nome-igreja').textContent = nomeIgreja || 'Ministerio de Musica';
+    const el = document.getElementById('troca-senha-nome-igreja');
+    if (el) el.textContent = _pinNomeIgreja;
     document.getElementById('pin-step-1').style.display = 'block';
     document.getElementById('pin-step-2').style.display = 'none';
-    document.getElementById('troca-senha-erro').style.display = 'none';
+    const erroEl = document.getElementById('troca-senha-erro');
+    if (erroEl) erroEl.style.display = 'none';
     updatePinDisplay(1,''); updatePinDisplay(2,'');
     buildPinPad('pin-pad-1', 1);
     buildPinPad('pin-pad-2', 2);
   }
 
-  // ══ LOGIN COM PIN (teclado numerico na tela de login) ══
+  // = LOGIN COM PIN (teclado numerico na tela de login) =
   // manter compatibilidade - confirmarTrocaSenha nao e mais usada mas deixa para nao quebrar
   window.confirmarTrocaSenha = function(e) { if(e) e.preventDefault(); };
 
-  // ══ ADMIN GERAL ══
+  // = ADMIN GERAL =
   window.abrirAdmin = async function() {
     document.getElementById('tela-admin').style.display = 'block';
     document.getElementById('admin-stats').innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--text-muted);padding:20px;">Carregando...</div>';
@@ -525,9 +754,9 @@
       const totalMembros = dados.reduce((s,i)=>s+i.totalMembros,0);
       const totalEscalas = dados.reduce((s,i)=>s+i.totalEscalas,0);
       document.getElementById('admin-stats').innerHTML =
-        adminStatCard('⛪','Igrejas',dados.length,'#00e5ff') +
-        adminStatCard('👥','Membros',totalMembros,'#a78bfa') +
-        adminStatCard('🎵','Escalas',totalEscalas,'#34d399');
+        adminStatCard('-','Igrejas',dados.length,'#00e5ff') +
+        adminStatCard('','Membros',totalMembros,'#a78bfa') +
+        adminStatCard('','Escalas',totalEscalas,'#34d399');
       document.getElementById('admin-lista-igrejas').innerHTML = dados.length === 0
         ? '<div style="text-align:center;color:var(--text-muted);padding:30px;">Nenhuma igreja cadastrada ainda.</div>'
         : dados.map(ig => adminIgrejaCard(ig)).join('');
@@ -559,8 +788,8 @@
         '<div style="font-size:15px;font-weight:700;color:var(--text-main);">'+esc(ig.nome||'Igreja sem nome')+'</div>'+
         '<div style="font-size:12px;color:var(--text-muted);margin-top:3px;">'+esc(ig.id)+'</div>'+
         '<div style="display:flex;gap:12px;margin-top:6px;">'+
-          '<span style="font-size:12px;color:#a78bfa;">👥 '+ig.totalMembros+' membros</span>'+
-          '<span style="font-size:12px;color:#34d399;">🎵 '+ig.totalEscalas+' escalas</span>'+
+          '<span style="font-size:12px;color:#a78bfa;"> '+ig.totalMembros+' membros</span>'+
+          '<span style="font-size:12px;color:#34d399;"> '+ig.totalEscalas+' escalas</span>'+
         '</div>'+
       '</div>'+
       '<div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;">'+
@@ -570,6 +799,23 @@
     el.querySelector('#tog-'+ig.id).onclick = () => toggleIgreja(ig.id, ativa);
     return el.outerHTML;
   }
+
+  // -- Revogar acesso de membro (líder) --
+  window.revogarAcesso = async function(membroId, nomeM) {
+    if (!isLider()) return;
+    if (!confirm('Revogar acesso de ' + nomeM + '? Ele será desconectado na próxima vez que abrir o app.')) return;
+    try {
+      await updateDoc(doc(db, 'musicos', membroId), { acessoRevogado: true });
+      showToast('Acesso de ' + nomeM + ' revogado!', 'danger');
+    } catch(err) { showToast('Erro ao revogar acesso.', 'danger'); }
+  };
+  window.restaurarAcesso = async function(membroId, nomeM) {
+    if (!isLider()) return;
+    try {
+      await updateDoc(doc(db, 'musicos', membroId), { acessoRevogado: false });
+      showToast('Acesso de ' + nomeM + ' restaurado!', 'success');
+    } catch(err) { showToast('Erro ao restaurar acesso.', 'danger'); }
+  };
 
   window.toggleIgreja = async function(id, ativa) {
     if (!confirm((ativa?'Desativar':'Ativar')+' esta igreja?')) return;
@@ -585,26 +831,83 @@
   };
 
   window.sair = async function() {
-    if (usuarioLogado) {
-      if (confirm('Deseja sair?')) { await signOut(auth); }
-    } else {
-      membroLogado = false; igrejaId = null; mostrarTelaInicio();
-    }
+    const isMembro = !usuarioLogado && membroLogado;
+    const msg = isMembro
+      ? 'Deseja trocar de conta? Voltará para a tela inicial.'
+      : 'Deseja sair? Precisará fazer login novamente.';
+    mostrarConfirm(msg, async () => {
+      limparSessao();
+      if (usuarioLogado) {
+        await signOut(auth);
+      } else {
+        membroLogado = false; igrejaId = null; mostrarTelaInicio();
+      }
+    });
   };
 
   window.fecharApp = async function() {
-    if (confirm('Deseja sair e fechar o aplicativo?')) {
-      try { if (auth.currentUser) await signOut(auth); } catch(e) {}
-      membroLogado = false; igrejaId = null;
-      window.close();
-      window.location.href = 'about:blank';
-    }
+    mostrarModalHome();
   };
+
+  function mostrarModalHome() {
+    let overlay = document.getElementById('modal-home-overlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'modal-home-overlay';
+      overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0.6);backdrop-filter:blur(6px);padding:16px;';
+      overlay.innerHTML = `
+        <div style="background:#0d1526;border:1px solid rgba(0,229,255,0.2);border-radius:24px;padding:28px 24px;width:100%;max-width:380px;text-align:center;box-shadow:0 -10px 60px rgba(0,0,0,0.8);margin-bottom:8px;">
+          <div style="font-size:48px;margin-bottom:12px;"></div>
+          <div style="font-size:17px;font-weight:700;color:#e2e8f0;margin-bottom:8px;">Para minimizar o app</div>
+          <div style="font-size:14px;color:#94a3b8;line-height:1.6;margin-bottom:20px;">
+            <span style="display:block;margin-bottom:6px;"><span style="color:#00e5ff;font-weight:700;">iPhone:</span> deslize de baixo para cima</span>
+            <span style="display:block;"><span style="color:#00e5ff;font-weight:700;">Android:</span> pressione o botão - ou deslize para cima</span>
+          </div>
+          <div style="display:flex;gap:10px;">
+            <button id="modal-home-fechar" style="flex:1;padding:13px;border-radius:12px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);color:#94a3b8;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">Continuar</button>
+            <button id="modal-home-sair" style="flex:1;padding:13px;border-radius:12px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.4);color:#f87171;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">Sair da conta</button>
+          </div>
+        </div>`;
+      document.body.appendChild(overlay);
+      document.getElementById('modal-home-fechar').onclick = () => { overlay.style.display = 'none'; };
+      document.getElementById('modal-home-sair').onclick = async () => {
+        overlay.style.display = 'none';
+        limparSessao();
+        try { if (auth.currentUser) await signOut(auth); } catch(e) {}
+        membroLogado = false; igrejaId = null;
+        mostrarTelaInicio();
+        showToast('Sessão encerrada.', 'success');
+      };
+    }
+    overlay.style.display = 'flex';
+  }
+
+  function mostrarConfirm(mensagem, onConfirm) {
+    let overlay = document.getElementById('confirm-overlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'confirm-overlay';
+      overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);padding:20px;';
+      overlay.innerHTML = `
+        <div style="background:#0d1526;border:1px solid rgba(0,229,255,0.25);border-radius:16px;padding:24px;max-width:320px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.8);">
+          <div id="confirm-msg" style="font-family:'DM Sans',sans-serif;font-size:15px;color:#e2e8f0;line-height:1.5;margin-bottom:20px;"></div>
+          <div style="display:flex;gap:10px;justify-content:center;">
+            <button id="confirm-nao" style="flex:1;padding:10px;border-radius:10px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);color:#94a3b8;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">Cancelar</button>
+            <button id="confirm-sim" style="flex:1;padding:10px;border-radius:10px;background:rgba(239,68,68,0.2);border:1px solid rgba(239,68,68,0.5);color:#f87171;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">Confirmar</button>
+          </div>
+        </div>`;
+      document.body.appendChild(overlay);
+    }
+    document.getElementById('confirm-msg').textContent = mensagem;
+    overlay.style.display = 'flex';
+    document.getElementById('confirm-nao').onclick = () => { overlay.style.display = 'none'; };
+    document.getElementById('confirm-sim').onclick = () => { overlay.style.display = 'none'; onConfirm(); };
+  }
 
   function iniciarListeners() {
     if (!igrejaId) return;
     setStatus('connecting');
-    // Listener escalas — sem orderBy para evitar exigência de índice composto
+    // Listener escalas - sem orderBy para evitar exigência de índice composto
     if (unsubEscalas) unsubEscalas();
     const qE = query(col, where("igrejaId","==",igrejaId));
     unsubEscalas = onSnapshot(qE,
@@ -618,7 +921,7 @@
       },
       err => { console.error('escalas err:', err); setStatus('error'); }
     );
-    // Listener musicos — sem orderBy
+    // Listener musicos - sem orderBy
     if (unsubMusicos) unsubMusicos();
     const qM = query(collection(db,'musicos'), where("igrejaId","==",igrejaId));
     unsubMusicos = onSnapshot(qM,
@@ -643,10 +946,10 @@
   }
 
   window.switchTab = function(tab) {
-    ['escala-atual','proxima-escala','nova','equipe','cifras','eventos','mensagens'].forEach(t=>{
+    ['home','escala-atual','proxima-escala','nova','equipe','cifras','eventos','mensagens','metro'].forEach(t=>{
       const p=document.getElementById('panel-'+t); if(p) p.classList.toggle('active',t===tab);
     });
-    ['escala-atual','proxima-escala','nova','equipe','cifras','eventos','mensagens'].forEach(t=>{
+    ['home','escala-atual','proxima-escala','nova','equipe','cifras','eventos','mensagens','metro'].forEach(t=>{
       const b=document.getElementById('tab-'+t); if(b) b.classList.toggle('active',t===tab);
     });
     if (tab==='escala-atual') { filtroMes=new Date().getMonth(); filtroAno=new Date().getFullYear(); renderLista(); }
@@ -775,17 +1078,18 @@
     if(!nome)  {showToast('Informe o nome','danger');return;}
     if(!funcao){showToast('Selecione a funcao','danger');return;}
     const aniversario = (dia && mes) ? `--${mes.padStart(2,'0')}-${dia.padStart(2,'0')}` : '';
+    const senhaProv = gerarSenhaProvisoria(nomeIgrejaAtual);
     try {
       await addDoc(collection(db,'musicos'),{
         nome, funcao, aniversario, igrejaId,
-        senha: SENHA_MEMBRO_PADRAO, senhaProvisoria: true,
+        senha: senhaProv, senhaProvisoria: true,
         createdAt: serverTimestamp()
       });
       document.getElementById('musico-nome').value='';
       document.getElementById('musico-funcao').value='';
       document.getElementById('musico-aniv-dia').value='';
       document.getElementById('musico-aniv-mes').value='';
-      showToast('Membro cadastrado! No 1º acesso ele criará seu PIN.','success');
+      mostrarModalSenhaMembro(nome, senhaProv);
     } catch(err){ showToast('Erro ao cadastrar','danger'); }
   };
 
@@ -826,9 +1130,15 @@
       lista.forEach(m=>{
         const anivData = parseAniversario(m.aniversario);
         const anivInfo = anivData ? `dia ${anivData.dia}/${anivData.mes}` : '';
-        html+=`<div class="musico-chip">
-          <span>${esc(m.nome)}${anivInfo?`<small class="chip-aniv"> ${anivInfo}</small>`:''}</span>
-          ${isLider()?`<button class="musico-del" onclick="excluirMembro('${m.id}')">x</button>`:''}
+        const revogado = m.acessoRevogado === true;
+        const btnAcesso = isLider()
+          ? (revogado
+            ? `<button class="musico-del" style="background:rgba(52,211,153,0.15);color:#34d399;border-color:#34d39944;" onclick="restaurarAcesso('${m.id}','${esc(m.nome)}')" title="Restaurar acesso">-</button>`
+            : `<button class="musico-del" style="background:rgba(251,191,36,0.12);color:#fbbf24;border-color:#fbbf2444;" onclick="revogarAcesso('${m.id}','${esc(m.nome)}')" title="Revogar acesso"></button>`)
+          : '';
+        html+=`<div class="musico-chip${revogado?' revogado':''}">
+          <span>${esc(m.nome)}${anivInfo?`<small class="chip-aniv"> ${anivInfo}</small>`:''}${revogado?'<small style="color:#f87171;margin-left:4px;">bloqueado</small>':''}</span>
+          ${isLider()?`${btnAcesso}<button class="musico-del" onclick="excluirMembro('${m.id}')">x</button>`:''}
         </div>`;
       });
       html+=`</div></div>`;
@@ -861,13 +1171,13 @@
       return { ...m, _diasFaltam: diasFaltam, _anivDia: anivData.dia, _anivMes: anivData.mes };
     }).sort((a, b) => a._diasFaltam - b._diasFaltam);
 
-    // ── Banner ──
+    // -- Banner --
     const banner = document.getElementById('banner-aniversarios');
     if (banner) {
       if (anivProximos.length === 0) {
         banner.style.display = 'none';
       } else {
-        let html = '<div class="aniv-header">🎂 Aniversários Próximos</div><div class="aniv-lista">';
+        let html = '<div class="aniv-header"> Aniversários Próximos</div><div class="aniv-lista">';
         anivProximos.forEach(m => {
           const isHoje   = m._diasFaltam === 0;
           const isAmanha = m._diasFaltam === 1;
@@ -880,7 +1190,7 @@
               ? 'background:#a78bfa;color:#fff;'
               : 'background:#334155;color:#94a3b8;';
           html += '<div class="aniv-item' + (isHoje ? ' hoje' : '') + '">' +
-            '<span class="aniv-icon">' + (isHoje ? '🎉' : '🎂') + '</span>' +
+            '<span class="aniv-icon">' + (isHoje ? '' : '') + '</span>' +
             '<span class="aniv-nome">' + esc(m.nome) + '</span>' +
             '<span class="aniv-dia">' + m._anivDia + '/' + m._anivMes + '</span>' +
             '<span class="aniv-tag" style="' + tagStyle + '">' + labelDia + '</span>' +
@@ -889,10 +1199,16 @@
         html += '</div>';
         banner.innerHTML = html;
         banner.style.display = 'block';
+        // Toast para aniversário de hoje (avisa todos, inclusive membros)
+        const anivHoje = anivProximos.filter(m => m._diasFaltam === 0);
+        if (anivHoje.length > 0) {
+          const nomes = anivHoje.map(m => m.nome).join(', ');
+          showToast(' Hoje é aniversário de ' + nomes + '!', 'success');
+        }
       }
     }
 
-    // ── Mensagem automática no Chat ──
+    // -- Mensagem automática no Chat --
     anivProximos.forEach(m => {
       const chave = 'aniv-' + m.id + '-' + hoje.toISOString().slice(0,10) + '-' + m._diasFaltam;
       if (_anivMsgEnviados.has(chave)) return;
@@ -901,20 +1217,20 @@
       const isAmanha = m._diasFaltam === 1;
       let texto;
       if (isHoje) {
-        texto = '🎉🎂 Hoje é aniversário de ' + m.nome + '! Que Deus abençoe muito esse servo(a) do Senhor! Feliz aniversário! 🎉';
+        texto = ' Hoje é aniversário de ' + m.nome + '! Que Deus abencoe muito esse servo(a) do Senhor! Feliz aniversário! ';
       } else if (isAmanha) {
-        texto = '🎂 Amanhã é aniversário de ' + m.nome + '! Vamos lembrar de parabenizar! 🥳';
+        texto = ' Amanhã é aniversário de ' + m.nome + '! Vamos lembrar de parabenizar! ';
       } else {
-        texto = '🗓️ Em ' + m._diasFaltam + ' dias é aniversário de ' + m.nome + ' (dia ' + m._anivDia + '/' + m._anivMes + ')!';
+        texto = ' Em ' + m._diasFaltam + ' dias é aniversário de ' + m.nome + ' (dia ' + m._anivDia + '/' + m._anivMes + ')!';
       }
+      // Posta no chat para todos (líder e membros) desde que haja igrejaId
       if (igrejaId) {
-        // Verifica se já existe mensagem com essa chaveUnica antes de criar
         getDocs(query(collection(db,'mensagens'), where('chaveUnica','==',chave), where('igrejaId','==',igrejaId)))
           .then(snap => {
             if (snap.empty) {
               addDoc(collection(db, 'mensagens'), {
                 texto,
-                autor: '🎂 Lembrete',
+                autor: ' Lembrete',
                 igrejaId,
                 sistema: true,
                 chaveUnica: chave,
@@ -946,7 +1262,7 @@
     const container=document.getElementById('lista-escalas'); if(!container) return;
     if(lista.length===0){
       container.innerHTML=`<div class="empty-state">
-        <div class="empty-icon">🎵</div>
+        <div class="empty-icon"></div>
         <h3>Nenhuma escala em ${MESES_FULL[filtroMes]}</h3>
         <p>${isLider()?'Toque em "+ Nova" para criar.':'Aguarde o lider adicionar escalas.'}</p>
       </div>`; return;
@@ -1033,7 +1349,7 @@
     const hoje=new Date(); hoje.setHours(0,0,0,0);
     const futuras=escalas.filter(e=>new Date(e.dataISO+'T00:00:00')>=hoje);
     if(futuras.length===0){
-      container.innerHTML=`<div class="empty-state"><div class="empty-icon">🎵</div><h3>Nenhuma escala futura</h3><p>${isLider()?'Crie uma em "+ Nova".':'Aguarde o lider.'}</p></div>`;
+      container.innerHTML=`<div class="empty-state"><div class="empty-icon"></div><h3>Nenhuma escala futura</h3><p>${isLider()?'Crie uma em "+ Nova".':'Aguarde o lider.'}</p></div>`;
       return;
     }
     const proxima=futuras[0];
@@ -1126,7 +1442,7 @@
     if (!q) { showToast('Digite o nome do hino','danger'); return; }
     const url = `https://www.bananacifras.com/cifra/busca?q=${encodeURIComponent(q)}`;
     document.getElementById('cifra-resultado').innerHTML = `<div class="cifra-abrindo">
-      <div class="cifra-abrindo-icone">🎸</div>
+      <div class="cifra-abrindo-icone"></div>
       <div class="cifra-abrindo-titulo">Abrindo BananaCifra...</div>
       <div class="cifra-abrindo-desc">Buscando: <strong>${esc(q)}</strong></div>
       <a href="${url}" target="_blank" rel="noopener noreferrer" class="btn-ir-bananacifra">Abrir BananaCifra</a>
@@ -1147,7 +1463,7 @@
     const lista = document.getElementById('cifra-lista-itens'); if(!lista) return;
     if(cifras.length===0){
       lista.innerHTML=`<div class="cifra-dica">
-        <div class="cifra-dica-icone">🎼</div>
+        <div class="cifra-dica-icone"></div>
         <div>Nenhuma cifra salva ainda.<br>Toque em <strong>+ Nova Cifra</strong> para adicionar.</div>
       </div>`; return;
     }
@@ -1157,7 +1473,7 @@
           <div class="cifra-item-titulo">${esc(c.titulo)}</div>
           ${c.tom?`<div class="cifra-item-tom">Tom: ${esc(c.tom)}</div>`:''}
         </div>
-        <span class="cifra-item-seta">›</span>
+        <span class="cifra-item-seta">-</span>
       </div>`).join('');
   }
 
@@ -1269,18 +1585,18 @@
   function isLider(){ return !!usuarioLogado; }
   function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
-  // ══════════════════════════════════
+  // =
   // EVENTOS
-  // ══════════════════════════════════
+  // =
   let eventos = [];
   let eventoEditId = null;
   let unsubEventos = null;
   const TIPO_EVENTO = {
-    ensaio:  { emoji:'🎵', label:'Ensaio' },
-    culto:   { emoji:'⛪', label:'Culto Especial' },
-    retiro:  { emoji:'🏕️', label:'Retiro' },
-    reuniao: { emoji:'📋', label:'Reuniao' },
-    outro:   { emoji:'📌', label:'Outro' },
+    ensaio:  { emoji:'', label:'Ensaio' },
+    culto:   { emoji:'-', label:'Culto Especial' },
+    retiro:  { emoji:'', label:'Retiro' },
+    reuniao: { emoji:'', label:'Reuniao' },
+    outro:   { emoji:'', label:'Outro' },
   };
   function iniciarListenerEventos() {
     if (!igrejaId) return;
@@ -1290,6 +1606,7 @@
       eventos = snap.docs.map(d=>({id:d.id,...d.data()}));
       eventos.sort((a,b)=>(a.dataISO||'').localeCompare(b.dataISO||''));
       renderEventos();
+      if (typeof renderEventosBanner === 'function') renderEventosBanner();
     }, err => console.error('eventos err:',err));
   }
   function renderEventos() {
@@ -1298,7 +1615,7 @@
     const futuros  = eventos.filter(e => new Date(e.dataISO+'T00:00:00') >= hoje);
     const passados = eventos.filter(e => new Date(e.dataISO+'T00:00:00') < hoje);
     if (eventos.length === 0) {
-      c.innerHTML = '<div class="empty-state"><div class="empty-icon">📅</div><h3>Nenhum evento ainda</h3><p>'+(isLider()?'Toque em "+ Novo Evento" para criar.':'Aguarde o lider adicionar eventos.')+'</p></div>';
+      c.innerHTML = '<div class="empty-state"><div class="empty-icon"></div><h3>Nenhum evento ainda</h3><p>'+(isLider()?'Toque em "+ Novo Evento" para criar.':'Aguarde o lider adicionar eventos.')+'</p></div>';
       return;
     }
     let html = '';
@@ -1334,6 +1651,41 @@
       (isLider()?'<div class="evento-acoes"><button class="btn-edit-card" onclick="editarEvento(\''+e.id+'\')">Editar</button><button class="btn-del-card" onclick="excluirEvento(\''+e.id+'\')">Del</button></div>':'')+
     '</div>';
   }
+  function renderEventosBanner() {
+    const banner = document.getElementById('banner-eventos-proximos');
+    if (!banner) return;
+    const hoje = new Date(); hoje.setHours(0,0,0,0);
+    const proximos = eventos
+      .filter(e => {
+        const d = new Date(e.dataISO+'T00:00:00');
+        const diff = Math.round((d - hoje) / 86400000);
+        return diff >= 0 && diff <= 7;
+      })
+      .sort((a,b) => a.dataISO.localeCompare(b.dataISO))
+      .slice(0,3);
+    if (proximos.length === 0) { banner.style.display='none'; return; }
+    const TIPO_EV = { ensaio:'🎵', culto:'⛪', retiro:'🏕️', reuniao:'📋', outro:'📌' };
+    const hoje2 = new Date(); hoje2.setHours(0,0,0,0);
+    let html = '<div class="bev-titulo">📅 Próximos Eventos</div><div class="bev-lista">';
+    proximos.forEach(e => {
+      const [ano,mes,dia] = e.dataISO.split('-');
+      const diff = Math.round((new Date(e.dataISO+'T00:00:00') - hoje2) / 86400000);
+      const badge = diff===0?'Hoje!':diff===1?'Amanhã':'Em '+diff+' dias';
+      const emoji = TIPO_EV[e.tipo] || '📌';
+      html += '<div class="bev-item">'+
+        '<span class="bev-emoji">'+emoji+'</span>'+
+        '<div class="bev-info">'+
+          '<span class="bev-nome">'+esc(e.titulo)+'</span>'+
+          '<span class="bev-data">'+dia+'/'+mes+(e.hora?' · '+e.hora:'')+'</span>'+
+        '</div>'+
+        '<span class="bev-badge '+(diff===0?'hoje':diff<=3?'breve':'normal')+'">'+badge+'</span>'+
+      '</div>';
+    });
+    html += '</div>';
+    banner.innerHTML = html;
+    banner.style.display = 'block';
+  }
+
   window.abrirFormEvento = function(id) {
     eventoEditId = id || null;
     const ev = id ? eventos.find(x=>x.id===id) : null;
@@ -1370,9 +1722,9 @@
     catch(err) { showToast('Erro ao remover','danger'); }
   };
 
-  // ══════════════════════════════════
+  // =
   // MENSAGENS / CHAT
-  // ══════════════════════════════════
+  // =
   let unsubMensagens = null;
   function iniciarListenerMensagens() {
     if (!igrejaId) return;
@@ -1413,14 +1765,14 @@
       const hora  = dt.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
       const podeDel = usuarioLogado || minha; // líder apaga tudo, membro apaga só a sua
       const btnDel  = podeDel
-        ? '<button class="msg-del-btn" onclick="apagarMensagem(\'' + m.id + '\')" title="Apagar mensagem">✕</button>'
+        ? '<button class="msg-del-btn" onclick="apagarMensagem(\'' + m.id + '\')" title="Apagar mensagem">-</button>'
         : '';
       html+='<div class="msg-linha '+(minha?'minha':'deles')+'" id="msg-'+m.id+'">'+
         (!minha?'<div class="msg-avatar">'+(m.autorNome||'?')[0].toUpperCase()+'</div>':'')+
         '<div class="msg-balao">'+
           (!minha?'<div class="msg-autor">'+esc(m.autorNome||'Membro')+'</div>':'')+
           '<div class="msg-texto">'+esc(m.texto)+'</div>'+
-          '<div class="msg-hora">'+hora+(m.lider?' 👑':'')+btnDel+'</div>'+
+          '<div class="msg-hora">'+hora+(m.lider?' ':'')+btnDel+'</div>'+
         '</div></div>';
     });
     // Toca som se chegou mensagem nova de outro membro
@@ -1450,7 +1802,7 @@
   };
   window.msgKeydown = function(e) { if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); enviarMensagem(); } };
 
-  // ── Apagar mensagem individual ──
+  // -- Apagar mensagem individual --
   window.apagarMensagem = async function(id) {
     const meuId = usuarioLogado ? usuarioLogado.uid : membroDocId;
     // Busca a mensagem para checar autoria
@@ -1466,10 +1818,10 @@
     } catch(err) { showToast('Erro ao apagar mensagem.','danger'); }
   };
 
-  // ── Limpar todo o chat (só líder) ──
+  // -- Limpar todo o chat (só líder) --
   window.confirmarLimparChat = function() {
     if (!isLider()) { showToast('Apenas o líder pode limpar o chat.','danger'); return; }
-    if (!confirm('Apagar TODAS as mensagens do chat? Esta ação não pode ser desfeita.')) return;
+    if (!confirm('Apagar TODAS as mensagens do chat? Esta acão não pode ser desfeita.')) return;
     limparChat();
   };
   async function limparChat() {
@@ -1483,10 +1835,10 @@
       _ultimoTotalMsgs = 0;
       showToast('Chat limpo!','success');
     } catch(err) { showToast('Erro ao limpar chat.','danger'); }
-    if(btn){ btn.disabled=false; btn.textContent='🗑️ Limpar tudo'; }
+    if(btn){ btn.disabled=false; btn.textContent=' Limpar tudo'; }
   }
 
-  // ── Som de mensagem (pop suave) ──
+  // -- Som de mensagem (pop suave) --
   let _audioCtx = null;
   function getAudioCtx() {
     if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -1596,7 +1948,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
 }
 
 
-/* ══ PWA INSTALL BUTTON ══ */
+/* = PWA INSTALL BUTTON = */
 .btn-pwa-install{
   display:none;
   width:100%;padding:13px;border:1px solid rgba(0,229,255,0.35);
@@ -1608,8 +1960,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
 .btn-pwa-install:active{transform:scale(0.98);}
 
 .tela-inicio{
-  min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;
-  padding:32px 24px;
+  min-height:100vh;min-height:100dvh;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:env(safe-area-inset-top, 20px) 24px env(safe-area-inset-bottom, 20px);
+  overflow-y:auto;
   background:
     radial-gradient(ellipse 80% 40% at 50% -5%, rgba(0,229,255,0.18) 0%, transparent 60%),
     radial-gradient(ellipse 60% 40% at 80% 110%, rgba(124,58,237,0.12) 0%, transparent 60%),
@@ -1670,7 +2024,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
 .btn-inicio-membro{background:linear-gradient(135deg,#00acc1,#006064);color:#fff;box-shadow:0 4px 24px rgba(0,229,255,0.3);}
 .btn-inicio-membro:active{transform:scale(0.98);}
 .btn-inicio-lider{background:rgba(124,58,237,0.12);color:#a78bfa;border:1px solid rgba(124,58,237,0.35);}
-.btn-inicio-fechar{background:rgba(239,68,68,0.08);color:#f87171;border:1px solid rgba(239,68,68,0.3);}
+.btn-inicio-fechar{background:rgba(100,116,139,0.1);color:#94a3b8;border:1px solid rgba(100,116,139,0.25);}
 .btn-inicio-fechar:active{transform:scale(0.98);}
 .erro-msg-inicio{font-size:12px;color:#f87171;text-align:center;margin-bottom:8px;display:none;}
 
@@ -1917,7 +2271,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
 .btn-dialog-confirm{background:var(--danger);color:#fff;}
 #panel-id-igreja{position:fixed;bottom:0;left:0;right:0;background:rgba(4,8,15,0.96);border-top:1px solid rgba(0,229,255,0.15);padding:8px 16px;z-index:50;text-align:center;backdrop-filter:blur(10px);font-size:11px;}
 
-/* ══ EVENTOS ══ */
+/* = EVENTOS = */
 .eventos-panel { padding: 12px 0; }
 .eventos-topo { display:flex; align-items:center; justify-content:space-between; padding:0 4px 12px; }
 .eventos-titulo { font-size:18px; font-weight:700; color:var(--accent); margin:0; }
@@ -1938,7 +2292,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
 .evento-descricao { font-size:13px; color:var(--text-main); background:rgba(0,229,255,0.04); border-left:3px solid var(--border-neon); padding:8px 10px; border-radius:0 6px 6px 0; margin-top:4px; white-space:pre-line; }
 .evento-acoes { display:flex; gap:6px; margin-top:10px; }
 
-/* ══ MENSAGENS / CHAT ══ */
+/* = MENSAGENS / CHAT = */
 .msg-panel { display:flex; flex-direction:column; height:calc(100vh - 140px); min-height:400px; }
 .msg-header-bar { display:flex; align-items:center; justify-content:space-between; padding:10px 4px; border-bottom:1px solid var(--border); margin-bottom:4px; }
 .msg-titulo { font-size:16px; font-weight:700; color:var(--accent); }
@@ -1991,8 +2345,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
   flex-shrink:0; transition:opacity .2s;
 }
 .msg-send-btn:active { opacity:.7; }
+.musico-chip.revogado { opacity: 0.5; }
 
-/* ══ BOTÃO APAGAR MENSAGEM ══ */
+/* = BOTÃO APAGAR MENSAGEM = */
 .msg-del-btn {
   background: transparent; border: none; cursor: pointer;
   color: rgba(239,68,68,0.4); font-size: 11px; font-weight: 700;
@@ -2001,7 +2356,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
 }
 .msg-del-btn:hover, .msg-del-btn:active { color: #f87171; }
 
-/* ══ MENSAGEM DE SISTEMA (aniversário) ══ */
+/* = MENSAGEM DE SISTEMA (aniversário) = */
 .msg-sistema {
   display: flex; justify-content: center; margin: 6px 0;
 }
@@ -2016,7 +2371,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
   line-height: 1.5;
 }
 
-/* ══ PIN PAD ══ */
+/* = PIN PAD = */
 .pin-display {
   display: flex; justify-content: center; gap: 16px; margin-bottom: 24px;
 }
@@ -2048,16 +2403,176 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
 .pin-btn-del { font-size: 18px; color: var(--text-muted); }
 .pin-step { animation: fadeIn .2s ease; }
 
+
+/* ══ BANNER EVENTOS HOME ══ */
+.banner-eventos-home {
+  background: linear-gradient(135deg,rgba(0,229,255,0.06),rgba(124,58,237,0.04));
+  border: 1px solid rgba(0,229,255,0.18);
+  border-radius: var(--radius); padding: 12px 14px; margin: 4px 0 8px;
+}
+.bev-titulo { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:var(--accent); margin-bottom:10px; }
+.bev-lista { display:flex; flex-direction:column; gap:8px; }
+.bev-item { display:flex; align-items:center; gap:10px; }
+.bev-emoji { font-size:20px; flex-shrink:0; font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif; }
+.bev-info { flex:1; min-width:0; display:flex; flex-direction:column; gap:1px; }
+.bev-nome { font-size:13px; font-weight:600; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.bev-data { font-size:11px; color:var(--text-muted); }
+.bev-badge { font-size:10px; font-weight:700; padding:2px 7px; border-radius:20px; flex-shrink:0; }
+.bev-badge.hoje { background:rgba(74,222,128,0.15); color:#4ade80; border:1px solid rgba(74,222,128,0.3); }
+.bev-badge.breve { background:rgba(251,191,36,0.15); color:#fbbf24; border:1px solid rgba(251,191,36,0.3); }
+.bev-badge.normal { background:rgba(0,229,255,0.1); color:var(--accent); border:1px solid rgba(0,229,255,0.2); }
+
+/* ══ MSG DELETE BUTTON ══ */
+.msg-del-btn {
+  background: none; border: none; cursor: pointer;
+  color: rgba(248,113,113,0.5); font-size: 14px; padding: 0 2px;
+  line-height: 1; transition: color .15s; vertical-align: middle;
+}
+.msg-del-btn:hover { color: #f87171; }
+
+/* ══ MSG SISTEMA (aniversário) ══ */
+.msg-sistema {
+  text-align: center; margin: 8px 0;
+}
+.msg-sistema-texto {
+  display: inline-block;
+  background: linear-gradient(135deg,rgba(251,191,36,0.12),rgba(245,158,11,0.08));
+  border: 1px solid rgba(251,191,36,0.25);
+  color: #fbbf24; font-size: 12px; font-weight: 600;
+  padding: 6px 14px; border-radius: 20px; max-width: 90%;
+}
+
+
+/* ══ METRÔNOMO & AFINADOR ══ */
+.metro-wrap{padding:12px 0 40px;}
+.metro-subtabs{display:flex;gap:0;background:rgba(0,0,0,0.4);border:1px solid var(--border-neon);border-radius:var(--radius-sm);overflow:hidden;margin-bottom:18px;}
+.metro-subtab{flex:1;padding:12px 8px;background:transparent;border:none;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);cursor:pointer;transition:all 0.2s;}
+.metro-subtab.ativo{background:rgba(0,229,255,0.12);color:var(--accent);box-shadow:inset 0 -2px 0 var(--accent);}
+.metro-area{display:none;}
+.metro-area.ativo{display:block;}
+
+/* BPM Card */
+.metro-bpm-card{background:var(--bg-card);border:1px solid rgba(0,229,255,0.2);border-radius:20px;padding:28px 20px 20px;text-align:center;position:relative;overflow:hidden;margin-bottom:14px;box-shadow:0 0 40px rgba(0,229,255,0.06);}
+.metro-pulso{position:absolute;inset:0;border-radius:20px;background:rgba(0,229,255,0.07);transform:scale(0);opacity:0;pointer-events:none;transition:none;}
+.metro-pulso.beat{animation:metroPulse 0.12s ease-out forwards;}
+.metro-pulso.beat-forte{animation:metroPulseForte 0.15s ease-out forwards;}
+@keyframes metroPulse{0%{transform:scale(0.95);opacity:0.5;}100%{transform:scale(1);opacity:0;}}
+@keyframes metroPulseForte{0%{transform:scale(0.92);opacity:0.8;}100%{transform:scale(1.02);opacity:0;}}
+.metro-bpm-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:var(--text-muted);margin-bottom:4px;}
+.metro-bpm-val{font-family:'Share Tech Mono',monospace;font-size:72px;font-weight:700;color:#fff;line-height:1;text-shadow:0 0 30px rgba(0,229,255,0.6),0 0 60px rgba(0,229,255,0.2);letter-spacing:-2px;}
+.metro-tempo-nome{font-size:13px;color:var(--accent);font-weight:700;margin-top:4px;margin-bottom:16px;text-transform:uppercase;letter-spacing:1px;}
+.metro-slider{-webkit-appearance:none;appearance:none;width:100%;height:6px;border-radius:3px;background:linear-gradient(to right,var(--accent) 0%,var(--accent) var(--pct,33%),rgba(255,255,255,0.08) var(--pct,33%));outline:none;cursor:pointer;}
+.metro-slider::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:var(--accent);box-shadow:0 0 12px rgba(0,229,255,0.7);cursor:pointer;}
+.metro-slider-labels{display:flex;justify-content:space-between;font-size:10px;color:var(--text-muted);margin-top:4px;}
+
+/* BPM botões */
+.metro-bpm-btns{display:flex;gap:6px;margin-bottom:18px;flex-wrap:wrap;justify-content:center;}
+.metro-bpm-btn{padding:9px 12px;border-radius:10px;background:var(--bg-card);border:1px solid var(--border);color:var(--text-muted);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.15s;min-width:44px;}
+.metro-bpm-btn:active{transform:scale(0.93);background:rgba(0,229,255,0.1);}
+.metro-tap{background:rgba(124,58,237,0.15);border-color:rgba(124,58,237,0.4);color:#c4b5fd;font-size:14px;padding:9px 20px;}
+.metro-tap.pulsando{background:rgba(124,58,237,0.4);box-shadow:0 0 16px rgba(124,58,237,0.5);}
+
+/* Compasso */
+.metro-section-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-muted);margin-bottom:10px;}
+.metro-compasso-row{display:flex;gap:12px;margin-bottom:16px;}
+.metro-compasso-group{flex:1;}
+.metro-compasso-label{font-size:11px;color:var(--text-muted);font-weight:700;text-transform:uppercase;margin-bottom:6px;letter-spacing:0.5px;}
+.metro-compasso-btns{display:flex;gap:6px;flex-wrap:wrap;}
+.metro-comp-btn{flex:1;min-width:38px;padding:10px 4px;border-radius:10px;background:var(--bg-card);border:1px solid var(--border);color:var(--text-muted);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.15s;text-align:center;}
+.metro-comp-btn.ativo{background:rgba(0,229,255,0.12);border-color:rgba(0,229,255,0.4);color:var(--accent);}
+.metro-comp-btn:active{transform:scale(0.93);}
+
+/* Beats visuais */
+.metro-beats-row{display:flex;justify-content:center;gap:10px;margin-bottom:20px;min-height:28px;}
+.metro-beat-dot{width:22px;height:22px;border-radius:50%;background:rgba(255,255,255,0.06);border:2px solid rgba(255,255,255,0.12);transition:all 0.05s;}
+.metro-beat-dot.ativo{background:var(--accent);border-color:var(--accent);box-shadow:0 0 12px var(--accent);transform:scale(1.15);}
+.metro-beat-dot.forte{background:#f87171;border-color:#f87171;box-shadow:0 0 16px #f87171;}
+
+/* Play btn */
+.metro-play-btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:18px;border:none;border-radius:var(--radius);background:linear-gradient(135deg,#00acc1,#006064);color:#fff;font-family:'DM Sans',sans-serif;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 4px 28px rgba(0,229,255,0.3);transition:all 0.2s;letter-spacing:0.5px;}
+.metro-play-btn.tocando{background:linear-gradient(135deg,#dc2626,#991b1b);box-shadow:0 4px 28px rgba(239,68,68,0.3);}
+.metro-play-btn:active{transform:scale(0.97);}
+
+/* Tempos grid */
+.metro-tempos-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px;}
+.metro-tempo-btn{padding:10px 4px;border-radius:10px;background:var(--bg-card);border:1px solid var(--border);color:var(--text-muted);font-family:'DM Sans',sans-serif;font-size:11px;font-weight:700;cursor:pointer;transition:all 0.15s;text-align:center;display:flex;flex-direction:column;align-items:center;gap:2px;}
+.metro-tempo-btn small{font-size:10px;color:var(--accent);font-weight:700;}
+.metro-tempo-btn:active{transform:scale(0.95);background:rgba(0,229,255,0.08);}
+.metro-tempo-btn.ativo{background:rgba(0,229,255,0.1);border-color:rgba(0,229,255,0.35);color:#fff;}
+
+/* ══ AFINADOR ══ */
+.afinador-card{background:var(--bg-card);border:1px solid rgba(0,229,255,0.2);border-radius:20px;padding:28px 20px 20px;text-align:center;box-shadow:0 0 40px rgba(0,229,255,0.06);margin-bottom:16px;}
+.afinador-nota-grande{font-family:'Playfair Display',serif;font-size:80px;font-weight:700;color:#fff;line-height:1;text-shadow:0 0 40px rgba(0,229,255,0.7),0 0 80px rgba(0,229,255,0.3);margin-bottom:4px;min-height:90px;}
+.afin-oitava{font-size:14px;color:var(--text-muted);font-weight:700;margin-bottom:4px;}
+.afin-freq{font-family:'Share Tech Mono',monospace;font-size:16px;color:var(--accent);margin-bottom:20px;}
+.afin-meter-wrap{margin-bottom:12px;}
+.afin-meter-bar{position:relative;height:12px;background:rgba(255,255,255,0.06);border-radius:6px;overflow:hidden;margin-bottom:4px;}
+.afin-meter-fill{position:absolute;top:0;bottom:0;width:8px;border-radius:4px;background:var(--accent);transform:translateX(-50%);left:50%;transition:left 0.1s,background 0.2s;}
+.afin-meter-fill.afinado{background:#34d399;box-shadow:0 0 10px #34d399;}
+.afin-meter-fill.perto{background:#fbbf24;}
+.afin-meter-fill.longe{background:#f87171;}
+.afin-meter-center{position:absolute;top:-2px;bottom:-2px;left:50%;width:2px;transform:translateX(-50%);background:rgba(255,255,255,0.25);}
+.afin-meter-labels{display:flex;justify-content:space-between;font-size:10px;color:var(--text-muted);}
+.afin-status{font-size:13px;font-weight:700;color:var(--text-muted);padding:8px 16px;border-radius:20px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);display:inline-block;}
+.afin-status.afinado{color:#34d399;background:rgba(52,211,153,0.1);border-color:rgba(52,211,153,0.3);}
+.afin-status.perto{color:#fbbf24;background:rgba(251,191,36,0.1);border-color:rgba(251,191,36,0.3);}
+.afin-status.longe{color:#f87171;background:rgba(248,113,113,0.1);border-color:rgba(248,113,113,0.3);}
+.afin-cordas-row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:6px;}
+.afin-corda-btn{padding:10px 14px;border-radius:10px;background:rgba(124,58,237,0.1);border:1px solid rgba(124,58,237,0.3);color:#c4b5fd;font-family:'Share Tech Mono',monospace;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.15s;}
+.afin-corda-btn:active{transform:scale(0.93);background:rgba(124,58,237,0.3);}
+
+
+/* ══ NOTAS MUSICAIS COLORIDAS ══ */
+.afin-nota-do  { border-color: rgba(239,68,68,0.5)!important;  color: #ef4444!important; }
+.afin-nota-re  { border-color: rgba(249,115,22,0.5)!important; color: #f97316!important; }
+.afin-nota-mi  { border-color: rgba(234,179,8,0.5)!important;  color: #eab308!important; }
+.afin-nota-fa  { border-color: rgba(34,197,94,0.5)!important;  color: #22c55e!important; }
+.afin-nota-sol { border-color: rgba(59,130,246,0.5)!important; color: #3b82f6!important; }
+.afin-nota-la  { border-color: rgba(168,85,247,0.5)!important; color: #a855f7!important; }
+.afin-nota-si  { border-color: rgba(236,72,153,0.5)!important; color: #ec4899!important; }
+.afin-nota-do:active,.afin-nota-re:active,.afin-nota-mi:active,
+.afin-nota-fa:active,.afin-nota-sol:active,.afin-nota-la:active,.afin-nota-si:active {
+  filter: brightness(1.3); transform: scale(0.95);
+}
+
+
+/* ══ HOME DASHBOARD ══ */
+.home-wrap{padding:16px 0 60px;}
+.home-saudacao{display:flex;align-items:center;gap:14px;background:var(--bg-card);border:1px solid rgba(0,229,255,0.15);border-radius:18px;padding:18px 20px;margin-bottom:18px;box-shadow:0 0 30px rgba(0,229,255,0.04);}
+.home-saudacao-icone{font-size:36px;line-height:1;}
+.home-saudacao-nome{font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:#fff;line-height:1.2;}
+.home-saudacao-sub{font-size:12px;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-top:3px;}
+/* Grid */
+.home-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.home-card{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:6px;background:var(--bg-card);border:1px solid var(--border);border-radius:18px;padding:20px 18px;cursor:pointer;text-align:left;transition:all 0.18s;box-shadow:0 2px 12px rgba(0,0,0,0.3);}
+.home-card:active{transform:scale(0.96);background:rgba(0,229,255,0.06);}
+.home-card-destaque{grid-column:span 1;border-color:rgba(0,229,255,0.2);background:linear-gradient(135deg,rgba(0,229,255,0.07),rgba(0,150,180,0.04));}
+.home-card-metro{border-color:rgba(124,58,237,0.25);background:linear-gradient(135deg,rgba(124,58,237,0.08),rgba(80,30,160,0.04));}
+.home-card-lider{border-color:rgba(250,204,21,0.25);background:linear-gradient(135deg,rgba(250,204,21,0.07),rgba(180,130,0,0.04));}
+.home-card-icon{font-size:28px;line-height:1;margin-bottom:2px;}
+.home-card-titulo{font-family:'DM Sans',sans-serif;font-size:15px;font-weight:700;color:#fff;line-height:1.2;}
+.home-card-desc{font-size:11px;color:var(--text-muted);line-height:1.4;}
+.home-badge{position:absolute;top:12px;right:12px;background:#ef4444;color:#fff;font-size:11px;font-weight:700;min-width:20px;height:20px;border-radius:10px;display:flex;align-items:center;justify-content:center;padding:0 5px;}
+/* Botão home no header */
+.btn-home-header{background:transparent;border:1px solid rgba(0,229,255,0.2);color:var(--accent);font-size:20px;width:36px;height:36px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.15s;}
+.btn-home-header:active{background:rgba(0,229,255,0.15);}
+/* Barra de localização atual */
+.home-breadcrumb{display:flex;align-items:center;gap:6px;padding:8px 0 4px;margin-bottom:8px;}
+.home-breadcrumb-btn{background:transparent;border:none;color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;padding:4px 8px;border-radius:8px;display:flex;align-items:center;gap:4px;}
+.home-breadcrumb-btn:active{background:rgba(0,229,255,0.1);}
+.home-breadcrumb-sep{color:var(--text-muted);font-size:12px;}
+.home-breadcrumb-current{font-size:12px;color:var(--text-muted);font-weight:700;}
+
 </style>
 </head>
 <body>
 
 <!-- TELA INÍCIO -->
-<div id="tela-inicio" style="display:flex;">
+<div id="tela-inicio" style="display:flex;position:fixed;inset:0;overflow-y:auto;">
   <div class="tela-inicio">
     <div class="logo-wrap">
       <div class="logo-inner">
-        <img src="guitarra-192.png" alt="Escala do Louvor" class="logo-img" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+        <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxOTIgMTkyIj4KICA8cmVjdCB3aWR0aD0iMTkyIiBoZWlnaHQ9IjE5MiIgcng9IjQwIiBmaWxsPSIjMDYwYzE4Ii8+CiAgPGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoOTYsOTYpIj4KICAgIDwhLS0gY29ycG8gZGEgZ3VpdGFycmEgLS0+CiAgICA8ZWxsaXBzZSBjeD0iMCIgY3k9IjI4IiByeD0iMzIiIHJ5PSIzOCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMDBlNWZmIiBzdHJva2Utd2lkdGg9IjQiLz4KICAgIDwhLS0gYnVyYWNvIHNvbm9ybyAtLT4KICAgIDxjaXJjbGUgY3g9IjAiIGN5PSIyOCIgcj0iMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzAwZTVmZiIgc3Ryb2tlLXdpZHRoPSIyLjUiLz4KICAgIDwhLS0gYnJhw6dvIC0tPgogICAgPHJlY3QgeD0iLTUiIHk9Ii03MiIgd2lkdGg9IjEwIiBoZWlnaHQ9IjcyIiByeD0iNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMDBlNWZmIiBzdHJva2Utd2lkdGg9IjQiLz4KICAgIDwhLS0gY2FiZcOnYSAtLT4KICAgIDxyZWN0IHg9Ii0xMCIgeT0iLTg4IiB3aWR0aD0iMjAiIGhlaWdodD0iMTgiIHJ4PSI0IiBmaWxsPSJub25lIiBzdHJva2U9IiMwMGU1ZmYiIHN0cm9rZS13aWR0aD0iMyIvPgogICAgPCEtLSBjb3JkYXMgLS0+CiAgICA8bGluZSB4MT0iLTMiIHkxPSItNzIiIHgyPSItMyIgeTI9Ii0xMCIgc3Ryb2tlPSIjMDBlNWZmIiBzdHJva2Utd2lkdGg9IjEuMiIgb3BhY2l0eT0iMC42Ii8+CiAgICA8bGluZSB4MT0iMCIgeTE9Ii03MiIgeDI9IjAiIHkyPSItMTAiIHN0cm9rZT0iIzAwZTVmZiIgc3Ryb2tlLXdpZHRoPSIxLjUiIG9wYWNpdHk9IjAuOCIvPgogICAgPGxpbmUgeDE9IjMiIHkxPSItNzIiIHgyPSIzIiB5Mj0iLTEwIiBzdHJva2U9IiMwMGU1ZmYiIHN0cm9rZS13aWR0aD0iMS4yIiBvcGFjaXR5PSIwLjYiLz4KICAgIDwhLS0gYnJpbGhvIC0tPgogICAgPGVsbGlwc2UgY3g9Ii0xMCIgY3k9IjEyIiByeD0iOCIgcnk9IjE0IiBmaWxsPSJyZ2JhKDAsMjI5LDI1NSwwLjA4KSIgdHJhbnNmb3JtPSJyb3RhdGUoLTIwKSIvPgogIDwvZz4KPC9zdmc+" alt="Escala do Louvor" class="logo-img" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
         <span class="logo-emoji" style="display:none;">&#127925;</span>
       </div>
     </div>
@@ -2067,8 +2582,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
       <div class="membro-box">
         <div class="membro-box-label">Acesso da Equipe</div>
         <form onsubmit="handleAuthMembro(event)">
-          <input type="text"     id="membro-nome"  class="input-neon" placeholder="Seu nome (como cadastrado)" autocomplete="name">
-          <input type="password" id="membro-senha" class="input-neon" placeholder="PIN ou senha (4-20 caracteres)" autocomplete="current-password">
+          <input type="text" id="membro-nome" class="input-neon" placeholder="Seu nome (como cadastrado)" autocomplete="name">
+          <div id="campo-senha-membro" style="display:block;">
+            <input type="password" id="membro-senha" class="input-neon" placeholder="Senha ou PIN pessoal" autocomplete="current-password">
+            <p id="dica-senha-membro" style="font-size:11px;color:var(--text-muted);text-align:center;margin:4px 0 0;display:none;">💡 Primeiro acesso? Use <strong style="color:var(--accent);">1234</strong> e você criará seu PIN pessoal.</p>
+          </div>
           <p id="membro-erro" class="erro-msg-inicio"></p>
           <button type="submit" id="btn-membro-auth" class="btn-inicio btn-inicio-membro">Entrar</button>
         </form>
@@ -2077,7 +2595,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
       <button class="btn-inicio btn-inicio-lider" onclick="mostrarTelaLider()">Cadastrar / Entrar como Lider</button>
       <!-- Botão de instalar PWA (aparece automaticamente no Android) -->
       <button id="btn-instalar-pwa" class="btn-pwa-install" onclick="instalarPWA()">&#128241; Instalar App na Tela Inicial</button>
-      <button class="btn-inicio btn-inicio-fechar" onclick="fecharApp()">Fechar Aplicativo</button>
+      <button class="btn-inicio btn-inicio-fechar" onclick="fecharApp()">Sair / Trocar de Conta</button>
     </div>
   </div>
 </div>
@@ -2128,35 +2646,47 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
       <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:8px;">Codigo de Acesso</div>
       <div id="codigo-igreja-valor" style="font-family:'Share Tech Mono',monospace;font-size:28px;font-weight:700;color:var(--accent);text-shadow:0 0 20px rgba(0,229,255,0.5);letter-spacing:4px;"></div>
     </div>
-    <p style="font-size:12px;color:#fbbf24;margin-bottom:20px;line-height:1.5;">⚠️ Anote este codigo! Ele pode ser necessario para recuperacao ou suporte.</p>
-    <button onclick="continuarParaApp()" class="btn btn-primary" style="margin-top:0;">Entrar no App →</button>
+    <p style="font-size:12px;color:#fbbf24;margin-bottom:20px;line-height:1.5;">- Anote este codigo! Ele pode ser necessario para recuperacao ou suporte.</p>
+    <button onclick="continuarParaApp()" class="btn btn-primary" style="margin-top:0;">Entrar no App -</button>
   </div>
 </div>
 
 <!-- TELA REDEFINIR SENHA MEMBRO -->
 <div id="tela-redef-senha" style="display:none;position:fixed;inset:0;z-index:400;align-items:center;justify-content:center;background:radial-gradient(ellipse at 50% 0%,rgba(124,58,237,0.18) 0%,transparent 60%),linear-gradient(180deg,#04080f,#070d1a);">
-  <div class="auth-card" style="border-color:rgba(124,58,237,0.3);">
+  <div class="auth-card" style="border-color:rgba(124,58,237,0.3);max-width:340px;">
     <button class="btn-fechar-card" onclick="voltarInicioDeRedef()" title="Fechar">X</button>
     <div class="auth-logo">🔑</div>
-    <h2 style="color:#c4b5fd;">Redefinir Senha</h2>
-    <p>Digite seu nome e crie uma senha com pelo menos 6 caracteres (letras e numeros).</p>
-    <form onsubmit="confirmarRedefinicaoSenha(event)">
+    <h2 style="color:#c4b5fd;">Redefinir PIN</h2>
+    <div id="redef-step-nome">
+      <p style="font-size:13px;color:var(--text-muted);text-align:center;margin-bottom:16px;">Digite seu nome como cadastrado pelo líder.</p>
       <div class="field-group">
-        <label>Seu Nome (como cadastrado)</label>
+        <label>Seu Nome</label>
         <input type="text" id="redef-nome" placeholder="Ex: Joao Silva" autocomplete="name">
       </div>
-      <div class="field-group">
-        <label>Nova Senha</label>
-        <input type="password" id="redef-nova-senha" placeholder="Min. 6 caracteres (letras e numeros)" autocomplete="new-password">
-      </div>
-      <div class="field-group">
-        <label>Confirmar Nova Senha</label>
-        <input type="password" id="redef-confirma-senha" placeholder="Repita a nova senha" autocomplete="new-password">
-      </div>
       <p id="redef-erro" class="erro-msg"></p>
-      <button type="submit" id="btn-redef-senha" class="btn btn-primary">Redefinir Senha</button>
+      <button class="btn btn-primary" onclick="redefAvancar()">Continuar</button>
       <button type="button" class="btn-voltar" onclick="voltarInicioDeRedef()">Voltar</button>
-    </form>
+    </div>
+    <div id="redef-step-pin" style="display:none;">
+      <p style="font-size:13px;color:var(--text-muted);text-align:center;margin-bottom:16px;">Olá <strong id="redef-nome-display" style="color:var(--accent);"></strong>! Crie seu novo PIN.</p>
+      <div id="redef-pin-step-1">
+        <label style="font-size:12px;color:var(--text-muted);text-align:center;display:block;margin-bottom:10px;">NOVO PIN</label>
+        <div class="pin-display">
+          <span class="pin-dot" id="rpd1-1"></span><span class="pin-dot" id="rpd1-2"></span>
+          <span class="pin-dot" id="rpd1-3"></span><span class="pin-dot" id="rpd1-4"></span>
+        </div>
+        <div class="pin-pad" id="redef-pin-pad-1"></div>
+      </div>
+      <div id="redef-pin-step-2" style="display:none;">
+        <label style="font-size:12px;color:var(--text-muted);text-align:center;display:block;margin-bottom:10px;">CONFIRME O PIN</label>
+        <div class="pin-display">
+          <span class="pin-dot" id="rpd2-1"></span><span class="pin-dot" id="rpd2-2"></span>
+          <span class="pin-dot" id="rpd2-3"></span><span class="pin-dot" id="rpd2-4"></span>
+        </div>
+        <div class="pin-pad" id="redef-pin-pad-2"></div>
+      </div>
+      <p id="redef-pin-erro" class="erro-msg" style="text-align:center;margin-top:8px;"></p>
+    </div>
   </div>
 </div>
 
@@ -2164,8 +2694,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
 <div id="app-content" style="display:none;">
   <header class="app-header">
     <div class="header-top">
+      <button id="btn-home-header" class="btn-home-header" onclick="switchTab('home')" title="Início">&#8962;</button>
       <div class="header-text">
-        <h1>Louvor <span id="badge-lider" class="badge-lider" style="display:none;">LIDER</span></h1>
+        <h1 id="header-membro-nome">Louvor <span id="badge-lider" class="badge-lider" style="display:none;">LIDER</span></h1>
         <div id="nome-igreja-header">Ministerio de Musica</div>
       </div>
       <div class="header-right">
@@ -2174,13 +2705,13 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
           <span id="status-text">Conectando...</span>
         </div>
         <button id="btn-sair" class="btn-sair" onclick="sair()">Sair</button>
-    <button id="btn-admin" onclick="abrirAdmin()" style="display:none;background:rgba(250,204,21,0.1);border:1px solid rgba(250,204,21,0.3);color:#facc15;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;margin-left:4px;">⚙️</button>
+        <button id="btn-admin" onclick="abrirAdmin()" style="display:none;background:rgba(250,204,21,0.1);border:1px solid rgba(250,204,21,0.3);color:#facc15;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;margin-left:4px;">-</button>
         <button class="btn-fechar-header" onclick="fecharApp()" title="Fechar aplicativo">X</button>
       </div>
     </div>
   </header>
 
-  <nav class="nav-tabs">
+  <nav class="nav-tabs" id="nav-tabs-bar" style="display:none;">
     <button id="tab-escala-atual"   class="nav-tab active"          onclick="switchTab('escala-atual')">
       Escalas <span id="badge-count" class="badge" style="display:none;">0</span>
     </button>
@@ -2188,13 +2719,95 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
     <button id="tab-cifras"         class="nav-tab"                 onclick="switchTab('cifras')">Cifras</button>
     <button id="tab-eventos"        class="nav-tab"                 onclick="switchTab('eventos')">Eventos</button>
     <button id="tab-mensagens"      class="nav-tab"                 onclick="switchTab('mensagens')">Chat <span id="badge-msg" class="badge" style="display:none;">0</span></button>
+    <button id="tab-metro"          class="nav-tab"                 onclick="switchTab('metro')">&#127927; Metro</button>
     <button id="tab-nova"           class="nav-tab" style="display:none;" onclick="switchTab('nova')">+ Nova</button>
     <button id="tab-equipe"         class="nav-tab" style="display:none;" onclick="switchTab('equipe')">Equipe</button>
   </nav>
 
   <main class="main">
-    <div id="panel-escala-atual" class="panel active">
+    <!-- TELA HOME / DASHBOARD -->
+    <div id="panel-home" class="panel active">
+      <div class="home-wrap">
+        <!-- Saudação -->
+        <div class="home-saudacao">
+          <div class="home-saudacao-icone">&#127925;</div>
+          <div>
+            <div class="home-saudacao-nome" id="home-nome-membro">Bem-vindo!</div>
+            <div class="home-saudacao-sub" id="home-nome-igreja">Ministério de Música</div>
+          </div>
+        </div>
+
+        <!-- Banners de aviso (aniversários, eventos) -->
+        <div id="home-banner-aniv"></div>
+        <div id="home-banner-evento"></div>
+
+        <!-- Grid de cards -->
+        <div class="home-grid">
+
+          <button class="home-card home-card-destaque" onclick="switchTab('escala-atual')">
+            <div class="home-card-icon">&#128197;</div>
+            <div class="home-card-titulo">Escalas</div>
+            <div class="home-card-desc">Veja os cultos e sua participação</div>
+            <span id="home-badge-escala" class="home-badge" style="display:none;"></span>
+          </button>
+
+          <button class="home-card home-card-destaque" onclick="switchTab('proxima-escala')">
+            <div class="home-card-icon">&#9889;</div>
+            <div class="home-card-titulo">Próximo Culto</div>
+            <div class="home-card-desc">Detalhes da próxima escala</div>
+          </button>
+
+          <button class="home-card" onclick="switchTab('mensagens')">
+            <div class="home-card-icon">&#128172;</div>
+            <div class="home-card-titulo">Chat</div>
+            <div class="home-card-desc">Mensagens da equipe</div>
+            <span id="home-badge-msg" class="home-badge" style="display:none;"></span>
+          </button>
+
+          <button class="home-card" onclick="switchTab('cifras')">
+            <div class="home-card-icon">&#127928;</div>
+            <div class="home-card-titulo">Cifras</div>
+            <div class="home-card-desc">Letras e acordes das músicas</div>
+          </button>
+
+          <button class="home-card" onclick="switchTab('eventos')">
+            <div class="home-card-icon">&#127881;</div>
+            <div class="home-card-titulo">Eventos</div>
+            <div class="home-card-desc">Ensaios e compromissos</div>
+          </button>
+
+          <button class="home-card home-card-metro" onclick="metroHomeAbrir('metro')">
+            <div class="home-card-icon">&#9201;</div>
+            <div class="home-card-titulo">Metrônomo</div>
+            <div class="home-card-desc">Tempo e compasso</div>
+          </button>
+
+          <button class="home-card home-card-metro" onclick="metroHomeAbrir('afinador')">
+            <div class="home-card-icon">&#127929;</div>
+            <div class="home-card-titulo">Afinador</div>
+            <div class="home-card-desc">Afine seu instrumento</div>
+          </button>
+
+          <!-- Card exclusivo do líder -->
+          <button class="home-card home-card-lider" id="home-card-equipe" style="display:none;" onclick="switchTab('equipe')">
+            <div class="home-card-icon">&#128104;&#8205;&#127908;</div>
+            <div class="home-card-titulo">Equipe</div>
+            <div class="home-card-desc">Gerencie os membros</div>
+          </button>
+
+          <button class="home-card home-card-lider" id="home-card-nova" style="display:none;" onclick="switchTab('nova')">
+            <div class="home-card-icon">&#10133;</div>
+            <div class="home-card-titulo">Nova Escala</div>
+            <div class="home-card-desc">Criar novo culto</div>
+          </button>
+
+        </div>
+      </div>
+    </div><!-- /panel-home -->
+
+    <div id="panel-escala-atual" class="panel">
       <div id="banner-aniversarios" class="banner-aniversarios"></div>
+      <div id="banner-eventos-proximos" class="banner-eventos-home" style="display:none;"></div>
       <div class="mes-nav">
         <button class="mes-nav-btn" onclick="mesAnterior()">&#8249;</button>
         <span id="mes-nav-label"></span>
@@ -2395,7 +3008,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
       <div class="msg-panel">
         <div class="msg-header-bar">
           <span class="msg-titulo">Chat da Equipe</span>
-          <button id="btn-limpar-chat" onclick="confirmarLimparChat()" style="display:none;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.3);color:#f87171;font-size:11px;font-weight:700;padding:5px 12px;border-radius:20px;cursor:pointer;font-family:'DM Sans',sans-serif;">🗑️ Limpar tudo</button>
+          <button id="btn-limpar-chat" onclick="confirmarLimparChat()" style="display:none;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.3);color:#f87171;font-size:11px;font-weight:700;padding:5px 12px;border-radius:20px;cursor:pointer;font-family:'DM Sans',sans-serif;">🗑 Limpar tudo</button>
         </div>
         <div id="msg-lista" class="msg-lista"></div>
         <div class="msg-input-area">
@@ -2462,8 +3075,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
           <div style="display:flex;align-items:center;gap:8px;">
             <span style="font-size:18px;">🔒</span>
             <div>
-              <div style="font-size:13px;font-weight:700;color:var(--text-main);">Senha provisoria: <span style="color:var(--accent);font-family:'Share Tech Mono',monospace;font-size:15px;">1234</span></div>
-              <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">O membro sera obrigado a trocar no primeiro acesso.</div>
+              <div style="font-size:13px;font-weight:700;color:var(--text-main);">Senha provisória gerada automaticamente</div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">Após cadastrar, você poderá copiar ou enviar pelo WhatsApp. O membro troca a senha no 1º acesso.</div>
             </div>
           </div>
         </div>
@@ -2474,6 +3087,178 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
         <div id="lista-equipe"></div>
       </div>
     </div>
+
+    <!-- PANEL METRÔNOMO + AFINADOR -->
+    <div id="panel-metro" class="panel">
+      <div class="metro-wrap">
+
+        <!-- SUBTABS -->
+        <div class="metro-subtabs">
+          <button class="metro-subtab ativo" id="msub-metro" onclick="metroSubTab('metro')">&#127927; Metrônomo</button>
+          <button class="metro-subtab"       id="msub-afinador" onclick="metroSubTab('afinador')">&#127929; Afinador</button>
+        </div>
+
+        <!-- ══ METRÔNOMO ══ -->
+        <div id="msub-area-metro" class="metro-area ativo">
+
+          <!-- BPM display -->
+          <div class="metro-bpm-card">
+            <div class="metro-pulso" id="metro-pulso"></div>
+            <div class="metro-bpm-label">BPM</div>
+            <div class="metro-bpm-val" id="metro-bpm-val">120</div>
+            <div class="metro-tempo-nome" id="metro-tempo-nome">Moderato</div>
+            <input type="range" id="metro-slider" class="metro-slider" min="40" max="240" value="120"
+              oninput="metroBpmSlider(this.value)">
+            <div class="metro-slider-labels"><span>40</span><span>240</span></div>
+          </div>
+
+          <!-- BPM botões rápidos +/- -->
+          <div class="metro-bpm-btns">
+            <button class="metro-bpm-btn" onclick="metroBpmAdj(-10)">−10</button>
+            <button class="metro-bpm-btn" onclick="metroBpmAdj(-5)">−5</button>
+            <button class="metro-bpm-btn" onclick="metroBpmAdj(-1)">−1</button>
+            <button class="metro-bpm-btn metro-tap" id="btn-tap" onclick="metroTap()">TAP</button>
+            <button class="metro-bpm-btn" onclick="metroBpmAdj(1)">+1</button>
+            <button class="metro-bpm-btn" onclick="metroBpmAdj(5)">+5</button>
+            <button class="metro-bpm-btn" onclick="metroBpmAdj(10)">+10</button>
+          </div>
+
+          <!-- Compasso -->
+          <div class="metro-section-title">Compasso</div>
+          <div class="metro-compasso-row">
+            <div class="metro-compasso-group">
+              <div class="metro-compasso-label">Batidas</div>
+              <div class="metro-compasso-btns">
+                <button class="metro-comp-btn" onclick="metroSetBatidas(2)">2</button>
+                <button class="metro-comp-btn ativo" id="comp-4" onclick="metroSetBatidas(4)">4</button>
+                <button class="metro-comp-btn" onclick="metroSetBatidas(3)">3</button>
+                <button class="metro-comp-btn" onclick="metroSetBatidas(6)">6</button>
+              </div>
+            </div>
+            <div class="metro-compasso-group">
+              <div class="metro-compasso-label">Subdivisão</div>
+              <div class="metro-compasso-btns">
+                <button class="metro-comp-btn ativo" id="subdiv-1" onclick="metroSetSubdiv(1)">♩</button>
+                <button class="metro-comp-btn" id="subdiv-2" onclick="metroSetSubdiv(2)">♪♪</button>
+                <button class="metro-comp-btn" id="subdiv-3" onclick="metroSetSubdiv(3)">♪♪♪</button>
+                <button class="metro-comp-btn" id="subdiv-4" onclick="metroSetSubdiv(4)">♬♬</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Indicador de beats visuais -->
+          <div class="metro-beats-row" id="metro-beats-row"></div>
+
+          <!-- Botão liberar som (iOS/Android exige gesto do usuário) -->
+          <button id="metro-btn-unlock" onclick="metroUnlockAudio()" style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:12px;border:1px solid rgba(0,229,255,0.3);border-radius:var(--radius);background:rgba(0,229,255,0.06);color:var(--accent);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:10px;">
+            🔊 Liberar Som do Celular
+          </button>
+
+          <!-- Botão play -->
+          <button class="metro-play-btn" id="metro-play-btn" onclick="metroToggle()">
+            <span id="metro-play-icon">&#9654;</span>
+            <span id="metro-play-label">Iniciar</span>
+          </button>
+
+          <!-- Tempos pré-definidos -->
+          <div class="metro-section-title" style="margin-top:20px;">Tempos Musicais</div>
+          <div class="metro-tempos-grid">
+            <button class="metro-tempo-btn" onclick="metroSetBpm(50)">Largo<small>50</small></button>
+            <button class="metro-tempo-btn" onclick="metroSetBpm(63)">Larghetto<small>63</small></button>
+            <button class="metro-tempo-btn" onclick="metroSetBpm(76)">Adagio<small>76</small></button>
+            <button class="metro-tempo-btn" onclick="metroSetBpm(92)">Andante<small>92</small></button>
+            <button class="metro-tempo-btn" onclick="metroSetBpm(108)">Moderato<small>108</small></button>
+            <button class="metro-tempo-btn" onclick="metroSetBpm(120)">Allegretto<small>120</small></button>
+            <button class="metro-tempo-btn" onclick="metroSetBpm(144)">Allegro<small>144</small></button>
+            <button class="metro-tempo-btn" onclick="metroSetBpm(176)">Vivace<small>176</small></button>
+          </div>
+
+        </div><!-- /msub-area-metro -->
+
+        <!-- ══ AFINADOR ══ -->
+        <div id="msub-area-afinador" class="metro-area">
+          <div class="afinador-card">
+            <div class="afinador-nota-grande" id="afin-nota">—</div>
+            <div class="afin-oitava" id="afin-oitava"></div>
+            <div class="afin-freq" id="afin-freq">— Hz</div>
+
+            <!-- Medidor de centavos -->
+            <div class="afin-meter-wrap">
+              <div class="afin-meter-bar">
+                <div class="afin-meter-fill" id="afin-meter-fill"></div>
+                <div class="afin-meter-center"></div>
+              </div>
+              <div class="afin-meter-labels">
+                <span>−50¢</span><span>−25¢</span><span>0</span><span>+25¢</span><span>+50¢</span>
+              </div>
+            </div>
+
+            <!-- Status afinação -->
+            <div class="afin-status" id="afin-status">Aguardando microfone...</div>
+
+            <!-- 7 Notas Musicais -->
+            <div class="metro-section-title" style="margin-top:16px;">7 Notas — Oitava 3 (grave)</div>
+            <div class="afin-cordas-row">
+              <button class="afin-corda-btn afin-nota-do"  onclick="afinTocarNota(130.81,'Dó3')">Dó</button>
+              <button class="afin-corda-btn afin-nota-re"  onclick="afinTocarNota(146.83,'Ré3')">Ré</button>
+              <button class="afin-corda-btn afin-nota-mi"  onclick="afinTocarNota(164.81,'Mi3')">Mi</button>
+              <button class="afin-corda-btn afin-nota-fa"  onclick="afinTocarNota(174.61,'Fá3')">Fá</button>
+              <button class="afin-corda-btn afin-nota-sol" onclick="afinTocarNota(196.00,'Sol3')">Sol</button>
+              <button class="afin-corda-btn afin-nota-la"  onclick="afinTocarNota(220.00,'Lá3')">Lá</button>
+              <button class="afin-corda-btn afin-nota-si"  onclick="afinTocarNota(246.94,'Si3')">Si</button>
+            </div>
+
+            <div class="metro-section-title" style="margin-top:12px;">7 Notas — Oitava 4 (média)</div>
+            <div class="afin-cordas-row">
+              <button class="afin-corda-btn afin-nota-do"  onclick="afinTocarNota(261.63,'Dó4')">Dó</button>
+              <button class="afin-corda-btn afin-nota-re"  onclick="afinTocarNota(293.66,'Ré4')">Ré</button>
+              <button class="afin-corda-btn afin-nota-mi"  onclick="afinTocarNota(329.63,'Mi4')">Mi</button>
+              <button class="afin-corda-btn afin-nota-fa"  onclick="afinTocarNota(349.23,'Fá4')">Fá</button>
+              <button class="afin-corda-btn afin-nota-sol" onclick="afinTocarNota(392.00,'Sol4')">Sol</button>
+              <button class="afin-corda-btn afin-nota-la"  onclick="afinTocarNota(440.00,'Lá4')">Lá</button>
+              <button class="afin-corda-btn afin-nota-si"  onclick="afinTocarNota(493.88,'Si4')">Si</button>
+            </div>
+
+            <div class="metro-section-title" style="margin-top:12px;">7 Notas — Oitava 5 (aguda)</div>
+            <div class="afin-cordas-row">
+              <button class="afin-corda-btn afin-nota-do"  onclick="afinTocarNota(523.25,'Dó5')">Dó</button>
+              <button class="afin-corda-btn afin-nota-re"  onclick="afinTocarNota(587.33,'Ré5')">Ré</button>
+              <button class="afin-corda-btn afin-nota-mi"  onclick="afinTocarNota(659.25,'Mi5')">Mi</button>
+              <button class="afin-corda-btn afin-nota-fa"  onclick="afinTocarNota(698.46,'Fá5')">Fá</button>
+              <button class="afin-corda-btn afin-nota-sol" onclick="afinTocarNota(783.99,'Sol5')">Sol</button>
+              <button class="afin-corda-btn afin-nota-la"  onclick="afinTocarNota(880.00,'Lá5')">Lá</button>
+              <button class="afin-corda-btn afin-nota-si"  onclick="afinTocarNota(987.77,'Si5')">Si</button>
+            </div>
+
+            <div class="metro-section-title" style="margin-top:12px;">Cordas — Violão / Guitarra</div>
+            <div class="afin-cordas-row">
+              <button class="afin-corda-btn" onclick="afinTocarNota(82.41,'Mi2')">Mi2</button>
+              <button class="afin-corda-btn" onclick="afinTocarNota(110.00,'Lá2')">Lá2</button>
+              <button class="afin-corda-btn" onclick="afinTocarNota(146.83,'Ré3')">Ré3</button>
+              <button class="afin-corda-btn" onclick="afinTocarNota(196.00,'Sol3')">Sol3</button>
+              <button class="afin-corda-btn" onclick="afinTocarNota(246.94,'Si3')">Si3</button>
+              <button class="afin-corda-btn" onclick="afinTocarNota(329.63,'Mi4')">Mi4</button>
+            </div>
+
+            <div class="metro-section-title" style="margin-top:12px;">Cordas — Baixo</div>
+            <div class="afin-cordas-row">
+              <button class="afin-corda-btn" onclick="afinTocarNota(41.20,'Si1')">Si1</button>
+              <button class="afin-corda-btn" onclick="afinTocarNota(55.00,'Mi2')">Mi2</button>
+              <button class="afin-corda-btn" onclick="afinTocarNota(73.42,'Lá2')">Lá2</button>
+              <button class="afin-corda-btn" onclick="afinTocarNota(98.00,'Ré3')">Ré3</button>
+              <button class="afin-corda-btn" onclick="afinTocarNota(130.81,'Sol3')">Sol3</button>
+            </div>
+
+            <button class="metro-play-btn" id="afin-btn" onclick="afinToggle()" style="margin-top:20px;">
+              <span id="afin-icon">&#127908;</span>
+              <span id="afin-label">Ativar Afinador</span>
+            </button>
+            <p style="font-size:11px;color:var(--text-muted);text-align:center;margin-top:10px;line-height:1.5;">O afinador usa o microfone do celular.<br>Permita o acesso quando solicitado.</p>
+          </div>
+        </div><!-- /msub-area-afinador -->
+
+      </div>
+    </div><!-- /panel-metro -->
   </main>
 
   <!-- TELA TROCA DE SENHA OBRIGATORIA -->
@@ -2513,10 +3298,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
     <div style="max-width:700px;margin:0 auto;padding:20px 16px 40px;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
         <div>
-          <div style="font-size:22px;font-weight:700;color:var(--accent);">⚙️ Admin Geral</div>
+          <div style="font-size:22px;font-weight:700;color:var(--accent);">- Admin Geral</div>
           <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Gestão de todas as igrejas</div>
         </div>
-        <button onclick="fecharAdmin()" style="background:rgba(255,255,255,0.08);border:1px solid var(--border);color:var(--text-main);padding:8px 16px;border-radius:8px;cursor:pointer;font-size:13px;">✕ Fechar</button>
+        <button onclick="fecharAdmin()" style="background:rgba(255,255,255,0.08);border:1px solid var(--border);color:var(--text-main);padding:8px 16px;border-radius:8px;cursor:pointer;font-size:13px;">- Fechar</button>
       </div>
       <div id="admin-stats" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px;"></div>
       <div style="font-size:13px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;">Igrejas Cadastradas</div>
@@ -2651,13 +3436,13 @@ window.cifraRapida = function(nome) {
   });
 </script>
 
-<!-- ═══════════════════════════════════════
-     PWA — Service Worker INLINE (Blob URL)
+<!-- =
+     PWA - Service Worker INLINE (Blob URL)
      Funciona sem arquivo sw.js externo
-═══════════════════════════════════════ -->
+= -->
 <script>
 (function() {
-  // ── Código completo do Service Worker como string ──
+  // -- Código completo do Service Worker como string --
   const SW_CODE = `
 const CACHE = 'escala-louvor-v2';
 const SHELL = ['./','./index.html'];
@@ -2678,7 +3463,7 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
-  // Firebase, APIs externas → sempre rede
+  // Firebase, APIs externas - sempre rede
   if (
     url.hostname.includes('firebaseio.com') ||
     url.hostname.includes('firestore.googleapis.com') ||
@@ -2690,7 +3475,7 @@ self.addEventListener('fetch', e => {
     e.respondWith(fetch(e.request).catch(() => new Response('Offline', {status: 503})));
     return;
   }
-  // Fontes Google → cache first
+  // Fontes Google - cache first
   if (url.hostname.includes('fonts.goog') || url.hostname.includes('fonts.gstatic')) {
     e.respondWith(
       caches.open(CACHE).then(c =>
@@ -2701,7 +3486,7 @@ self.addEventListener('fetch', e => {
     );
     return;
   }
-  // App shell → cache first + revalidate
+  // App shell - cache first + revalidate
   e.respondWith(
     caches.match(e.request).then(cached => {
       const net = fetch(e.request).then(r => {
@@ -2720,41 +3505,43 @@ self.addEventListener('message', e => {
 });
 `;
 
-  // ── Registrar via Blob URL (sem arquivo externo) ──
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', function () {
-      try {
-        const blob = new Blob([SW_CODE], { type: 'application/javascript' });
-        const swUrl = URL.createObjectURL(blob);
+  // -- Registrar via Blob URL (sem arquivo externo) --
+  // Safari bloqueia Blob SW - detecta e pula silenciosamente
+  var isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 
-        navigator.serviceWorker.register(swUrl, { scope: './' })
-          .then(function (reg) {
-            console.log('[PWA] SW registrado via Blob:', reg.scope);
-            URL.revokeObjectURL(swUrl); // limpa memória
-            reg.addEventListener('updatefound', function () {
-              const nw = reg.installing;
-              nw && nw.addEventListener('statechange', function () {
-                if (nw.state === 'installed' && navigator.serviceWorker.controller) {
-                  if (typeof showToast === 'function')
-                    showToast('Atualização disponível! Feche e reabra o app.', 'success');
-                }
+  if ('serviceWorker' in navigator && !isSafari) {
+    window.addEventListener('load', function () {
+      // Envolve em setTimeout para não bloquear renderizacão
+      setTimeout(function() {
+        try {
+          var blob = new Blob([SW_CODE], { type: 'application/javascript' });
+          var swUrl = URL.createObjectURL(blob);
+
+          navigator.serviceWorker.register(swUrl, { scope: './' })
+            .then(function (reg) {
+              console.log('[PWA] SW registrado via Blob:', reg.scope);
+              URL.revokeObjectURL(swUrl);
+              reg.addEventListener('updatefound', function () {
+                var nw = reg.installing;
+                nw && nw.addEventListener('statechange', function () {
+                  if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+                    if (typeof showToast === 'function')
+                      showToast('Atualizacão disponível! Feche e reabra o app.', 'success');
+                  }
+                });
               });
+            })
+            .catch(function (err) {
+              console.warn('[PWA] SW Blob falhou:', err.message);
             });
-          })
-          .catch(function (err) {
-            console.warn('[PWA] SW Blob falhou, tentando sw.js...', err.message);
-            // Fallback: tenta sw.js convencional
-            navigator.serviceWorker.register('./sw.js', { scope: './' })
-              .then(r => console.log('[PWA] SW convencional OK:', r.scope))
-              .catch(e2 => console.warn('[PWA] SW indisponível:', e2.message));
-          });
-      } catch (err) {
-        console.warn('[PWA] Blob SW não suportado:', err.message);
-      }
+        } catch (err) {
+          console.warn('[PWA] Blob SW não suportado:', err.message);
+        }
+      }, 100);
     });
   }
 
-  // ── Prompt de instalação (Android Chrome) ──
+  // -- Prompt de instalacão (Android Chrome) --
   let deferredPrompt;
   window.addEventListener('beforeinstallprompt', function (e) {
     e.preventDefault();
@@ -2769,7 +3556,7 @@ self.addEventListener('message', e => {
       showToast('App instalado! Procure o ícone na tela inicial.', 'success');
   });
 
-  // ── Instalar PWA ──
+  // -- Instalar PWA --
   window.instalarPWA = function () {
     if (deferredPrompt) {
       deferredPrompt.prompt();
@@ -2784,6 +3571,526 @@ self.addEventListener('message', e => {
     }
   };
 })();
+
+  // ══════════════════════════════════════════════
+  // METRÔNOMO
+  // ══════════════════════════════════════════════
+  (function() {
+    let metroBpm       = 120;
+    let metroRunning   = false;
+    let metroBatidas   = 4;
+    let metroSubdiv    = 1;
+    let metroBeatAtual = 0;
+    let metroSubAtual  = 0;
+    let metroNextTime  = 0;
+    let metroTimer     = null;
+    let audioCtx       = null;
+    let tapTimes       = [];
+
+    const TEMPO_NOMES = [
+      [40,55,'Largo'],[56,65,'Larghetto'],[66,75,'Adagio'],[76,107,'Andante'],
+      [108,119,'Moderato'],[120,155,'Allegretto'],[156,167,'Allegro'],[168,199,'Vivace'],[200,240,'Presto']
+    ];
+
+    function getTempoNome(bpm) {
+      for (const [lo,hi,nome] of TEMPO_NOMES) if (bpm >= lo && bpm <= hi) return nome;
+      return '';
+    }
+
+    function metroBpmAtualizar(bpm) {
+      metroBpm = Math.max(40, Math.min(240, bpm));
+      const el = document.getElementById('metro-bpm-val');
+      const sl = document.getElementById('metro-slider');
+      const tn = document.getElementById('metro-tempo-nome');
+      if (el) el.textContent = metroBpm;
+      if (sl) {
+        sl.value = metroBpm;
+        const pct = ((metroBpm - 40) / 200 * 100).toFixed(1) + '%';
+        sl.style.setProperty('--pct', pct);
+      }
+      if (tn) tn.textContent = getTempoNome(metroBpm);
+      // Destaca botão de tempo
+      document.querySelectorAll('.metro-tempo-btn').forEach(b => {
+        const bpmBtn = parseInt(b.querySelector('small')?.textContent);
+        b.classList.toggle('ativo', bpmBtn === metroBpm);
+      });
+    }
+
+    function metroBuildBeats() {
+      const row = document.getElementById('metro-beats-row'); if (!row) return;
+      row.innerHTML = '';
+      const total = metroBatidas * metroSubdiv;
+      for (let i = 0; i < total; i++) {
+        const d = document.createElement('div');
+        d.className = 'metro-beat-dot' + (i === 0 ? ' forte' : '');
+        d.id = 'beat-dot-' + i;
+        // Mostra só os beats principais (sem subdiv) maiores
+        if (metroSubdiv > 1 && i % metroSubdiv !== 0) {
+          d.style.width = '14px'; d.style.height = '14px';
+        }
+        row.appendChild(d);
+      }
+    }
+
+    function getAudioCtx() {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      return audioCtx;
+    }
+
+    function metroBeep(forte, subdivisao) {
+      try {
+        const ctx = getAudioCtx();
+        if (ctx.state === 'suspended') ctx.resume();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        // Forte = tempo 1, medio = beat, fraco = subdivisao
+        if (forte) {
+          osc.frequency.value = 1480; // C6 agudo
+          gain.gain.setValueAtTime(0.7, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
+          osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.08);
+        } else if (!subdivisao) {
+          osc.frequency.value = 880; // A5
+          gain.gain.setValueAtTime(0.4, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.06);
+          osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.06);
+        } else {
+          osc.frequency.value = 600;
+          gain.gain.setValueAtTime(0.15, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.04);
+          osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.04);
+        }
+      } catch(e) {}
+    }
+
+    function metroPasso() {
+      const total = metroBatidas * metroSubdiv;
+      const beatIdx = metroBeatAtual * metroSubdiv + metroSubAtual;
+      const isBatidaPrincipal = metroSubAtual === 0;
+      const isForte = isBatidaPrincipal && metroBeatAtual === 0;
+
+      metroBeep(isForte, !isBatidaPrincipal);
+
+      // Visual — pulso no card
+      const pulso = document.getElementById('metro-pulso');
+      if (pulso) {
+        pulso.className = 'metro-pulso';
+        void pulso.offsetWidth;
+        pulso.className = 'metro-pulso ' + (isForte ? 'beat-forte' : 'beat');
+      }
+
+      // Visual — dots
+      document.querySelectorAll('.metro-beat-dot').forEach((d,i) => {
+        d.classList.toggle('ativo', i === beatIdx);
+        d.classList.toggle('forte', i === beatIdx && isForte);
+      });
+
+      // Avança contador
+      metroSubAtual++;
+      if (metroSubAtual >= metroSubdiv) {
+        metroSubAtual = 0;
+        metroBeatAtual = (metroBeatAtual + 1) % metroBatidas;
+      }
+    }
+
+    const LOOKAHEAD   = 25.0;   // ms — quanto antecipa o scheduler
+    const SCHEDAHEAD  = 0.1;    // s  — janela de agendamento
+
+    function metroAgendar() {
+      if (!metroRunning) return;
+      const ctx = getAudioCtx();
+      while (metroNextTime < ctx.currentTime + SCHEDAHEAD) {
+        const total = metroBatidas * metroSubdiv;
+        const beatIdx = metroBeatAtual * metroSubdiv + metroSubAtual;
+        const isBatidaPrincipal = metroSubAtual === 0;
+        const isForte = isBatidaPrincipal && metroBeatAtual === 0;
+
+        // Som preciso via Web Audio
+        const osc  = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        const t = metroNextTime;
+        if (isForte) {
+          osc.frequency.value = 1480;
+          gain.gain.setValueAtTime(0.7, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+          osc.start(t); osc.stop(t + 0.08);
+        } else if (isBatidaPrincipal) {
+          osc.frequency.value = 880;
+          gain.gain.setValueAtTime(0.4, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
+          osc.start(t); osc.stop(t + 0.06);
+        } else {
+          osc.frequency.value = 600;
+          gain.gain.setValueAtTime(0.15, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
+          osc.start(t); osc.stop(t + 0.04);
+        }
+
+        // Visual — agenda via setTimeout sincronizado
+        const delay = Math.max(0, (metroNextTime - ctx.currentTime) * 1000);
+        const capturedIdx = beatIdx;
+        const capturedForte = isForte;
+        const capturedPrincipal = isBatidaPrincipal;
+        setTimeout(() => {
+          if (!metroRunning) return;
+          const pulso = document.getElementById('metro-pulso');
+          if (pulso) {
+            pulso.className = 'metro-pulso';
+            void pulso.offsetWidth;
+            pulso.className = 'metro-pulso ' + (capturedForte ? 'beat-forte' : 'beat');
+          }
+          document.querySelectorAll('.metro-beat-dot').forEach((d,i) => {
+            d.classList.toggle('ativo', i === capturedIdx);
+            d.classList.toggle('forte', i === capturedIdx && capturedForte);
+          });
+        }, delay);
+
+        // Avança tempo
+        metroNextTime += 60.0 / (metroBpm * metroSubdiv);
+        metroSubAtual++;
+        if (metroSubAtual >= metroSubdiv) {
+          metroSubAtual = 0;
+          metroBeatAtual = (metroBeatAtual + 1) % metroBatidas;
+        }
+      }
+      metroTimer = setTimeout(metroAgendar, LOOKAHEAD);
+    }
+
+    function metroIniciar() {
+      metroRunning = true;
+      metroBeatAtual = 0; metroSubAtual = 0;
+      const ctx = getAudioCtx();
+      if (ctx.state === 'suspended') ctx.resume();
+      metroNextTime = ctx.currentTime + 0.05;
+      const btn = document.getElementById('metro-play-btn');
+      if (btn) { btn.classList.add('tocando'); document.getElementById('metro-play-icon').textContent = '⏹'; document.getElementById('metro-play-label').textContent = 'Parar'; }
+      metroAgendar();
+    }
+
+    function metroParar() {
+      metroRunning = false;
+      if (metroTimer) { clearTimeout(metroTimer); metroTimer = null; }
+      const btn = document.getElementById('metro-play-btn');
+      if (btn) { btn.classList.remove('tocando'); document.getElementById('metro-play-icon').textContent = '▶'; document.getElementById('metro-play-label').textContent = 'Iniciar'; }
+      document.querySelectorAll('.metro-beat-dot').forEach(d => { d.classList.remove('ativo','forte'); });
+      const pulso = document.getElementById('metro-pulso');
+      if (pulso) pulso.className = 'metro-pulso';
+    }
+
+    window.metroToggle = function() {
+      if (metroRunning) {
+        metroParar();
+      } else {
+        // Desbloqueia AudioContext no mesmo gesto (obrigatório iOS/Android)
+        const ctx = getAudioCtx();
+        ctx.resume().then(() => {
+          metroIniciar();
+          // Esconde botão unlock se ainda visível
+          const btn = document.getElementById('metro-btn-unlock');
+          if (btn) btn.style.display = 'none';
+        });
+      }
+    };
+
+    window.metroUnlockAudio = function() {
+      const ctx = getAudioCtx();
+      ctx.resume().then(() => {
+        // Toca um beep silencioso para destravar o audio
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        gain.gain.setValueAtTime(0.001, ctx.currentTime);
+        osc.start(ctx.currentTime);
+        osc.stop(ctx.currentTime + 0.1);
+        // Esconde o botão e mostra confirmação
+        const btn = document.getElementById('metro-btn-unlock');
+        if (btn) {
+          btn.textContent = '✓ Som liberado!';
+          btn.style.background = 'rgba(74,222,128,0.1)';
+          btn.style.borderColor = 'rgba(74,222,128,0.3)';
+          btn.style.color = '#4ade80';
+          btn.disabled = true;
+          setTimeout(() => { btn.style.display = 'none'; }, 2000);
+        }
+      });
+    };
+
+    window.metroBpmAdj = function(delta) {
+      metroBpmAtualizar(metroBpm + delta);
+      if (metroRunning) { metroParar(); metroIniciar(); }
+    };
+
+    window.metroBpmSlider = function(val) {
+      metroBpmAtualizar(parseInt(val));
+      if (metroRunning) { metroParar(); metroIniciar(); }
+    };
+
+    window.metroSetBpm = function(bpm) {
+      metroBpmAtualizar(bpm);
+      if (metroRunning) { metroParar(); metroIniciar(); }
+    };
+
+    window.metroSetBatidas = function(n) {
+      metroBatidas = n;
+      document.querySelectorAll('.metro-comp-btn').forEach(b => {
+        if (['2','3','4','6'].includes(b.textContent)) b.classList.toggle('ativo', parseInt(b.textContent) === n);
+      });
+      metroBuildBeats();
+      if (metroRunning) { metroParar(); metroIniciar(); }
+    };
+
+    window.metroSetSubdiv = function(n) {
+      metroSubdiv = n;
+      ['1','2','3','4'].forEach((v,i) => {
+        const el = document.getElementById('subdiv-'+(i+1));
+        if (el) el.classList.toggle('ativo', (i+1) === n);
+      });
+      metroBuildBeats();
+      if (metroRunning) { metroParar(); metroIniciar(); }
+    };
+
+    window.metroTap = function() {
+      const now = Date.now();
+      const btn = document.getElementById('btn-tap');
+      if (btn) { btn.classList.add('pulsando'); setTimeout(() => btn.classList.remove('pulsando'), 150); }
+      tapTimes.push(now);
+      if (tapTimes.length > 6) tapTimes.shift();
+      if (tapTimes.length >= 2) {
+        const diffs = [];
+        for (let i = 1; i < tapTimes.length; i++) diffs.push(tapTimes[i] - tapTimes[i-1]);
+        const avg = diffs.reduce((a,b) => a+b, 0) / diffs.length;
+        const bpm = Math.round(60000 / avg);
+        metroBpmAtualizar(bpm);
+        if (metroRunning) { metroParar(); metroIniciar(); }
+      }
+      // Reseta tap se ficar mais de 2s sem bater
+      setTimeout(() => {
+        if (tapTimes.length && Date.now() - tapTimes[tapTimes.length-1] > 2000) tapTimes = [];
+      }, 2100);
+    };
+
+    window.metroSubTab = function(sub) {
+      ['metro','afinador'].forEach(s => {
+        const tab = document.getElementById('msub-' + s);
+        const area = document.getElementById('msub-area-' + s);
+        if (tab) tab.classList.toggle('ativo', s === sub);
+        if (area) area.classList.toggle('ativo', s === sub);
+      });
+      // Para o metrônomo ao mudar para afinador
+      if (sub === 'afinador' && metroRunning) metroParar();
+    };
+
+    // Para metrônomo ao sair da aba
+    const origSwitchTab = window.switchTab;
+    window.switchTab = function(tab) {
+      if (tab !== 'metro' && metroRunning) metroParar();
+      origSwitchTab(tab);
+    };
+
+    // Init
+    setTimeout(() => {
+      metroBuildBeats();
+      metroBpmAtualizar(120);
+    }, 300);
+  })();
+
+  // ══════════════════════════════════════════════
+  // AFINADOR
+  // ══════════════════════════════════════════════
+  (function() {
+    let afinAtivo = false;
+    let afinStream = null;
+    let afinAudioCtx = null;   // contexto proprio do afinador (separado do metro)
+    let afinAnalyser = null;
+    let afinAnimFrame = null;
+    let afinRefOscillator = null;
+    let afinRefGain = null;
+
+    function getAfinCtx() {
+      if (!afinAudioCtx || afinAudioCtx.state === 'closed') {
+        afinAudioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 44100 });
+      }
+      if (afinAudioCtx.state === 'suspended') afinAudioCtx.resume();
+      return afinAudioCtx;
+    }
+
+    const NOTAS    = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+    const NOTAS_PT = ['Dó','Dó#','Ré','Ré#','Mi','Fá','Fá#','Sol','Sol#','Lá','Lá#','Si'];
+
+    function freqParaNota(freq) {
+      if (freq < 20) return null;
+      const semitones = 12 * Math.log2(freq / 440);
+      const noteIdx = Math.round(semitones) + 69; // A4 = MIDI 69
+      const oitava = Math.floor(noteIdx / 12) - 1;
+      const nota = NOTAS[((noteIdx % 12) + 12) % 12];
+      const freqIdeal = 440 * Math.pow(2, (noteIdx - 69) / 12);
+      const cents = 1200 * Math.log2(freq / freqIdeal);
+      return { nota, oitava, cents, freqIdeal };
+    }
+
+    function autoCorr(buf, sampleRate) {
+      const SIZE = buf.length;
+      let rms = 0;
+      for (let i = 0; i < SIZE; i++) rms += buf[i] * buf[i];
+      rms = Math.sqrt(rms / SIZE);
+      if (rms < 0.008) return -1;
+
+      // Autocorrelação
+      let r1 = 0, r2 = SIZE - 1;
+      const thres = 0.2;
+      for (let i = 0; i < SIZE / 2; i++) if (Math.abs(buf[i]) < thres) { r1 = i; break; }
+      for (let i = 1; i < SIZE / 2; i++) if (Math.abs(buf[SIZE - i]) < thres) { r2 = SIZE - i; break; }
+
+      const subBuf = buf.slice(r1, r2);
+      const c = new Array(subBuf.length).fill(0);
+      for (let i = 0; i < subBuf.length; i++)
+        for (let j = 0; j < subBuf.length - i; j++)
+          c[i] += subBuf[j] * subBuf[j + i];
+
+      let d = 0;
+      while (d < c.length && c[d] > c[d + 1]) d++;
+      let maxVal = -1, maxPos = -1;
+      for (let i = d; i < c.length; i++) if (c[i] > maxVal) { maxVal = c[i]; maxPos = i; }
+      if (maxPos < 0) return -1;
+
+      // Interpolação parabólica
+      let T0 = maxPos;
+      if (maxPos > 0 && maxPos < c.length - 1) {
+        const x1 = c[maxPos - 1], x2 = c[maxPos], x3 = c[maxPos + 1];
+        T0 = maxPos + (x3 - x1) / (2 * (2 * x2 - x1 - x3));
+      }
+      return sampleRate / T0;
+    }
+
+    function afinLoop() {
+      if (!afinAtivo || !afinAnalyser) return;
+      const buf = new Float32Array(afinAnalyser.fftSize);
+      afinAnalyser.getFloatTimeDomainData(buf);
+      const sr = afinAudioCtx ? afinAudioCtx.sampleRate : 44100;
+      const freq = autoCorr(buf, sr);
+
+      if (freq > 0) {
+        const info = freqParaNota(freq);
+        if (info) {
+          const notaIdx = NOTAS.indexOf(info.nota);
+          document.getElementById('afin-nota').textContent = notaIdx >= 0 ? NOTAS_PT[notaIdx] : info.nota;
+          document.getElementById('afin-oitava').textContent = 'Oitava ' + info.oitava;
+          document.getElementById('afin-freq').textContent = freq.toFixed(1) + ' Hz';
+
+          // Medidor: cents vai de -50 a +50, mapeia para 0 a 100%
+          const pct = 50 + Math.max(-50, Math.min(50, info.cents));
+          const fill = document.getElementById('afin-meter-fill');
+          const status = document.getElementById('afin-status');
+          if (fill) fill.style.left = pct + '%';
+
+          const absCents = Math.abs(info.cents);
+          if (absCents < 5) {
+            if (fill) fill.className = 'afin-meter-fill afinado';
+            if (status) { status.textContent = '✓ Afinado!'; status.className = 'afin-status afinado'; }
+          } else if (absCents < 15) {
+            if (fill) fill.className = 'afin-meter-fill perto';
+            const dir = info.cents > 0 ? 'muito alto' : 'muito baixo';
+            if (status) { status.textContent = dir; status.className = 'afin-status perto'; }
+          } else {
+            if (fill) fill.className = 'afin-meter-fill longe';
+            const dir = info.cents > 0 ? '↓ Abaixar' : '↑ Subir';
+            if (status) { status.textContent = dir; status.className = 'afin-status longe'; }
+          }
+        }
+      } else {
+        document.getElementById('afin-nota').textContent = '—';
+        document.getElementById('afin-oitava').textContent = '';
+        document.getElementById('afin-freq').textContent = '— Hz';
+        const status = document.getElementById('afin-status');
+        if (status) { status.textContent = 'Aguardando som...'; status.className = 'afin-status'; }
+        const fill = document.getElementById('afin-meter-fill');
+        if (fill) { fill.style.left = '50%'; fill.className = 'afin-meter-fill'; }
+      }
+
+      afinAnimFrame = requestAnimationFrame(afinLoop);
+    }
+
+    window.afinToggle = async function() {
+      if (afinAtivo) {
+        afinAtivo = false;
+        if (afinAnimFrame) { cancelAnimationFrame(afinAnimFrame); afinAnimFrame = null; }
+        if (afinStream) { afinStream.getTracks().forEach(t => t.stop()); afinStream = null; }
+        if (afinAudioCtx) { try { await afinAudioCtx.close(); } catch(e){} afinAudioCtx = null; }
+        afinAnalyser = null;
+        document.getElementById('afin-btn').classList.remove('tocando');
+        document.getElementById('afin-icon').textContent = '🎙️';
+        document.getElementById('afin-label').textContent = 'Ativar Afinador';
+        document.getElementById('afin-nota').textContent = '—';
+        document.getElementById('afin-oitava').textContent = '';
+        document.getElementById('afin-freq').textContent = '— Hz';
+        const s = document.getElementById('afin-status');
+        if (s) { s.textContent = 'Aguardando microfone...'; s.className = 'afin-status'; }
+        return;
+      }
+      try {
+        // iOS requer AudioContext criado no mesmo gesto do usuário
+        const ctx = getAfinCtx();
+        afinStream = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+          video: false
+        });
+        await ctx.resume();
+        const source = ctx.createMediaStreamSource(afinStream);
+        afinAnalyser = ctx.createAnalyser();
+        afinAnalyser.fftSize = 4096;  // maior = mais preciso para notas graves
+        afinAnalyser.smoothingTimeConstant = 0;
+        source.connect(afinAnalyser);
+        afinAtivo = true;
+        document.getElementById('afin-btn').classList.add('tocando');
+        document.getElementById('afin-icon').textContent = '⏹';
+        document.getElementById('afin-label').textContent = 'Parar Afinador';
+        const s = document.getElementById('afin-status');
+        if (s) { s.textContent = 'Ouvindo...'; }
+        afinLoop();
+      } catch(err) {
+        const s = document.getElementById('afin-status');
+        const msg = err.name === 'NotAllowedError'
+          ? 'Permissão negada. Vá em Configurações e permita o microfone.'
+          : 'Erro ao acessar microfone: ' + err.message;
+        if (s) { s.textContent = msg; s.className = 'afin-status longe'; }
+      }
+    };
+
+    window.afinTocarNota = function(freq, nome) {
+      try {
+        const ctx = getAfinCtx();
+        // Para oscillador anterior
+        if (afinRefOscillator) { try { afinRefOscillator.stop(); } catch(e) {} }
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0, ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.4, ctx.currentTime + 0.02);
+        gain.gain.setValueAtTime(0.4, ctx.currentTime + 1.0);
+        gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 1.5);
+        osc.start(ctx.currentTime);
+        osc.stop(ctx.currentTime + 1.5);
+        afinRefOscillator = osc;
+        // Destaca botão
+        document.querySelectorAll('.afin-corda-btn').forEach(b => {
+          b.style.background = b.textContent === nome ? 'rgba(124,58,237,0.4)' : '';
+        });
+        setTimeout(() => document.querySelectorAll('.afin-corda-btn').forEach(b => b.style.background = ''), 1600);
+      } catch(e) {}
+    };
+
+    // Para afinador ao sair da aba metro
+    const origSwitch2 = window.switchTab;
+    window.switchTab = function(tab) {
+      if (tab !== 'metro' && afinAtivo) afinToggle();
+      origSwitch2(tab);
+    };
+  })();
+
 </script>
 
 </body>
