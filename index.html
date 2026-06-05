@@ -1811,11 +1811,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
           </div>
           <div class="metro-section-title" style="margin-top:14px;">Referência Sonora — Baixo</div>
           <div class="afin-cordas-row">
-            <button class="afin-corda-btn" onclick="afinTocarNota(41.20,'B1')">B1</button>
-            <button class="afin-corda-btn" onclick="afinTocarNota(55.00,'E2')">E2</button>
-            <button class="afin-corda-btn" onclick="afinTocarNota(73.42,'A2')">A2</button>
-            <button class="afin-corda-btn" onclick="afinTocarNota(98.00,'D3')">D3</button>
-            <button class="afin-corda-btn" onclick="afinTocarNota(130.81,'G3')">G3</button>
+            <button class="afin-corda-btn" onclick="afinTocarNota(82.41,'B1')">B1</button>
+            <button class="afin-corda-btn" onclick="afinTocarNota(110.00,'E2')">E2</button>
+            <button class="afin-corda-btn" onclick="afinTocarNota(146.83,'A2')">A2</button>
+            <button class="afin-corda-btn" onclick="afinTocarNota(196.00,'D3')">D3</button>
+            <button class="afin-corda-btn" onclick="afinTocarNota(261.63,'G3')">G3</button>
           </div>
         </div>
       </div>
@@ -2573,18 +2573,37 @@ window.metroHomeAbrir = function(sub) {
   };
 
   window.afinTocarNota=function(freq,nome){
-    if(!refCtx||refCtx.state==='closed') refCtx=new(window.AudioContext||window.webkitAudioContext)();
-    if(refCtx.state==='suspended') refCtx.resume();
-    var osc=refCtx.createOscillator(),g=refCtx.createGain();
-    osc.type='sine'; osc.frequency.value=freq;
-    osc.connect(g); g.connect(refCtx.destination);
-    g.gain.setValueAtTime(0,refCtx.currentTime);
-    g.gain.linearRampToValueAtTime(0.5,refCtx.currentTime+0.02);
-    g.gain.setValueAtTime(0.5,refCtx.currentTime+0.8);
-    g.gain.linearRampToValueAtTime(0,refCtx.currentTime+1.2);
-    osc.start(refCtx.currentTime); osc.stop(refCtx.currentTime+1.25);
+    // Cria ou reutiliza contexto de áudio
+    if(!refCtx||refCtx.state==='closed'){
+      refCtx=new(window.AudioContext||window.webkitAudioContext)();
+    }
+    // Feedback visual imediato
     document.querySelectorAll('.afin-corda-btn').forEach(function(b){ b.classList.toggle('tocando',b.textContent===nome); });
-    setTimeout(function(){ document.querySelectorAll('.afin-corda-btn').forEach(function(b){ b.classList.remove('tocando'); }); },1300);
+    setTimeout(function(){ document.querySelectorAll('.afin-corda-btn').forEach(function(b){ b.classList.remove('tocando'); }); },2200);
+
+    // Função que realmente cria e toca o oscilador
+    function tocar(){
+      var ctx=refCtx;
+      var osc=ctx.createOscillator(), g=ctx.createGain();
+      osc.type='sine';
+      osc.frequency.value=freq;
+      osc.connect(g); g.connect(ctx.destination);
+      var t=ctx.currentTime;
+      // Attack rápido, sustain longo, decay suave — simula corda dedilhada
+      g.gain.setValueAtTime(0,t);
+      g.gain.linearRampToValueAtTime(0.65,t+0.012);
+      g.gain.setValueAtTime(0.65,t+0.08);
+      g.gain.exponentialRampToValueAtTime(0.001,t+2.2);
+      osc.start(t);
+      osc.stop(t+2.25);
+    }
+
+    // CRÍTICO no iOS/Safari: aguarda resume() resolver antes de criar oscilador
+    if(refCtx.state==='suspended'){
+      refCtx.resume().then(tocar).catch(function(){});
+    } else {
+      tocar();
+    }
   };
 
   var _sw2=window.switchTab;
