@@ -1041,29 +1041,133 @@
     ).join('');
     const lista = document.getElementById('gsp-lista'); if (!lista) return;
     const filtradas = gspCategAtiva==='todas' ? musicasGsp : musicasGsp.filter(m=>m.categoria===gspCategAtiva);
-    if (filtradas.length===0) {
-      lista.innerHTML = `<div class="gsp-empty"><div class="gsp-empty-icon">🎵</div>Nenhuma música nesta categoria.<br>${isLider()?'Toque em <strong>+ Música</strong> para adicionar.':'Aguarde o líder adicionar músicas.'}</div>`;
-    } else {
-      lista.innerHTML = filtradas.map(m => {
-        const ico = GSP_CAT_ICON[m.categoria||'outro'] || '🎵';
-        const linkBtn = m.link ? `<a href="${esc(m.link)}" target="_blank" rel="noopener noreferrer" class="gsp-btn-link">▶ Abrir</a>` : '';
-        const delBtn  = isLider() ? `<button class="gsp-btn-del" onclick="deletarMusica('${m.id}')">×</button>` : '';
-        return `<div class="gsp-musica-card">
-          <div class="gsp-musica-icon">${ico}</div>
-          <div class="gsp-musica-info">
-            <div class="gsp-musica-titulo">${esc(m.titulo||'Sem título')}</div>
-            <div class="gsp-musica-artista">${esc(m.artista||'')}</div>
-            ${m.obs?`<div class="gsp-musica-obs">${esc(m.obs)}</div>`:''}
-          </div>
-          <div class="gsp-musica-acoes">${linkBtn}${delBtn}</div>
-        </div>`;
-      }).join('');
-    }
+    const lider = isLider();
     const btnMusica = document.getElementById('btn-nova-musica');
-    if (btnMusica) btnMusica.style.display = isLider() ? 'block' : 'none';
+    if (btnMusica) btnMusica.style.display = lider ? 'block' : 'none';
+
+    // Agrupar por categoria para mostrar como "pastas"
+    const cats = gspCategAtiva === 'todas' ? GSP_CATS : GSP_CATS.filter(c=>c.id===gspCategAtiva);
+    let html = '';
+    cats.forEach(cat => {
+      const musicas = filtradas.filter(m => m.categoria === cat.id);
+      const ico = GSP_CAT_ICON[cat.id] || '🎵';
+      const linksDiretos = (window.gspLinksRapidos && window.gspLinksRapidos[cat.id]) || [];
+      const totalItens = musicas.length + linksDiretos.length;
+      html += `<div class="gsp-pasta-section">
+        <div class="gsp-pasta-header" onclick="gspTogglePasta('${cat.id}')">
+          <div class="gsp-pasta-titulo">${ico} ${esc(cat.label)} <span class="gsp-pasta-count">${totalItens}</span></div>
+          <span class="gsp-pasta-toggle${gspPastaAberta[cat.id]===false?'':' aberto'}" id="gsp-toggle-${cat.id}">&#8250;</span>
+        </div>
+        <div class="gsp-pasta-links${gspPastaAberta[cat.id]===false?' fechado':''}" id="gsp-links-${cat.id}">`;
+
+      // Músicas do Firestore
+      if (musicas.length === 0 && linksDiretos.length === 0) {
+        html += `<div class="gsp-empty-pasta">${lider ? 'Nenhuma música. Adicione usando o botão abaixo.' : 'Nenhuma música nesta categoria.'}</div>`;
+      }
+      musicas.forEach(m => {
+        const linkBtn = m.link ? `<a href="${esc(m.link)}" target="_blank" rel="noopener noreferrer" class="gsp-btn-ouvir">▶ Ouvir</a>` : '';
+        const delBtn  = lider ? `<button class="gsp-btn-del" onclick="deletarMusica('${m.id}')">×</button>` : '';
+        html += `<div class="gsp-link-item">
+          <div class="gsp-link-thumb">${ico}</div>
+          <div class="gsp-link-info">
+            <div class="gsp-link-titulo">${esc(m.titulo||'Sem título')}</div>
+            <div class="gsp-link-artista">${esc(m.artista||'')}${m.obs?` <span class="gsp-obs-tag">${esc(m.obs)}</span>`:''}</div>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center;">${linkBtn}${delBtn}</div>
+        </div>`;
+      });
+
+      // Links rápidos salvos localmente por categoria
+      linksDiretos.forEach((lk, idx) => {
+        html += `<div class="gsp-link-item">
+          <div class="gsp-link-thumb">🔗</div>
+          <div class="gsp-link-info">
+            <div class="gsp-link-titulo">${esc(lk.label||lk.url)}</div>
+            <div class="gsp-link-artista" style="font-size:11px;">${esc(lk.url.length>40?lk.url.substring(0,40)+'...':lk.url)}</div>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <a href="${esc(lk.url)}" target="_blank" rel="noopener noreferrer" class="gsp-btn-ouvir">▶ Abrir</a>
+            ${lider?`<button class="gsp-btn-del" onclick="gspRemoverLinkRapido('${cat.id}',${idx})">×</button>`:''}
+          </div>
+        </div>`;
+      });
+
+      // Formulário de link rápido (apenas líder)
+      if (lider) {
+        html += `<button class="gsp-btn-toggle-form" onclick="gspToggleFormLink('${cat.id}')">&#43; Adicionar link a esta pasta</button>
+        <div class="gsp-add-link-form" id="gsp-form-link-${cat.id}">
+          <div class="gsp-add-link-row">
+            <input type="text" id="gsp-link-label-${cat.id}" class="gsp-add-link-input" placeholder="Nome (opcional)">
+          </div>
+          <div class="gsp-add-link-row">
+            <input type="url" id="gsp-link-url-${cat.id}" class="gsp-add-link-input" placeholder="https://youtube.com/... ou outro link">
+            <button class="gsp-btn-add-link" onclick="gspAdicionarLinkRapido('${cat.id}')">Salvar</button>
+          </div>
+        </div>`;
+      }
+      html += `</div></div>`; // fecha gsp-pasta-links e gsp-pasta-section
+    });
+
+    if (!html) html = `<div class="gsp-empty"><div class="gsp-empty-icon">🎵</div>Selecione uma categoria.</div>`;
+    lista.innerHTML = html;
   };
 
-  window.gspSetCateg = function(id) { gspCategAtiva = id; renderGospelteca(); };
+  // Estado das pastas abertas/fechadas
+  window.gspPastaAberta = {};
+  window.gspTogglePasta = function(catId) {
+    gspPastaAberta[catId] = gspPastaAberta[catId] === false ? true : false;
+    var linksEl = document.getElementById('gsp-links-' + catId);
+    var toggleEl = document.getElementById('gsp-toggle-' + catId);
+    if (linksEl) linksEl.classList.toggle('fechado', gspPastaAberta[catId] === false);
+    if (toggleEl) toggleEl.classList.toggle('aberto', gspPastaAberta[catId] !== false);
+  };
+
+  window.gspToggleFormLink = function(catId) {
+    var formEl = document.getElementById('gsp-form-link-' + catId);
+    if (formEl) formEl.classList.toggle('aberto');
+  };
+
+  // Links rápidos salvos em memória (por sessão) + localStorage por igrejaId
+  window.gspLinksRapidos = {};
+  function gspCarregarLinks() {
+    try {
+      const key = 'gsp_links_' + (window.igrejaId || 'x');
+      const raw = localStorage.getItem(key);
+      if (raw) window.gspLinksRapidos = JSON.parse(raw);
+    } catch(e) {}
+  }
+  function gspSalvarLinks() {
+    try {
+      const key = 'gsp_links_' + (window.igrejaId || 'x');
+      localStorage.setItem(key, JSON.stringify(window.gspLinksRapidos));
+    } catch(e) {}
+  }
+  gspCarregarLinks();
+
+  window.gspAdicionarLinkRapido = function(catId) {
+    const urlEl = document.getElementById('gsp-link-url-' + catId);
+    const labelEl = document.getElementById('gsp-link-label-' + catId);
+    if (!urlEl) return;
+    const url = urlEl.value.trim();
+    const label = labelEl ? labelEl.value.trim() : '';
+    if (!url || (!url.startsWith('http://') && !url.startsWith('https://'))) {
+      showToast('Informe um link válido (http/https)', 'danger'); return;
+    }
+    if (!window.gspLinksRapidos[catId]) window.gspLinksRapidos[catId] = [];
+    window.gspLinksRapidos[catId].push({ url, label });
+    gspSalvarLinks();
+    urlEl.value = ''; if (labelEl) labelEl.value = '';
+    renderGospelteca();
+    showToast('Link adicionado!', 'success');
+  };
+
+  window.gspRemoverLinkRapido = function(catId, idx) {
+    if (!window.gspLinksRapidos[catId]) return;
+    window.gspLinksRapidos[catId].splice(idx, 1);
+    gspSalvarLinks();
+    renderGospelteca();
+    showToast('Link removido', 'danger');
+  };
 
   window.abrirFormMusica = function(id) {
     if (!isLider()) { showToast('Apenas o líder pode adicionar músicas','danger'); return; }
@@ -1474,6 +1578,50 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
 /* Botão voltar */
 .btn-voltar-lista{display:inline-block;margin-top:14px;padding:11px 18px;border:1px solid var(--border);border-radius:var(--radius-sm);background:transparent;color:var(--text-muted);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;}
 
+
+/* ══ RITMO DEMO SONORA ══ */
+.ritmo-demo-box{background:rgba(0,229,255,0.04);border:1px solid rgba(0,229,255,0.2);border-radius:var(--radius-sm);padding:16px;margin-bottom:16px;}
+.ritmo-demo-titulo{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--accent);margin-bottom:4px;}
+.ritmo-demo-desc{font-size:12px;color:var(--text-muted);margin-bottom:12px;}
+.ritmo-demo-btns{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px;}
+.ritmo-demo-play{display:flex;align-items:center;gap:8px;padding:11px 22px;border:none;border-radius:50px;background:linear-gradient(135deg,#00acc1,#006064);color:#fff;font-family:"DM Sans",sans-serif;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 4px 18px rgba(0,229,255,0.3);transition:all .2s;}
+.ritmo-demo-play:active{transform:scale(0.96);}
+.ritmo-demo-play.stop{background:linear-gradient(135deg,#ef4444,#b91c1c);box-shadow:0 4px 18px rgba(239,68,68,0.3);}
+.ritmo-bpm-ctrl{display:flex;align-items:center;gap:8px;background:rgba(0,0,0,0.3);border:1px solid rgba(0,229,255,0.15);border-radius:30px;padding:6px 14px;}
+.ritmo-bpm-ctrl-label{font-size:11px;color:var(--text-muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-right:2px;}
+.ritmo-bpm-adj{background:rgba(0,229,255,0.1);border:1px solid rgba(0,229,255,0.25);color:var(--accent);border-radius:50%;width:26px;height:26px;font-size:16px;font-weight:700;cursor:pointer;}
+#ritmo-demo-bpm-val{font-family:"Share Tech Mono",monospace;font-size:16px;font-weight:700;color:var(--accent);min-width:30px;text-align:center;}
+.ritmo-beats-visual{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;min-height:28px;}
+.ritmo-beat-dot{width:22px;height:22px;border-radius:50%;border:2px solid rgba(0,229,255,0.3);background:rgba(0,229,255,0.05);transition:background .05s,transform .05s;flex-shrink:0;}
+.ritmo-beat-dot.forte{border-color:rgba(0,229,255,0.6);background:rgba(0,229,255,0.1);}
+.ritmo-beat-dot.on{background:var(--accent);border-color:var(--accent);box-shadow:0 0 10px rgba(0,229,255,0.6);transform:scale(1.25);}
+.ritmo-beat-dot.forte-on{background:#fbbf24 !important;border-color:#fbbf24 !important;box-shadow:0 0 14px rgba(251,191,36,0.7) !important;transform:scale(1.4) !important;}
+
+/* ══ GOSPELTECA PASTAS ══ */
+.gsp-pasta-section{background:var(--bg-card);border:1px solid var(--border-neon);border-radius:var(--radius);padding:16px;margin-bottom:16px;box-shadow:var(--shadow-neon);}
+.gsp-pasta-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;cursor:pointer;}
+.gsp-pasta-titulo{font-family:"Playfair Display",serif;font-size:16px;font-weight:700;color:var(--accent);display:flex;align-items:center;gap:8px;}
+.gsp-pasta-count{font-size:11px;font-weight:700;background:rgba(0,229,255,0.1);border:1px solid rgba(0,229,255,0.2);color:var(--accent);padding:2px 9px;border-radius:12px;}
+.gsp-pasta-toggle{font-size:18px;color:var(--text-muted);transition:transform .2s;display:inline-block;}
+.gsp-pasta-toggle.aberto{transform:rotate(90deg);}
+.gsp-pasta-links{display:flex;flex-direction:column;gap:8px;}
+.gsp-pasta-links.fechado{display:none;}
+.gsp-link-item{display:flex;align-items:center;gap:10px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.05);border-radius:var(--radius-sm);padding:10px 12px;}
+.gsp-link-thumb{width:36px;height:36px;border-radius:6px;background:linear-gradient(135deg,#1a1a2e,#16213e);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
+.gsp-link-info{flex:1;min-width:0;}
+.gsp-link-titulo{font-size:14px;font-weight:700;color:var(--text-main);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.gsp-link-artista{font-size:12px;color:var(--text-muted);}
+.gsp-btn-ouvir{display:inline-flex;align-items:center;gap:5px;background:rgba(0,229,255,0.08);border:1px solid rgba(0,229,255,0.25);color:var(--accent);padding:6px 12px;border-radius:20px;font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap;}
+.gsp-btn-del{background:transparent;border:none;color:#ef4444;cursor:pointer;font-size:15px;padding:4px;opacity:.7;}
+.gsp-add-link-form{margin-top:12px;border-top:1px solid rgba(255,255,255,0.05);padding-top:12px;display:none;}
+.gsp-add-link-form.aberto{display:block;}
+.gsp-add-link-row{display:flex;gap:8px;margin-bottom:8px;}
+.gsp-add-link-input{flex:1;background:var(--bg-input);border:1px solid rgba(0,229,255,0.15);border-radius:var(--radius-sm);color:var(--text-main);font-family:"DM Sans",sans-serif;font-size:14px;padding:10px 12px;outline:none;}
+.gsp-add-link-input:focus{border-color:var(--accent);}
+.gsp-btn-add-link{background:linear-gradient(135deg,#00acc1,#006064);color:#fff;border:none;border-radius:var(--radius-sm);font-family:"DM Sans",sans-serif;font-size:13px;font-weight:700;padding:10px 14px;cursor:pointer;white-space:nowrap;}
+.gsp-btn-toggle-form{background:rgba(0,229,255,0.07);border:1px solid rgba(0,229,255,0.2);color:var(--accent);border-radius:var(--radius-sm);font-family:"DM Sans",sans-serif;font-size:12px;font-weight:700;padding:7px 14px;cursor:pointer;margin-top:8px;display:flex;align-items:center;gap:6px;}
+.gsp-empty-pasta{font-size:13px;color:var(--text-muted);font-style:italic;padding:6px 0;}
+.gsp-obs-tag{font-size:11px;color:#a78bfa;background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.2);border-radius:10px;padding:2px 8px;}
 
 /* ══ TOAST / DIALOG ══ */
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:#0c1424;color:#fff;padding:12px 24px;border-radius:50px;font-size:14px;font-weight:700;box-shadow:0 10px 30px rgba(0,0,0,0.6);opacity:0;transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1);z-index:999;white-space:nowrap;border:1px solid var(--border);}
@@ -2331,6 +2479,24 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
                 <div id="rd-bpm" class="ritmo-detalhe-bpm"></div>
               </div>
             </div>
+            <!-- DEMO SONORA -->
+            <div class="ritmo-demo-box">
+              <div class="ritmo-demo-titulo">&#127911; Demonstrativo Sonoro</div>
+              <div class="ritmo-demo-desc" id="rd-demo-desc">Ouça o padrão rítmico deste estilo</div>
+              <div class="ritmo-demo-btns">
+                <button class="ritmo-demo-play" id="btn-ritmo-play" onclick="ritmoDemoToggle()">
+                  <span id="ritmo-play-icon">&#9654;</span>
+                  <span id="ritmo-play-label">Ouvir Ritmo</span>
+                </button>
+                <div class="ritmo-bpm-ctrl">
+                  <span class="ritmo-bpm-ctrl-label">BPM Demo</span>
+                  <button class="ritmo-bpm-adj" onclick="ritmoDemoBpmAdj(-5)">&#8722;</button>
+                  <span id="ritmo-demo-bpm-val">100</span>
+                  <button class="ritmo-bpm-adj" onclick="ritmoDemoBpmAdj(5)">&#43;</button>
+                </div>
+              </div>
+              <div class="ritmo-beats-visual" id="ritmo-beats-visual"></div>
+            </div>
             <div id="rd-corpo" class="ritmo-detalhe-corpo"></div>
           </div>
         </div>
@@ -2701,33 +2867,223 @@ window.metroHomeAbrir = function(sub) {
 })();
 
 /* ══════════════════════════════════════
-   RITMOS
+   RITMOS + DEMO SONORA
 ══════════════════════════════════════ */
 (function(){
   var RITMOS_DATA = {
-    baiao: { nome:'Baião', icone:'🎸', bpm:'80–120 BPM', descricao:'Ritmo nordestino presente em muitos hinos contemporâneos gospel brasileiros. Tem feel dançante e alegre.', instrumentos:[{nome:'Zabumba / Bateria', padrao:'BOMBO: 1 . . . 3 . . .\nCAIXA: . . 2 . . . 4 .\nHI-HAT: x . x . x . x .'},{nome:'Triângulo', padrao:'X . X . X . X . (semínimas em loop)'},{nome:'Violão / Guitarra', padrao:'Baixo + rasqueado descendente no 1 e 3\nContratempo no 2 e 4'},{nome:'Teclado', padrao:'Acordes em colcheias staccato, realce no contratempo'}], dica:'Mantenha o triângulo constante. A energia vem da interação entre o bombo no 1 e 3 com o contratempo dos outros instrumentos.' },
-    samba: { nome:'Samba', icone:'🪘', bpm:'80–100 BPM', descricao:'O samba gospel une a alegria do ritmo brasileiro com a mensagem cristã. Muito usado em louvores de celebração.', instrumentos:[{nome:'Surdo / Bumbo', padrao:'1 . . . 2 . . . (batida forte no 2)'},{nome:'Pandeiro', padrao:'X . x . X . x . (colcheias com acentos)'},{nome:'Violão', padrao:'Rasqueado típico: ↓ . ↑ ↓ . ↑ ↓ .'},{nome:'Baixo', padrao:'Segue o surdo + caminhadas cromáticas'}], dica:'O "balanço" do samba vem da sensação de levar o tempo entre o 1 e o 2. Evite tocar rígido demais — deixe fluir!' },
-    bolero: { nome:'Bolero Gospel', icone:'🎷', bpm:'60–80 BPM', descricao:'Ritmo romantico e suave, ótimo para músicas de intimidade com Deus e adoração contemplativa.', instrumentos:[{nome:'Bateria', padrao:'BALADA SUAVE: baquetas com vassouras'},{nome:'Baixo', padrao:'Notas longas, caminhos suaves entre as notas do acorde'},{nome:'Teclado/Piano', padrao:'Arpejos lentos nos acordes, melodia na mão direita'},{nome:'Violão/Guitarra', padrao:'Dedilhado arpejado, sem rasqueado brusco'}], dica:'Seja minimalista. O silêncio é tão importante quanto as notas. Bolero exige sensibilidade e dinâmica suave.' },
-    marcha: { nome:'Marcha Evangelical', icone:'🥁', bpm:'100–130 BPM', descricao:'Ritmo firme e militante. Muito usado em hinos de avivamento e missão.', instrumentos:[{nome:'Bateria', padrao:'CAIXA nos contratempos 2 e 4\nBOMBO: 1 . . 2+ . . 4 .\nHI-HAT: fechado em colcheias constantes'},{nome:'Baixo', padrao:'Colcheias ou semínimas em unissono com o bombo'},{nome:'Guitarra/Violão', padrao:'Acordes em colcheias ou power chords'},{nome:'Metais (se houver)', padrao:'Reforço nos tempos fortes'}], dica:'A caixa nos contratempos dá o feel de marcha. Mantenha o grupo unido e forte — energia é o ponto!' },
-    pop: { nome:'Pop Gospel', icone:'🎵', bpm:'90–120 BPM', descricao:'Estilo mais contemporâneo, presente nas músicas de Hillsong, Bethel, Elevation. Padrão de pop rock cristão.', instrumentos:[{nome:'Bateria', padrao:'BOMBO: 1 . . . 3 . . .\nCAIXA: . . 2 . . . 4 .\nHI-HAT: x x x x x x x x (colcheias)'},{nome:'Baixo', padrao:'Segue o bombo, notas longas com variações no final do compasso'},{nome:'Guitarra', padrao:'Arpejo limpo na intro/verso, distorcido no refrão'},{nome:'Teclado', padrao:'Pad sustentado no verso, acordes rítmicos no refrão'}], dica:'O diferencial do pop gospel é a dinâmica: suave no verso, explosivo no refrão. Construa a emoção!' },
-    ballad: { nome:'Balada de Adoração', icone:'🎹', bpm:'60–80 BPM', descricao:'Para músicas contemplativas e de intimidade. Exige sensibilidade e espaço para o vocal brilhar.', instrumentos:[{nome:'Piano/Teclado', padrao:'Arpejos lentos, sustentação de acordes\nMelodias intercaladas com o canto'},{nome:'Violão', padrao:'Dedilhado delicado: p-i-m-a em loop'},{nome:'Bateria', padrao:'Vassouras ou baquetas muito suaves\nRide cymbal gentil'},{nome:'Baixo', padrao:'Notas muito longas, minimalista'}], dica:'Menos é mais. Deixe os silêncios respirarem. O espaço dado ao vocal é o maior presente nesse ritmo.' },
-    funk: { nome:'Funk Gospel', icone:'🎸', bpm:'90–110 BPM', descricao:'Groove pesado e dançante. Presente em louvor moderno afro-gospel e urbano.', instrumentos:[{nome:'Bateria', padrao:'BOMBO sincopado, CAIXA no 2 e 4\nHI-HAT: x . x x . x x . (síncopes)'},{nome:'Baixo', padrao:'Slap e groove — notas curtas e ataques no contratempo\nSíncope constante'},{nome:'Guitarra', padrao:'Muted chords (apagados) em síncopes\nRiff de terças no agudo'},{nome:'Teclado', padrao:'Rhodes/Clavinet em colcheias síncopes'}], dica:'O groove do funk vive nas pausas. Cada silêncio é intencional — não toque notas desnecessárias!' },
-    reggae: { nome:'Reggae Gospel', icone:'🌿', bpm:'70–90 BPM', descricao:'Feel caribenho e relaxado. Muito usado em músicas que falam de paz, liberdade e graça.', instrumentos:[{nome:'Bateria', padrao:'HI-HAT nos contratempos (e)\nSKANK na guitarra/teclado no 2+ e 4+'},{nome:'Baixo', padrao:'Melodia grave, notas longas no 1 e 3\nVariações no "e" do 2'},{nome:'Guitarra/Teclado (Skank)', padrao:'. X . X . X . X (X = contratempo)'},{nome:'Percussão', padrao:'Shaker ou pandeiro suave em colcheias'}], dica:'O skank (pancada no contratempo) é o coração do reggae. Sem ele o ritmo perde identidade!' },
-    hino: { nome:'Hino Clássico', icone:'♪', bpm:'70–100 BPM', descricao:'Estilo dos grandes hinários: Cantor Cristão, Corinhos de Ouro. Compasso binário ou ternário, solene.', instrumentos:[{nome:'Órgão/Teclado', padrao:'Acordes plenos em semínimas\n1 . 2 . 3 . 4 . (4/4)'},{nome:'Coral/Vozes', padrao:'SATB — Soprano, Alto, Tenor, Baixo em bloco'},{nome:'Piano', padrao:'Alberti bass ou acordes simples'},{nome:'Bateria/Percussão', padrao:'Opcional: apenas hi-hat ou surdo muito suave'}], dica:'Respeite a letra e a métrica do hino. O arranjo deve realçar a mensagem, não competir com ela.' },
-    worship: { nome:'Worship Moderno', icone:'✨', bpm:'68–76 BPM', descricao:'Estilo Hillsong/Bethel/Elevation. Atmosférico, construção gradual, altamente emocional.', instrumentos:[{nome:'Bateria', padrao:'INTRO: apenas hi-hat ou ride\nVERSO: kick e snare suaves\nREFRÃO: fill + abertura total da bateria'},{nome:'Guitarra', padrao:'Delay/reverb expressivo\nArpejos no verso, power chords no refrão'},{nome:'Keys/Teclado', padrao:'PAD sustentado durante toda a música\nPiano preenche nos espaços'},{nome:'Baixo', padrao:'Segue o bombo no refrão\nLiberdade melódica na ponte'}], dica:'Dinâmica é tudo no worship moderno. A "subida" para o refrão deve ser sentida pela congregação — construa com intenção!' },
-    xote: { nome:'Xote / Forró', icone:'🎺', bpm:'100–130 BPM', descricao:'Ritmo nordestino animado, presente em louvores brasileiros mais festivos e evangelísticos.', instrumentos:[{nome:'Zabumba', padrao:'FORTE no 1 e 3 com aro no 2 e 4\n↓ . ↑ . ↓ . ↑ .'},{nome:'Triângulo', padrao:'X . X . X . X . (constante em semínimas)'},{nome:'Sanfona/Teclado', padrao:'Acordes em colcheias com swing (shuffle feel)'},{nome:'Baixo', padrao:'Seguindo o bombo com caminhadas na escala'}], dica:'O swing do forró é diferente do straight — as colcheias não são iguais, a primeira é um pouco mais longa!' },
-    valsa: { nome:'Valsa Sacra', icone:'💃', bpm:'120–160 BPM', descricao:'Compasso ternário (3/4). Elegante e majestoso, usado em hinos solenes de adoração.', instrumentos:[{nome:'Piano/Teclado', padrao:'1 . . 2 . . 3 . .\nACORDE no 1 (baixo), harmonia no 2 e 3'},{nome:'Bateria', padrao:'BUMBO: tempo 1\nHI-HAT: tempos 2 e 3 (suave)'},{nome:'Violão', padrao:'BAIXO no 1, RASQUEADO no 2 e 3'},{nome:'Cello/Cordas', padrao:'Arco longo no 1, pizzicato no 2 e 3 (se disponível)'}], dica:'A valsa tem um balanço único — o 1 é forte, o 2 e 3 são "levantamento". Sinta o movimento de "para baixo / para cima".' },
+    baiao: { nome:'Baião', icone:'🎸', bpm:'80–120 BPM', bpmDemo:100,
+      // padrão de 16 steps (1=kick forte, 2=kick fraco, 3=snare, 4=hihat)
+      // steps: array de {tipo:'kick'|'snare'|'hihat'|'silence', forte:bool}
+      steps:[
+        {t:'kick',f:true},{t:'hihat'},{t:'hihat'},{t:'hihat'},
+        {t:'hihat'},{t:'hihat'},{t:'snare'},{t:'hihat'},
+        {t:'kick',f:true},{t:'kick'},{t:'hihat'},{t:'hihat'},
+        {t:'hihat'},{t:'hihat'},{t:'snare'},{t:'hihat'}
+      ],
+      descricao:'Ritmo nordestino presente em muitos hinos contemporâneos gospel brasileiros. Tem feel dançante e alegre.', instrumentos:[{nome:'Zabumba / Bateria', padrao:'BOMBO: 1 . . . 3 . . .\nCAIXA: . . 2 . . . 4 .\nHI-HAT: x . x . x . x .'},{nome:'Triângulo', padrao:'X . X . X . X . (semínimas em loop)'},{nome:'Violão / Guitarra', padrao:'Baixo + rasqueado descendente no 1 e 3\nContratempo no 2 e 4'},{nome:'Teclado', padrao:'Acordes em colcheias staccato, realce no contratempo'}], dica:'Mantenha o triângulo constante. A energia vem da interação entre o bombo no 1 e 3 com o contratempo dos outros instrumentos.' },
+    samba: { nome:'Samba', icone:'🪘', bpm:'80–100 BPM', bpmDemo:90,
+      steps:[
+        {t:'kick',f:true},{t:'silence'},{t:'hihat'},{t:'hihat'},
+        {t:'kick'},{t:'hihat'},{t:'snare',f:true},{t:'hihat'},
+        {t:'kick',f:true},{t:'hihat'},{t:'hihat'},{t:'kick'},
+        {t:'hihat'},{t:'hihat'},{t:'snare',f:true},{t:'hihat'}
+      ],
+      descricao:'O samba gospel une a alegria do ritmo brasileiro com a mensagem cristã. Muito usado em louvores de celebração.', instrumentos:[{nome:'Surdo / Bumbo', padrao:'1 . . . 2 . . . (batida forte no 2)'},{nome:'Pandeiro', padrao:'X . x . X . x . (colcheias com acentos)'},{nome:'Violão', padrao:'Rasqueado típico: ↓ . ↑ ↓ . ↑ ↓ .'},{nome:'Baixo', padrao:'Segue o surdo + caminhadas cromáticas'}], dica:'O "balanço" do samba vem da sensação de levar o tempo entre o 1 e o 2. Evite tocar rígido demais — deixe fluir!' },
+    bolero: { nome:'Bolero Gospel', icone:'🎷', bpm:'60–80 BPM', bpmDemo:70,
+      steps:[
+        {t:'kick',f:true},{t:'silence'},{t:'hihat'},{t:'silence'},
+        {t:'silence'},{t:'hihat'},{t:'snare'},{t:'hihat'},
+        {t:'kick',f:true},{t:'silence'},{t:'hihat'},{t:'silence'},
+        {t:'silence'},{t:'hihat'},{t:'snare'},{t:'hihat'}
+      ],
+      descricao:'Ritmo romantico e suave, ótimo para músicas de intimidade com Deus e adoração contemplativa.', instrumentos:[{nome:'Bateria', padrao:'BALADA SUAVE: baquetas com vassouras'},{nome:'Baixo', padrao:'Notas longas, caminhos suaves entre as notas do acorde'},{nome:'Teclado/Piano', padrao:'Arpejos lentos nos acordes, melodia na mão direita'},{nome:'Violão/Guitarra', padrao:'Dedilhado arpejado, sem rasqueado brusco'}], dica:'Seja minimalista. O silêncio é tão importante quanto as notas. Bolero exige sensibilidade e dinâmica suave.' },
+    marcha: { nome:'Marcha Evangelical', icone:'🥁', bpm:'100–130 BPM', bpmDemo:115,
+      steps:[
+        {t:'kick',f:true},{t:'hihat'},{t:'hihat'},{t:'hihat'},
+        {t:'snare',f:true},{t:'hihat'},{t:'hihat'},{t:'hihat'},
+        {t:'kick',f:true},{t:'hihat'},{t:'kick'},{t:'hihat'},
+        {t:'snare',f:true},{t:'hihat'},{t:'hihat'},{t:'hihat'}
+      ],
+      descricao:'Ritmo firme e militante. Muito usado em hinos de avivamento e missão.', instrumentos:[{nome:'Bateria', padrao:'CAIXA nos contratempos 2 e 4\nBOMBO: 1 . . 2+ . . 4 .\nHI-HAT: fechado em colcheias constantes'},{nome:'Baixo', padrao:'Colcheias ou semínimas em unissono com o bombo'},{nome:'Guitarra/Violão', padrao:'Acordes em colcheias ou power chords'},{nome:'Metais (se houver)', padrao:'Reforço nos tempos fortes'}], dica:'A caixa nos contratempos dá o feel de marcha. Mantenha o grupo unido e forte — energia é o ponto!' },
+    pop: { nome:'Pop Gospel', icone:'🎵', bpm:'90–120 BPM', bpmDemo:105,
+      steps:[
+        {t:'kick',f:true},{t:'hihat'},{t:'hihat'},{t:'hihat'},
+        {t:'snare',f:true},{t:'hihat'},{t:'hihat'},{t:'kick'},
+        {t:'kick',f:true},{t:'hihat'},{t:'hihat'},{t:'hihat'},
+        {t:'snare',f:true},{t:'hihat'},{t:'kick'},{t:'hihat'}
+      ],
+      descricao:'Estilo mais contemporâneo, presente nas músicas de Hillsong, Bethel, Elevation. Padrão de pop rock cristão.', instrumentos:[{nome:'Bateria', padrao:'BOMBO: 1 . . . 3 . . .\nCAIXA: . . 2 . . . 4 .\nHI-HAT: x x x x x x x x (colcheias)'},{nome:'Baixo', padrao:'Segue o bombo, notas longas com variações no final do compasso'},{nome:'Guitarra', padrao:'Arpejo limpo na intro/verso, distorcido no refrão'},{nome:'Teclado', padrao:'Pad sustentado no verso, acordes rítmicos no refrão'}], dica:'O diferencial do pop gospel é a dinâmica: suave no verso, explosivo no refrão. Construa a emoção!' },
+    ballad: { nome:'Balada de Adoração', icone:'🎹', bpm:'60–80 BPM', bpmDemo:68,
+      steps:[
+        {t:'kick',f:true},{t:'silence'},{t:'silence'},{t:'hihat'},
+        {t:'silence'},{t:'silence'},{t:'snare'},{t:'silence'},
+        {t:'kick'},{t:'silence'},{t:'silence'},{t:'hihat'},
+        {t:'silence'},{t:'silence'},{t:'snare'},{t:'silence'}
+      ],
+      descricao:'Para músicas contemplativas e de intimidade. Exige sensibilidade e espaço para o vocal brilhar.', instrumentos:[{nome:'Piano/Teclado', padrao:'Arpejos lentos, sustentação de acordes\nMelodias intercaladas com o canto'},{nome:'Violão', padrao:'Dedilhado delicado: p-i-m-a em loop'},{nome:'Bateria', padrao:'Vassouras ou baquetas muito suaves\nRide cymbal gentil'},{nome:'Baixo', padrao:'Notas muito longas, minimalista'}], dica:'Menos é mais. Deixe os silêncios respirarem. O espaço dado ao vocal é o maior presente nesse ritmo.' },
+    funk: { nome:'Funk Gospel', icone:'🎸', bpm:'90–110 BPM', bpmDemo:100,
+      steps:[
+        {t:'kick',f:true},{t:'silence'},{t:'kick'},{t:'hihat'},
+        {t:'snare',f:true},{t:'hihat'},{t:'silence'},{t:'kick'},
+        {t:'kick',f:true},{t:'hihat'},{t:'kick'},{t:'silence'},
+        {t:'snare',f:true},{t:'hihat'},{t:'kick'},{t:'hihat'}
+      ],
+      descricao:'Groove pesado e dançante. Presente em louvor moderno afro-gospel e urbano.', instrumentos:[{nome:'Bateria', padrao:'BOMBO sincopado, CAIXA no 2 e 4\nHI-HAT: x . x x . x x . (síncopes)'},{nome:'Baixo', padrao:'Slap e groove — notas curtas e ataques no contratempo\nSíncope constante'},{nome:'Guitarra', padrao:'Muted chords (apagados) em síncopes\nRiff de terças no agudo'},{nome:'Teclado', padrao:'Rhodes/Clavinet em colcheias síncopes'}], dica:'O groove do funk vive nas pausas. Cada silêncio é intencional — não toque notas desnecessárias!' },
+    reggae: { nome:'Reggae Gospel', icone:'🌿', bpm:'70–90 BPM', bpmDemo:80,
+      steps:[
+        {t:'kick',f:true},{t:'silence'},{t:'silence'},{t:'hihat'},
+        {t:'silence'},{t:'silence'},{t:'snare'},{t:'hihat'},
+        {t:'kick',f:true},{t:'silence'},{t:'silence'},{t:'hihat'},
+        {t:'silence'},{t:'snare'},{t:'silence'},{t:'hihat'}
+      ],
+      descricao:'Feel caribenho e relaxado. Muito usado em músicas que falam de paz, liberdade e graça.', instrumentos:[{nome:'Bateria', padrao:'HI-HAT nos contratempos (e)\nSKANK na guitarra/teclado no 2+ e 4+'},{nome:'Baixo', padrao:'Melodia grave, notas longas no 1 e 3\nVariações no "e" do 2'},{nome:'Guitarra/Teclado (Skank)', padrao:'. X . X . X . X (X = contratempo)'},{nome:'Percussão', padrao:'Shaker ou pandeiro suave em colcheias'}], dica:'O skank (pancada no contratempo) é o coração do reggae. Sem ele o ritmo perde identidade!' },
+    hino: { nome:'Hino Clássico', icone:'♪', bpm:'70–100 BPM', bpmDemo:88,
+      steps:[
+        {t:'kick',f:true},{t:'silence'},{t:'snare'},{t:'silence'},
+        {t:'kick',f:true},{t:'silence'},{t:'snare'},{t:'silence'},
+        {t:'kick',f:true},{t:'silence'},{t:'snare'},{t:'silence'},
+        {t:'kick',f:true},{t:'silence'},{t:'snare'},{t:'silence'}
+      ],
+      descricao:'Estilo dos grandes hinários: Cantor Cristão, Corinhos de Ouro. Compasso binário ou ternário, solene.', instrumentos:[{nome:'Órgão/Teclado', padrao:'Acordes plenos em semínimas\n1 . 2 . 3 . 4 . (4/4)'},{nome:'Coral/Vozes', padrao:'SATB — Soprano, Alto, Tenor, Baixo em bloco'},{nome:'Piano', padrao:'Alberti bass ou acordes simples'},{nome:'Bateria/Percussão', padrao:'Opcional: apenas hi-hat ou surdo muito suave'}], dica:'Respeite a letra e a métrica do hino. O arranjo deve realçar a mensagem, não competir com ela.' },
+    worship: { nome:'Worship Moderno', icone:'✨', bpm:'68–76 BPM', bpmDemo:72,
+      steps:[
+        {t:'kick',f:true},{t:'silence'},{t:'hihat'},{t:'silence'},
+        {t:'snare',f:true},{t:'silence'},{t:'hihat'},{t:'silence'},
+        {t:'kick',f:true},{t:'hihat'},{t:'hihat'},{t:'silence'},
+        {t:'snare',f:true},{t:'silence'},{t:'hihat'},{t:'silence'}
+      ],
+      descricao:'Estilo Hillsong/Bethel/Elevation. Atmosférico, construção gradual, altamente emocional.', instrumentos:[{nome:'Bateria', padrao:'INTRO: apenas hi-hat ou ride\nVERSO: kick e snare suaves\nREFRÃO: fill + abertura total da bateria'},{nome:'Guitarra', padrao:'Delay/reverb expressivo\nArpejos no verso, power chords no refrão'},{nome:'Keys/Teclado', padrao:'PAD sustentado durante toda a música\nPiano preenche nos espaços'},{nome:'Baixo', padrao:'Segue o bombo no refrão\nLiberdade melódica na ponte'}], dica:'Dinâmica é tudo no worship moderno. A "subida" para o refrão deve ser sentida pela congregação — construa com intenção!' },
+    xote: { nome:'Xote / Forró', icone:'🎺', bpm:'100–130 BPM', bpmDemo:115,
+      steps:[
+        {t:'kick',f:true},{t:'hihat'},{t:'snare'},{t:'hihat'},
+        {t:'kick'},{t:'hihat'},{t:'snare',f:true},{t:'hihat'},
+        {t:'kick',f:true},{t:'hihat'},{t:'snare'},{t:'hihat'},
+        {t:'kick'},{t:'kick'},{t:'snare',f:true},{t:'hihat'}
+      ],
+      descricao:'Ritmo nordestino animado, presente em louvores brasileiros mais festivos e evangelísticos.', instrumentos:[{nome:'Zabumba', padrao:'FORTE no 1 e 3 com aro no 2 e 4\n↓ . ↑ . ↓ . ↑ .'},{nome:'Triângulo', padrao:'X . X . X . X . (constante em semínimas)'},{nome:'Sanfona/Teclado', padrao:'Acordes em colcheias com swing (shuffle feel)'},{nome:'Baixo', padrao:'Seguindo o bombo com caminhadas na escala'}], dica:'O swing do forró é diferente do straight — as colcheias não são iguais, a primeira é um pouco mais longa!' },
+    valsa: { nome:'Valsa Sacra', icone:'💃', bpm:'120–160 BPM', bpmDemo:140,
+      steps:[
+        {t:'kick',f:true},{t:'silence'},{t:'silence'},
+        {t:'snare'},{t:'silence'},{t:'silence'},
+        {t:'kick',f:true},{t:'silence'},{t:'silence'},
+        {t:'snare'},{t:'silence'},{t:'silence'}
+      ],
+      descricao:'Compasso ternário (3/4). Elegante e majestoso, usado em hinos solenes de adoração.', instrumentos:[{nome:'Piano/Teclado', padrao:'1 . . 2 . . 3 . .\nACORDE no 1 (baixo), harmonia no 2 e 3'},{nome:'Bateria', padrao:'BUMBO: tempo 1\nHI-HAT: tempos 2 e 3 (suave)'},{nome:'Violão', padrao:'BAIXO no 1, RASQUEADO no 2 e 3'},{nome:'Cello/Cordas', padrao:'Arco longo no 1, pizzicato no 2 e 3 (se disponível)'}], dica:'A valsa tem um balanço único — o 1 é forte, o 2 e 3 são "levantamento". Sinta o movimento de "para baixo / para cima".' },
+  };
+
+  // ── ENGINE DE ÁUDIO ──
+  var demoAtivo = false, demoStep = 0, demoTimerId = null, demoCtx = null, demoBpm = 100, demoRitmoId = null;
+
+  function criarSom(tipo, forte) {
+    if (!demoCtx) return;
+    var t = demoCtx.currentTime;
+    if (tipo === 'kick') {
+      var osc = demoCtx.createOscillator(), g = demoCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(forte ? 150 : 110, t);
+      osc.frequency.exponentialRampToValueAtTime(40, t + 0.12);
+      g.gain.setValueAtTime(forte ? 0.9 : 0.6, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+      osc.connect(g); g.connect(demoCtx.destination);
+      osc.start(t); osc.stop(t + 0.2);
+    } else if (tipo === 'snare') {
+      var buf = demoCtx.createBuffer(1, demoCtx.sampleRate * 0.12, demoCtx.sampleRate);
+      var d = buf.getChannelData(0);
+      for (var i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
+      var src = demoCtx.createBufferSource(), gS = demoCtx.createGain();
+      var filt = demoCtx.createBiquadFilter();
+      filt.type = 'bandpass'; filt.frequency.value = forte ? 1800 : 1400; filt.Q.value = 0.8;
+      gS.gain.setValueAtTime(forte ? 0.85 : 0.55, t);
+      gS.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+      src.buffer = buf;
+      src.connect(filt); filt.connect(gS); gS.connect(demoCtx.destination);
+      src.start(t);
+    } else if (tipo === 'hihat') {
+      var buf2 = demoCtx.createBuffer(1, demoCtx.sampleRate * 0.06, demoCtx.sampleRate);
+      var d2 = buf2.getChannelData(0);
+      for (var j = 0; j < d2.length; j++) d2[j] = (Math.random() * 2 - 1) * (1 - j / d2.length);
+      var src2 = demoCtx.createBufferSource(), gH = demoCtx.createGain();
+      var filt2 = demoCtx.createBiquadFilter();
+      filt2.type = 'highpass'; filt2.frequency.value = 7000;
+      gH.gain.setValueAtTime(0.25, t);
+      gH.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
+      src2.buffer = buf2;
+      src2.connect(filt2); filt2.connect(gH); gH.connect(demoCtx.destination);
+      src2.start(t);
+    }
+  }
+
+  function demoTick() {
+    if (!demoAtivo) return;
+    var r = RITMOS_DATA[demoRitmoId]; if (!r) return;
+    var steps = r.steps;
+    var s = steps[demoStep % steps.length];
+    if (s.t !== 'silence') criarSom(s.t, !!s.f);
+
+    // Visual
+    var dots = document.querySelectorAll('.ritmo-beat-dot');
+    dots.forEach(function(d, i) {
+      d.classList.remove('on', 'forte-on');
+      if (i === demoStep % steps.length) {
+        d.classList.add('on');
+        if (s.f) d.classList.add('forte-on');
+      }
+    });
+
+    demoStep++;
+    var stepMs = (60000 / demoBpm) / 4;
+    demoTimerId = setTimeout(demoTick, stepMs);
+  }
+
+  function demoParar() {
+    demoAtivo = false;
+    if (demoTimerId) { clearTimeout(demoTimerId); demoTimerId = null; }
+    demoStep = 0;
+    document.querySelectorAll('.ritmo-beat-dot').forEach(function(d){ d.classList.remove('on','forte-on'); });
+    var btn = document.getElementById('btn-ritmo-play');
+    if (btn) { btn.classList.remove('stop'); document.getElementById('ritmo-play-icon').textContent = '▶'; document.getElementById('ritmo-play-label').textContent = 'Ouvir Ritmo'; }
+  }
+
+  window.ritmoDemoToggle = function() {
+    if (demoAtivo) { demoParar(); return; }
+    if (!demoCtx || demoCtx.state === 'closed') demoCtx = new (window.AudioContext || window.webkitAudioContext)();
+    var resume = demoCtx.state === 'suspended' ? demoCtx.resume() : Promise.resolve();
+    resume.then(function() {
+      demoAtivo = true; demoStep = 0;
+      var btn = document.getElementById('btn-ritmo-play');
+      if (btn) { btn.classList.add('stop'); document.getElementById('ritmo-play-icon').textContent = '⏹'; document.getElementById('ritmo-play-label').textContent = 'Parar'; }
+      demoTick();
+    });
+  };
+
+  window.ritmoDemoBpmAdj = function(d) {
+    demoBpm = Math.max(50, Math.min(200, demoBpm + d));
+    var el = document.getElementById('ritmo-demo-bpm-val'); if (el) el.textContent = demoBpm;
   };
 
   function esc2(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/\n/g,'<br>'); }
 
   window.abrirRitmo = function(id) {
     var r = RITMOS_DATA[id]; if (!r) return;
+    demoParar(); demoRitmoId = id; demoBpm = r.bpmDemo || 100;
     document.getElementById('ritmo-detalhe').style.display = 'block';
     document.getElementById('ritmos-grid').style.display   = 'none';
     document.getElementById('rd-icone').textContent = r.icone;
     document.getElementById('rd-nome').textContent  = r.nome;
     document.getElementById('rd-bpm').textContent   = r.bpm;
+    var bpmEl = document.getElementById('ritmo-demo-bpm-val'); if (bpmEl) bpmEl.textContent = demoBpm;
+    var descEl = document.getElementById('rd-demo-desc');
+    if (descEl) descEl.textContent = 'Ouça o padrão rítmico de ' + r.nome;
+    // Beats visual
+    var visual = document.getElementById('ritmo-beats-visual');
+    if (visual) {
+      visual.innerHTML = '';
+      r.steps.forEach(function(s, i) {
+        var d = document.createElement('div');
+        d.className = 'ritmo-beat-dot' + (s.f ? ' forte' : '');
+        visual.appendChild(d);
+      });
+    }
     var html = '<p>' + esc2(r.descricao) + '</p>';
     r.instrumentos.forEach(function(inst){
       html += '<div class="ritmo-instrumento"><strong>🎵 ' + esc2(inst.nome) + '</strong><span class="ritmo-padrao">' + esc2(inst.padrao) + '</span></div>';
@@ -2738,9 +3094,14 @@ window.metroHomeAbrir = function(sub) {
   };
 
   window.fecharRitmo = function() {
+    demoParar();
     document.getElementById('ritmo-detalhe').style.display = 'none';
     document.getElementById('ritmos-grid').style.display   = 'grid';
   };
+
+  // Parar demo ao trocar de aba
+  var _swRitmo = window.switchTab;
+  window.switchTab = function(tab) { if (tab !== 'ritmos') demoParar(); if (_swRitmo) _swRitmo(tab); };
 })();
 
 // ══ AFINADOR — MODO CROMÁTICO AUTOMÁTICO ══
