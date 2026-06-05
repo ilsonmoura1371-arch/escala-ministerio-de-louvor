@@ -124,6 +124,9 @@
     filtroMes = new Date().getMonth();
     filtroAno = new Date().getFullYear();
 
+    window.igrejaId = igrejaId;
+    window.usuarioLogado = usuarioLogado;
+    window.isLider = function(){ return !!usuarioLogado; };
     iniciarListeners();
     switchTab('home');
     setTimeout(atualizarSaudacaoHome, 400);
@@ -200,10 +203,29 @@
     document.getElementById('lider-erro').style.display='none';
   };
 
+  // ── SESSÃO SALVA NO DISPOSITIVO ──
+  window.membroNome = null;
+  (function verificarSessaoSalva() {
+    try {
+      const s = localStorage.getItem('escala_sessao_membro');
+      if (!s) return;
+      const dados = JSON.parse(s);
+      if (!dados.nome || !dados.igrejaId || !dados.nomeIgreja) return;
+      // Restaura sessão automaticamente
+      igrejaId        = dados.igrejaId;
+      nomeIgrejaAtual = dados.nomeIgreja;
+      membroLogado    = true;
+      usuarioLogado   = null;
+      window.membroNome = dados.nome;
+      entrarNoApp(dados.nomeIgreja, false);
+      showToast('Bem-vindo de volta, ' + dados.nome + '!', 'success');
+    } catch(e) { localStorage.removeItem('escala_sessao_membro'); }
+  })();
+
   window.handleAuthMembro = async function(e) {
     if (e) e.preventDefault();
     const nomeMembro = document.getElementById('membro-nome').value.trim();
-    const senha      = document.getElementById('membro-senha').value.trim();
+    const pin        = document.getElementById('membro-senha').value.trim();
     const btn        = document.getElementById('btn-membro-auth');
     const erroEl     = document.getElementById('membro-erro');
 
@@ -211,44 +233,59 @@
     erroEl.textContent   = '';
 
     if (!nomeMembro) { showToast('Digite seu nome','danger'); return; }
-    if (!senha)      { showToast('Digite a senha','danger'); return; }
+    if (!pin)        { showToast('Digite o PIN','danger'); return; }
 
     btn.disabled = true;
     btn.textContent = 'Verificando...';
 
     try {
       const snapMusicos = await getDocs(collection(db, 'musicos'));
-      let membroDoc = null, igrejaIdEncontrado = null;
+      let membroDoc = null, membroDocId = null, igrejaIdEncontrado = null;
       snapMusicos.forEach(d => {
         const dados = d.data();
         if (dados.nome && dados.nome.trim().toLowerCase() === nomeMembro.toLowerCase()) {
-          membroDoc = dados; igrejaIdEncontrado = dados.igrejaId;
+          membroDoc = dados; membroDocId = d.id; igrejaIdEncontrado = dados.igrejaId;
         }
       });
       if (!membroDoc) throw new Error('Nome nao encontrado. Verifique como foi cadastrado pelo lider.');
       if (!igrejaIdEncontrado) throw new Error('Membro sem igreja associada. Fale com o lider.');
 
-      let nomeIgreja = 'Ministerio de Musica', senhaIgreja = SENHA_MEMBRO_PADRAO;
+      let nomeIgreja = 'Ministerio de Musica';
       try {
         const snapIgreja = await getDoc(doc(db, 'igrejas', igrejaIdEncontrado));
-        if (snapIgreja.exists()) {
-          const dadosIgreja = snapIgreja.data();
-          nomeIgreja  = dadosIgreja.nome       || nomeIgreja;
-          senhaIgreja = dadosIgreja.senhaMembro || SENHA_MEMBRO_PADRAO;
-        }
-      } catch(errIgreja) { console.warn('Nao foi possivel carregar dados da igreja:', errIgreja); }
+        if (snapIgreja.exists()) nomeIgreja = snapIgreja.data().nome || nomeIgreja;
+      } catch(e) {}
 
-      if (senha !== SENHA_MEMBRO_PADRAO && senha !== senhaIgreja) {
-        throw new Error('Senha incorreta. A senha padrao e: 1234');
+      // PIN individual: primeiro acesso usa SENHA_MEMBRO_PADRAO
+      const pinSalvo = membroDoc.pin || null;
+      const primeiroAcesso = !pinSalvo;
+
+      if (primeiroAcesso) {
+        if (pin !== SENHA_MEMBRO_PADRAO) throw new Error('Primeiro acesso: use o PIN padrão "' + SENHA_MEMBRO_PADRAO + '".');
+      } else {
+        if (pin !== pinSalvo) throw new Error('PIN incorreto.');
       }
 
-      igrejaId = igrejaIdEncontrado;
+      igrejaId        = igrejaIdEncontrado;
       nomeIgrejaAtual = nomeIgreja;
-      membroLogado = true;
-      usuarioLogado = null;
+      membroLogado    = true;
+      usuarioLogado   = null;
+      window.membroNome = membroDoc.nome;
 
-      entrarNoApp(nomeIgreja, false);
-      showToast('Bem-vindo, ' + membroDoc.nome + '!', 'success');
+      // Salvar sessão no dispositivo
+      try {
+        localStorage.setItem('escala_sessao_membro', JSON.stringify({
+          nome: membroDoc.nome, igrejaId: igrejaIdEncontrado, nomeIgreja
+        }));
+      } catch(e) {}
+
+      if (primeiroAcesso) {
+        // Forçar troca de PIN antes de entrar
+        setTimeout(() => abrirTrocaPin(membroDocId, membroDoc.nome, true), 300);
+      } else {
+        entrarNoApp(nomeIgreja, false);
+        showToast('Bem-vindo, ' + membroDoc.nome + '!', 'success');
+      }
     } catch(err) {
       erroEl.style.display = 'block';
       erroEl.textContent   = err.message;
@@ -258,11 +295,75 @@
     }
   };
 
+  // ── MODAL TROCA DE PIN ──
+  window.abrirTrocaPin = function(membroDocId, nomeM, obrigatorio) {
+    // Criar modal se não existir
+    let modal = document.getElementById('modal-trocar-pin');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'modal-trocar-pin';
+      modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;z-index:9999;padding:24px;';
+      modal.innerHTML = `
+        <div style="background:#0c1424;border:1px solid rgba(0,229,255,0.25);border-radius:14px;padding:28px 24px;width:100%;max-width:340px;box-shadow:0 0 40px rgba(0,229,255,0.15);">
+          <div style="font-size:28px;text-align:center;margin-bottom:8px;">🔐</div>
+          <h3 id="pin-modal-titulo" style="color:#e2e8f0;text-align:center;margin-bottom:6px;font-family:'Playfair Display',serif;"></h3>
+          <p id="pin-modal-desc" style="color:#64748b;font-size:13px;text-align:center;margin-bottom:20px;line-height:1.5;"></p>
+          <input type="password" id="pin-novo" inputmode="numeric" maxlength="8" placeholder="Novo PIN (números)" class="input-neon" style="margin-bottom:10px;">
+          <input type="password" id="pin-confirmar" inputmode="numeric" maxlength="8" placeholder="Confirmar PIN" class="input-neon" style="margin-bottom:14px;">
+          <p id="pin-erro" style="color:#ef4444;font-size:13px;text-align:center;margin-bottom:12px;display:none;"></p>
+          <button id="btn-confirmar-pin" onclick="confirmarTrocaPin()" style="width:100%;padding:14px;background:linear-gradient(135deg,#00acc1,#006064);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:8px;">Salvar novo PIN</button>
+          <button id="btn-cancelar-pin" style="width:100%;padding:12px;background:transparent;color:#64748b;border:1px solid #1e293b;border-radius:12px;font-size:14px;cursor:pointer;display:none;" onclick="cancelarTrocaPin()">Cancelar</button>
+        </div>`;
+      document.body.appendChild(modal);
+    }
+    modal._membroDocId = membroDocId;
+    modal._obrigatorio = obrigatorio;
+    document.getElementById('pin-modal-titulo').textContent = obrigatorio ? 'Criar seu PIN pessoal' : 'Trocar PIN';
+    document.getElementById('pin-modal-desc').textContent   = obrigatorio
+      ? 'Primeiro acesso! Crie um PIN pessoal para entrar no app. Só você vai usar.'
+      : 'Digite e confirme seu novo PIN.';
+    document.getElementById('pin-novo').value = '';
+    document.getElementById('pin-confirmar').value = '';
+    document.getElementById('pin-erro').style.display = 'none';
+    document.getElementById('btn-cancelar-pin').style.display = obrigatorio ? 'none' : 'block';
+    modal.style.display = 'flex';
+  };
+
+  window.confirmarTrocaPin = async function() {
+    const modal = document.getElementById('modal-trocar-pin');
+    const pinNovo  = document.getElementById('pin-novo').value.trim();
+    const pinConf  = document.getElementById('pin-confirmar').value.trim();
+    const erroEl   = document.getElementById('pin-erro');
+    erroEl.style.display = 'none';
+    if (!pinNovo || pinNovo.length < 4) { erroEl.textContent = 'PIN deve ter pelo menos 4 dígitos.'; erroEl.style.display = 'block'; return; }
+    if (pinNovo !== pinConf)            { erroEl.textContent = 'Os PINs não coincidem.'; erroEl.style.display = 'block'; return; }
+    const btn = document.getElementById('btn-confirmar-pin');
+    btn.disabled = true; btn.textContent = 'Salvando...';
+    try {
+      await updateDoc(doc(db, 'musicos', modal._membroDocId), { pin: pinNovo });
+      modal.style.display = 'none';
+      entrarNoApp(nomeIgrejaAtual, false);
+      showToast('PIN criado! Bem-vindo, ' + (window.membroNome || '') + '!', 'success');
+    } catch(err) {
+      erroEl.textContent = 'Erro ao salvar PIN. Tente novamente.';
+      erroEl.style.display = 'block';
+    }
+    btn.disabled = false; btn.textContent = 'Salvar novo PIN';
+  };
+
+  window.cancelarTrocaPin = function() {
+    document.getElementById('modal-trocar-pin').style.display = 'none';
+  };
+
   window.sair = async function() {
     if (usuarioLogado) {
-      if (confirm('Deseja sair?')) { await signOut(auth); }
+      if (confirm("Deseja sair?")) { await signOut(auth); }
     } else {
-      membroLogado = false; igrejaId = null; mostrarTelaInicio();
+      if (confirm("Deseja sair desta conta?")) {
+        try { localStorage.removeItem("escala_sessao_membro"); } catch(e) {}
+        membroLogado = false; igrejaId = null; window.membroNome = null;
+        mostrarTelaInicio();
+      }
     }
   };
 
@@ -459,6 +560,15 @@
     } catch(err){ showToast('Erro ao cadastrar','danger'); }
   };
 
+  window.redefinirPinMembro = async function(id, nome) {
+    if(!isLider()){showToast('Apenas o lider pode redefinir o PIN','danger');return;}
+    if(!confirm('Redefinir o PIN de ' + nome + ' para o padrão "1234"?\nO membro será obrigado a criar um novo PIN no próximo acesso.')) return;
+    try {
+      await updateDoc(doc(db,'musicos',id), { pin: null });
+      showToast('PIN de ' + nome + ' redefinido! Próximo acesso pedirá novo PIN.','success');
+    } catch(err){ showToast('Erro ao redefinir PIN','danger'); }
+  };
+
   window.excluirMembro = async function(id) {
     if(!isLider()){showToast('Apenas o lider pode excluir','danger');return;}
     if(!confirm('Remover este membro da equipe?')) return;
@@ -501,7 +611,7 @@
         const anivInfo = anivData ? `dia ${anivData.dia}/${anivData.mes}` : '';
         html+=`<div class="musico-chip">
           <span>${esc(m.nome)}${anivInfo?`<small class="chip-aniv"> ${anivInfo}</small>`:''}</span>
-          ${isLider()?`<button class="musico-del" onclick="excluirMembro('${m.id}')">x</button>`:''}
+          ${isLider()?`<div style="display:flex;gap:6px;"><button class="musico-del" onclick="redefinirPinMembro('${m.id}','${m.nome}')" title="Redefinir PIN" style="background:#1e3a8a;color:#93c5fd;border-color:#1e3a8a;font-size:10px;padding:4px 7px;">PIN</button><button class="musico-del" onclick="excluirMembro('${m.id}')">x</button></div>`:''}
         </div>`;
       });
       html+=`</div></div>`;
@@ -1411,7 +1521,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
         <div class="membro-box-label">Acesso da Equipe</div>
         <form onsubmit="handleAuthMembro(event)">
           <input type="text"     id="membro-nome"  class="input-neon" placeholder="Seu nome (como cadastrado)" autocomplete="name">
-          <input type="password" id="membro-senha" class="input-neon" placeholder="Senha (padrao: 1234)">
+          <input type="password" id="membro-senha" class="input-neon" placeholder="PIN pessoal (1º acesso: 1234)">
           <p id="membro-erro" class="erro-msg-inicio"></p>
           <button type="submit" id="btn-membro-auth" class="btn-inicio btn-inicio-membro">Entrar</button>
         </form>
