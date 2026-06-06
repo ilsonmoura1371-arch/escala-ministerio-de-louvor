@@ -1598,6 +1598,34 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
 .ritmo-beat-dot.on{background:var(--accent);border-color:var(--accent);box-shadow:0 0 10px rgba(0,229,255,0.6);transform:scale(1.25);}
 .ritmo-beat-dot.forte-on{background:#fbbf24 !important;border-color:#fbbf24 !important;box-shadow:0 0 14px rgba(251,191,36,0.7) !important;transform:scale(1.4) !important;}
 
+/* ══ PLAYER MULTI-INSTRUMENTAL ══ */
+.inst-secao-titulo{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin:18px 0 10px;display:flex;align-items:center;gap:6px;}
+.inst-cards-wrap{display:flex;flex-direction:column;gap:10px;margin-bottom:18px;}
+.inst-card{background:var(--bg-card);border:1px solid var(--border-neon);border-radius:var(--radius-sm);padding:12px 14px;transition:opacity .2s,filter .2s;}
+.inst-card.inst-muted{opacity:0.35;filter:grayscale(0.7);}
+.inst-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:10px;}
+.inst-card-info{display:flex;align-items:flex-start;gap:10px;flex:1;min-width:0;}
+.inst-icone{font-size:22px;flex-shrink:0;font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;line-height:1.2;}
+.inst-nome{font-size:14px;font-weight:700;color:var(--text-main);margin-bottom:2px;}
+.inst-padrao{font-size:11px;color:var(--text-muted);line-height:1.5;}
+.inst-card-btns{display:flex;gap:6px;flex-shrink:0;align-items:center;}
+.inst-solo-btn{width:30px;height:30px;border-radius:8px;border:1px solid rgba(251,191,36,0.3);background:rgba(251,191,36,0.05);color:#a38a30;font-size:11px;font-weight:900;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;}
+.inst-solo-btn.solo-on{background:#fbbf24;border-color:#fbbf24;color:#000;box-shadow:0 0 10px rgba(251,191,36,0.5);}
+.inst-mute-btn{width:30px;height:30px;border-radius:8px;border:1px solid rgba(0,229,255,0.3);background:rgba(0,229,255,0.06);color:var(--accent);font-size:13px;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;}
+.inst-mute-btn.muted{background:rgba(239,68,68,0.1);border-color:rgba(239,68,68,0.4);color:#f87171;}
+.inst-beats-row{display:flex;gap:3px;overflow-x:auto;padding-bottom:3px;}
+.inst-beats-row::-webkit-scrollbar{height:3px;}
+.inst-beats-row::-webkit-scrollbar-thumb{background:rgba(0,229,255,0.2);border-radius:2px;}
+.inst-beat-dot{width:17px;height:17px;flex-shrink:0;border-radius:3px;border:1px solid rgba(255,255,255,0.05);background:transparent;transition:background .05s,transform .05s,box-shadow .05s;}
+.inst-beat-dot.dot-forte{border-color:rgba(0,229,255,0.4);background:rgba(0,229,255,0.1);}
+.inst-beat-dot.dot-medio{border-color:rgba(0,229,255,0.22);background:rgba(0,229,255,0.05);}
+.inst-beat-dot.dot-fraco{border-color:rgba(0,229,255,0.1);background:rgba(0,229,255,0.02);}
+.inst-beat-dot.dot-beat1{border-left-width:2px;border-left-color:rgba(0,229,255,0.6);}
+.inst-beat-dot.on{background:var(--accent) !important;border-color:var(--accent) !important;box-shadow:0 0 7px rgba(0,229,255,0.7);transform:scale(1.2);}
+.inst-beat-dot.dot-forte.on{background:#fbbf24 !important;border-color:#fbbf24 !important;box-shadow:0 0 11px rgba(251,191,36,0.8);}
+.ritmo-descricao-txt{background:rgba(0,229,255,0.02);border:1px solid rgba(0,229,255,0.1);border-radius:var(--radius-sm);padding:14px;margin-top:4px;}
+.ritmo-descricao-txt p{font-size:13px;color:var(--text-muted);line-height:1.6;margin:0 0 8px;}
+
 /* ══ TOAST / DIALOG ══ */
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:#0c1424;color:#fff;padding:12px 24px;border-radius:50px;font-size:14px;font-weight:700;box-shadow:0 10px 30px rgba(0,0,0,0.6);opacity:0;transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1);z-index:999;white-space:nowrap;border:1px solid var(--border);}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
@@ -2863,241 +2891,566 @@ window.metroHomeAbrir = function(sub) {
 })();
 
 /* ══════════════════════════════════════
-   RITMOS + DEMO SONORA
+   RITMOS + PLAYER MULTI-INSTRUMENTAL
 ══════════════════════════════════════ */
 (function(){
+
+  // ═══════════════════════════════════════════════════
+  // BANCO DE DADOS DOS RITMOS
+  // Cada instrumento tem:
+  //   nome, icone, steps[16] (1=tocar forte, 0.5=tocar suave, 0=silêncio),
+  //   tipo de som: 'kick'|'snare'|'hihat'|'perc'|'bass'|'chord'|'triangle'|'shaker'
+  // ═══════════════════════════════════════════════════
   var RITMOS_DATA = {
+
     baiao: { nome:'Baião', icone:'🎸', bpm:'80–120 BPM', bpmDemo:100,
-      // padrão de 16 steps (1=kick forte, 2=kick fraco, 3=snare, 4=hihat)
-      // steps: array de {tipo:'kick'|'snare'|'hihat'|'silence', forte:bool}
-      steps:[
-        {t:'kick',f:true},{t:'hihat'},{t:'hihat'},{t:'hihat'},
-        {t:'hihat'},{t:'hihat'},{t:'snare'},{t:'hihat'},
-        {t:'kick',f:true},{t:'kick'},{t:'hihat'},{t:'hihat'},
-        {t:'hihat'},{t:'hihat'},{t:'snare'},{t:'hihat'}
-      ],
-      descricao:'Ritmo nordestino presente em muitos hinos contemporâneos gospel brasileiros. Tem feel dançante e alegre.', instrumentos:[{nome:'Zabumba / Bateria', padrao:'BOMBO: 1 . . . 3 . . .\nCAIXA: . . 2 . . . 4 .\nHI-HAT: x . x . x . x .'},{nome:'Triângulo', padrao:'X . X . X . X . (semínimas em loop)'},{nome:'Violão / Guitarra', padrao:'Baixo + rasqueado descendente no 1 e 3\nContratempo no 2 e 4'},{nome:'Teclado', padrao:'Acordes em colcheias staccato, realce no contratempo'}], dica:'Mantenha o triângulo constante. A energia vem da interação entre o bombo no 1 e 3 com o contratempo dos outros instrumentos.' },
+      descricao:'Ritmo nordestino presente em muitos hinos gospel brasileiros. Feel dançante e alegre.',
+      dica:'Mantenha o triângulo constante. A energia vem da interação entre o bombo no 1 e 3 com o contratempo dos outros instrumentos.',
+      instrumentos:[
+        { nome:'Zabumba (Bumbo)', icone:'🥁', padrao:'BOMBO: 1 . . . 3 . . .\nCAIXA: . . 2 . . . 4 .', tipo:'kick',
+          steps:[1,0,0,0, 0,0,0.5,0, 1,0,0,0, 0,0,0.5,0] },
+        { nome:'Caixa (Zabumba)', icone:'🪘', padrao:'Borda no contratempo 2 e 4', tipo:'snare',
+          steps:[0,0,0.7,0, 0,0,0,0, 0,0,0.7,0, 0,0,0,0] },
+        { nome:'Triângulo', icone:'🔺', padrao:'X . X . X . X . (constante)', tipo:'triangle',
+          steps:[1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0] },
+        { nome:'Violão / Guitarra', icone:'🎸', padrao:'Rasqueado descendente no 1 e 3\nContratempo no 2 e 4', tipo:'chord',
+          steps:[1,0,0,0.5, 0,0,1,0, 1,0,0,0.5, 0,0,1,0] },
+        { nome:'Baixo', icone:'🎵', padrao:'Notas longas no 1 e 3', tipo:'bass',
+          steps:[1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0] },
+      ]
+    },
+
     samba: { nome:'Samba', icone:'🪘', bpm:'80–100 BPM', bpmDemo:90,
-      steps:[
-        {t:'kick',f:true},{t:'silence'},{t:'hihat'},{t:'hihat'},
-        {t:'kick'},{t:'hihat'},{t:'snare',f:true},{t:'hihat'},
-        {t:'kick',f:true},{t:'hihat'},{t:'hihat'},{t:'kick'},
-        {t:'hihat'},{t:'hihat'},{t:'snare',f:true},{t:'hihat'}
-      ],
-      descricao:'O samba gospel une a alegria do ritmo brasileiro com a mensagem cristã. Muito usado em louvores de celebração.', instrumentos:[{nome:'Surdo / Bumbo', padrao:'1 . . . 2 . . . (batida forte no 2)'},{nome:'Pandeiro', padrao:'X . x . X . x . (colcheias com acentos)'},{nome:'Violão', padrao:'Rasqueado típico: ↓ . ↑ ↓ . ↑ ↓ .'},{nome:'Baixo', padrao:'Segue o surdo + caminhadas cromáticas'}], dica:'O "balanço" do samba vem da sensação de levar o tempo entre o 1 e o 2. Evite tocar rígido demais — deixe fluir!' },
-    bolero: { nome:'Bolero Gospel', icone:'🎷', bpm:'60–80 BPM', bpmDemo:70,
-      steps:[
-        {t:'kick',f:true},{t:'silence'},{t:'hihat'},{t:'silence'},
-        {t:'silence'},{t:'hihat'},{t:'snare'},{t:'hihat'},
-        {t:'kick',f:true},{t:'silence'},{t:'hihat'},{t:'silence'},
-        {t:'silence'},{t:'hihat'},{t:'snare'},{t:'hihat'}
-      ],
-      descricao:'Ritmo romantico e suave, ótimo para músicas de intimidade com Deus e adoração contemplativa.', instrumentos:[{nome:'Bateria', padrao:'BALADA SUAVE: baquetas com vassouras'},{nome:'Baixo', padrao:'Notas longas, caminhos suaves entre as notas do acorde'},{nome:'Teclado/Piano', padrao:'Arpejos lentos nos acordes, melodia na mão direita'},{nome:'Violão/Guitarra', padrao:'Dedilhado arpejado, sem rasqueado brusco'}], dica:'Seja minimalista. O silêncio é tão importante quanto as notas. Bolero exige sensibilidade e dinâmica suave.' },
+      descricao:'O samba gospel une a alegria do ritmo brasileiro com a mensagem cristã.',
+      dica:'O "balanço" vem da sensação de levar o tempo entre o 1 e o 2. Não toque rígido — deixe fluir!',
+      instrumentos:[
+        { nome:'Surdo (Bumbo)', icone:'🥁', padrao:'Batida forte no 2', tipo:'kick',
+          steps:[0.6,0,0,0, 1,0,0,0, 0.6,0,0,0, 1,0,0,0] },
+        { nome:'Pandeiro', icone:'🥁', padrao:'X . x . X . x . (colcheias com acentos)', tipo:'snare',
+          steps:[1,0,0.5,0, 1,0,0.5,0, 1,0,0.5,0, 1,0,0.5,0] },
+        { nome:'Tamborim', icone:'🔔', padrao:'Síncope característica do samba', tipo:'perc',
+          steps:[1,0,0,1, 0,1,0,0, 1,0,0,1, 0,1,0,0] },
+        { nome:'Violão', icone:'🎸', padrao:'Rasqueado típico: ↓ . ↑ ↓ . ↑ ↓ .', tipo:'chord',
+          steps:[1,0,0.5,1, 0,0.5,1,0, 1,0,0.5,1, 0,0.5,1,0] },
+        { nome:'Baixo', icone:'🎵', padrao:'Segue o surdo + caminhadas cromáticas', tipo:'bass',
+          steps:[0.8,0,0,0, 1,0,0.5,0, 0.8,0,0,0, 1,0,0.5,0] },
+      ]
+    },
+
+    bolero: { nome:'Bolero Gospel', icone:'🎷', bpm:'60–80 BPM', bpmDemo:68,
+      descricao:'Ritmo romântico e suave, ótimo para músicas de intimidade com Deus e adoração contemplativa.',
+      dica:'Seja minimalista. O silêncio é tão importante quanto as notas. Bolero exige sensibilidade.',
+      instrumentos:[
+        { nome:'Bumbo (suave)', icone:'🥁', padrao:'Tempos 1 e 3 muito suaves', tipo:'kick',
+          steps:[0.6,0,0,0, 0,0,0.4,0, 0.6,0,0,0, 0,0,0.4,0] },
+        { nome:'Caixa (vassoura)', icone:'🪘', padrao:'Vassoura delicada nos contratempos', tipo:'snare',
+          steps:[0,0,0.4,0, 0,0,0,0, 0,0,0.4,0, 0,0,0,0] },
+        { nome:'Hi-Hat (fechado)', icone:'🎵', padrao:'Colcheias suaves e constantes', tipo:'hihat',
+          steps:[0.4,0,0.4,0, 0.4,0,0.4,0, 0.4,0,0.4,0, 0.4,0,0.4,0] },
+        { nome:'Piano/Teclado', icone:'🎹', padrao:'Arpejos lentos, acordes sustentados', tipo:'chord',
+          steps:[1,0,0,0, 0.5,0,0,0, 1,0,0,0, 0.5,0,0,0] },
+        { nome:'Baixo (lento)', icone:'🎵', padrao:'Notas longas, caminhos suaves', tipo:'bass',
+          steps:[1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0] },
+      ]
+    },
+
     marcha: { nome:'Marcha Evangelical', icone:'🥁', bpm:'100–130 BPM', bpmDemo:115,
-      steps:[
-        {t:'kick',f:true},{t:'hihat'},{t:'hihat'},{t:'hihat'},
-        {t:'snare',f:true},{t:'hihat'},{t:'hihat'},{t:'hihat'},
-        {t:'kick',f:true},{t:'hihat'},{t:'kick'},{t:'hihat'},
-        {t:'snare',f:true},{t:'hihat'},{t:'hihat'},{t:'hihat'}
-      ],
-      descricao:'Ritmo firme e militante. Muito usado em hinos de avivamento e missão.', instrumentos:[{nome:'Bateria', padrao:'CAIXA nos contratempos 2 e 4\nBOMBO: 1 . . 2+ . . 4 .\nHI-HAT: fechado em colcheias constantes'},{nome:'Baixo', padrao:'Colcheias ou semínimas em unissono com o bombo'},{nome:'Guitarra/Violão', padrao:'Acordes em colcheias ou power chords'},{nome:'Metais (se houver)', padrao:'Reforço nos tempos fortes'}], dica:'A caixa nos contratempos dá o feel de marcha. Mantenha o grupo unido e forte — energia é o ponto!' },
+      descricao:'Ritmo firme e militante. Muito usado em hinos de avivamento e missão.',
+      dica:'A caixa nos contratempos dá o feel de marcha. Mantenha o grupo unido e forte!',
+      instrumentos:[
+        { nome:'Bumbo', icone:'🥁', padrao:'BOMBO: 1 . . 2+ . . 4 .', tipo:'kick',
+          steps:[1,0,0,0, 1,0,0,0, 1,0,1,0, 1,0,0,0] },
+        { nome:'Caixa', icone:'🪘', padrao:'CAIXA nos contratempos 2 e 4', tipo:'snare',
+          steps:[0,0,1,0, 0,0,0,0, 0,0,1,0, 0,0,0,0] },
+        { nome:'Hi-Hat (fechado)', icone:'🎵', padrao:'Colcheias constantes fechadas', tipo:'hihat',
+          steps:[1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0] },
+        { nome:'Guitarra/Violão', icone:'🎸', padrao:'Acordes em colcheias ou power chords', tipo:'chord',
+          steps:[1,0,1,0, 0,0,1,0, 1,0,1,0, 0,0,1,0] },
+        { nome:'Baixo', icone:'🎵', padrao:'Em uníssono com o bombo', tipo:'bass',
+          steps:[1,0,0,0, 1,0,0,0, 1,0,1,0, 1,0,0,0] },
+      ]
+    },
+
     pop: { nome:'Pop Gospel', icone:'🎵', bpm:'90–120 BPM', bpmDemo:105,
-      steps:[
-        {t:'kick',f:true},{t:'hihat'},{t:'hihat'},{t:'hihat'},
-        {t:'snare',f:true},{t:'hihat'},{t:'hihat'},{t:'kick'},
-        {t:'kick',f:true},{t:'hihat'},{t:'hihat'},{t:'hihat'},
-        {t:'snare',f:true},{t:'hihat'},{t:'kick'},{t:'hihat'}
-      ],
-      descricao:'Estilo mais contemporâneo, presente nas músicas de Hillsong, Bethel, Elevation. Padrão de pop rock cristão.', instrumentos:[{nome:'Bateria', padrao:'BOMBO: 1 . . . 3 . . .\nCAIXA: . . 2 . . . 4 .\nHI-HAT: x x x x x x x x (colcheias)'},{nome:'Baixo', padrao:'Segue o bombo, notas longas com variações no final do compasso'},{nome:'Guitarra', padrao:'Arpejo limpo na intro/verso, distorcido no refrão'},{nome:'Teclado', padrao:'Pad sustentado no verso, acordes rítmicos no refrão'}], dica:'O diferencial do pop gospel é a dinâmica: suave no verso, explosivo no refrão. Construa a emoção!' },
-    ballad: { nome:'Balada de Adoração', icone:'🎹', bpm:'60–80 BPM', bpmDemo:68,
-      steps:[
-        {t:'kick',f:true},{t:'silence'},{t:'silence'},{t:'hihat'},
-        {t:'silence'},{t:'silence'},{t:'snare'},{t:'silence'},
-        {t:'kick'},{t:'silence'},{t:'silence'},{t:'hihat'},
-        {t:'silence'},{t:'silence'},{t:'snare'},{t:'silence'}
-      ],
-      descricao:'Para músicas contemplativas e de intimidade. Exige sensibilidade e espaço para o vocal brilhar.', instrumentos:[{nome:'Piano/Teclado', padrao:'Arpejos lentos, sustentação de acordes\nMelodias intercaladas com o canto'},{nome:'Violão', padrao:'Dedilhado delicado: p-i-m-a em loop'},{nome:'Bateria', padrao:'Vassouras ou baquetas muito suaves\nRide cymbal gentil'},{nome:'Baixo', padrao:'Notas muito longas, minimalista'}], dica:'Menos é mais. Deixe os silêncios respirarem. O espaço dado ao vocal é o maior presente nesse ritmo.' },
+      descricao:'Estilo contemporâneo presente nas músicas de Hillsong, Bethel, Elevation.',
+      dica:'O diferencial do pop gospel é a dinâmica: suave no verso, explosivo no refrão. Construa a emoção!',
+      instrumentos:[
+        { nome:'Bumbo', icone:'🥁', padrao:'BOMBO: 1 . . . 3 . . .', tipo:'kick',
+          steps:[1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,1,0] },
+        { nome:'Caixa', icone:'🪘', padrao:'CAIXA: . . 2 . . . 4 .', tipo:'snare',
+          steps:[0,0,1,0, 0,0,0,0, 0,0,1,0, 0,0,0,0] },
+        { nome:'Hi-Hat', icone:'🎵', padrao:'Colcheias constantes', tipo:'hihat',
+          steps:[1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1] },
+        { nome:'Guitarra', icone:'🎸', padrao:'Arpejos no verso, acordes no refrão', tipo:'chord',
+          steps:[1,0,0,0.5, 0,0.5,0,0, 1,0,0,0.5, 0,0.5,0,0] },
+        { nome:'Teclado (pad)', icone:'🎹', padrao:'Pad sustentado no verso', tipo:'chord',
+          steps:[1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0] },
+        { nome:'Baixo', icone:'🎵', padrao:'Segue o bombo, notas longas', tipo:'bass',
+          steps:[1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0.5,0] },
+      ]
+    },
+
+    ballad: { nome:'Balada de Adoração', icone:'🎹', bpm:'60–80 BPM', bpmDemo:66,
+      descricao:'Para músicas contemplativas e de intimidade. Exige sensibilidade e espaço para o vocal brilhar.',
+      dica:'Menos é mais. Deixe os silêncios respirarem. O espaço dado ao vocal é o maior presente nesse ritmo.',
+      instrumentos:[
+        { nome:'Bumbo (muito suave)', icone:'🥁', padrao:'Apenas no 1 e 3, muito discreto', tipo:'kick',
+          steps:[0.5,0,0,0, 0,0,0,0, 0.5,0,0,0, 0,0,0,0] },
+        { nome:'Caixa (vassoura)', icone:'🪘', padrao:'Somente no 2 e 4, quase inaudível', tipo:'snare',
+          steps:[0,0,0.35,0, 0,0,0,0, 0,0,0.35,0, 0,0,0,0] },
+        { nome:'Ride / Prato', icone:'🎵', padrao:'Ride suave em semínimas', tipo:'hihat',
+          steps:[0.3,0,0,0, 0.3,0,0,0, 0.3,0,0,0, 0.3,0,0,0] },
+        { nome:'Piano/Teclado', icone:'🎹', padrao:'Arpejos lentos p-i-m-a', tipo:'chord',
+          steps:[1,0,0.5,0, 0,0.5,0,0, 1,0,0.5,0, 0,0.5,0,0] },
+        { nome:'Baixo (minimalista)', icone:'🎵', padrao:'Notas muito longas', tipo:'bass',
+          steps:[0.7,0,0,0, 0,0,0,0, 0.7,0,0,0, 0,0,0,0] },
+      ]
+    },
+
     funk: { nome:'Funk Gospel', icone:'🎸', bpm:'90–110 BPM', bpmDemo:100,
-      steps:[
-        {t:'kick',f:true},{t:'silence'},{t:'kick'},{t:'hihat'},
-        {t:'snare',f:true},{t:'hihat'},{t:'silence'},{t:'kick'},
-        {t:'kick',f:true},{t:'hihat'},{t:'kick'},{t:'silence'},
-        {t:'snare',f:true},{t:'hihat'},{t:'kick'},{t:'hihat'}
-      ],
-      descricao:'Groove pesado e dançante. Presente em louvor moderno afro-gospel e urbano.', instrumentos:[{nome:'Bateria', padrao:'BOMBO sincopado, CAIXA no 2 e 4\nHI-HAT: x . x x . x x . (síncopes)'},{nome:'Baixo', padrao:'Slap e groove — notas curtas e ataques no contratempo\nSíncope constante'},{nome:'Guitarra', padrao:'Muted chords (apagados) em síncopes\nRiff de terças no agudo'},{nome:'Teclado', padrao:'Rhodes/Clavinet em colcheias síncopes'}], dica:'O groove do funk vive nas pausas. Cada silêncio é intencional — não toque notas desnecessárias!' },
+      descricao:'Groove pesado e dançante. Presente em louvor moderno afro-gospel e urbano.',
+      dica:'O groove do funk vive nas pausas. Cada silêncio é intencional — não toque notas desnecessárias!',
+      instrumentos:[
+        { nome:'Bumbo (sincopado)', icone:'🥁', padrao:'BOMBO sincopado característico', tipo:'kick',
+          steps:[1,0,0,0.5, 0,0,0.7,0, 1,0,0,0, 0.5,0,0,0] },
+        { nome:'Caixa', icone:'🪘', padrao:'CAIXA no 2 e 4 com ghost notes', tipo:'snare',
+          steps:[0,0,1,0, 0.3,0,0,0.3, 0,0,1,0, 0.3,0,0,0.3] },
+        { nome:'Hi-Hat (síncopes)', icone:'🎵', padrao:'x . x x . x x . (síncopes)', tipo:'hihat',
+          steps:[1,0,1,1, 0,1,1,0, 1,0,1,1, 0,1,1,0] },
+        { nome:'Guitarra (muted)', icone:'🎸', padrao:'Muted chords em síncopes\nRiff de terças no agudo', tipo:'chord',
+          steps:[1,0,0,0.6, 0,0.6,0,1, 0,0,0.6,0, 1,0,0.6,0] },
+        { nome:'Baixo (slap)', icone:'🎵', padrao:'Slap — notas curtas e ataques', tipo:'bass',
+          steps:[1,0,0,0.7, 0,0,1,0, 0.7,0,0,0, 1,0,0,0.7] },
+        { nome:'Teclado (Rhodes)', icone:'🎹', padrao:'Rhodes/Clavinet em síncopes', tipo:'chord',
+          steps:[0,0.6,0,0, 0.6,0,0,0.6, 0,0,0.6,0, 0,0.6,0,0] },
+      ]
+    },
+
     reggae: { nome:'Reggae Gospel', icone:'🌿', bpm:'70–90 BPM', bpmDemo:80,
-      steps:[
-        {t:'kick',f:true},{t:'silence'},{t:'silence'},{t:'hihat'},
-        {t:'silence'},{t:'silence'},{t:'snare'},{t:'hihat'},
-        {t:'kick',f:true},{t:'silence'},{t:'silence'},{t:'hihat'},
-        {t:'silence'},{t:'snare'},{t:'silence'},{t:'hihat'}
-      ],
-      descricao:'Feel caribenho e relaxado. Muito usado em músicas que falam de paz, liberdade e graça.', instrumentos:[{nome:'Bateria', padrao:'HI-HAT nos contratempos (e)\nSKANK na guitarra/teclado no 2+ e 4+'},{nome:'Baixo', padrao:'Melodia grave, notas longas no 1 e 3\nVariações no "e" do 2'},{nome:'Guitarra/Teclado (Skank)', padrao:'. X . X . X . X (X = contratempo)'},{nome:'Percussão', padrao:'Shaker ou pandeiro suave em colcheias'}], dica:'O skank (pancada no contratempo) é o coração do reggae. Sem ele o ritmo perde identidade!' },
+      descricao:'Feel caribenho e relaxado. Muito usado em músicas que falam de paz, liberdade e graça.',
+      dica:'O skank (pancada no contratempo) é o coração do reggae. Sem ele o ritmo perde identidade!',
+      instrumentos:[
+        { nome:'Bumbo', icone:'🥁', padrao:'Notas longas no 1 e 3', tipo:'kick',
+          steps:[1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0] },
+        { nome:'Caixa', icone:'🪘', padrao:'Caixa rim-shot no 3', tipo:'snare',
+          steps:[0,0,0,0, 0,0,0.8,0, 0,0,0,0, 0,0,0.8,0] },
+        { nome:'Hi-Hat (contratempo)', icone:'🎵', padrao:'HI-HAT nos contratempos (e)', tipo:'hihat',
+          steps:[0,1,0,1, 0,1,0,1, 0,1,0,1, 0,1,0,1] },
+        { nome:'Guitarra/Teclado (Skank)', icone:'🎸', padrao:'. X . X . X . X\n(X = contratempo — essencial!)', tipo:'chord',
+          steps:[0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0] },
+        { nome:'Baixo (melodia grave)', icone:'🎵', padrao:'Notas longas no 1 e 3\nVariações no "e" do 2', tipo:'bass',
+          steps:[1,0,0.5,0, 0,0,0,0.4, 1,0,0.5,0, 0,0,0,0.4] },
+        { nome:'Shaker/Percussão', icone:'🔔', padrao:'Colcheias constantes suaves', tipo:'shaker',
+          steps:[0.5,0.3,0.5,0.3, 0.5,0.3,0.5,0.3, 0.5,0.3,0.5,0.3, 0.5,0.3,0.5,0.3] },
+      ]
+    },
+
     hino: { nome:'Hino Clássico', icone:'♪', bpm:'70–100 BPM', bpmDemo:88,
-      steps:[
-        {t:'kick',f:true},{t:'silence'},{t:'snare'},{t:'silence'},
-        {t:'kick',f:true},{t:'silence'},{t:'snare'},{t:'silence'},
-        {t:'kick',f:true},{t:'silence'},{t:'snare'},{t:'silence'},
-        {t:'kick',f:true},{t:'silence'},{t:'snare'},{t:'silence'}
-      ],
-      descricao:'Estilo dos grandes hinários: Cantor Cristão, Corinhos de Ouro. Compasso binário ou ternário, solene.', instrumentos:[{nome:'Órgão/Teclado', padrao:'Acordes plenos em semínimas\n1 . 2 . 3 . 4 . (4/4)'},{nome:'Coral/Vozes', padrao:'SATB — Soprano, Alto, Tenor, Baixo em bloco'},{nome:'Piano', padrao:'Alberti bass ou acordes simples'},{nome:'Bateria/Percussão', padrao:'Opcional: apenas hi-hat ou surdo muito suave'}], dica:'Respeite a letra e a métrica do hino. O arranjo deve realçar a mensagem, não competir com ela.' },
+      descricao:'Estilo dos grandes hinários: Cantor Cristão, Corinhos de Ouro. Solene e nobre.',
+      dica:'Respeite a letra e a métrica do hino. O arranjo deve realçar a mensagem, não competir com ela.',
+      instrumentos:[
+        { nome:'Bumbo (discreto)', icone:'🥁', padrao:'Apenas no 1 e 3', tipo:'kick',
+          steps:[0.7,0,0,0, 0,0,0,0, 0.7,0,0,0, 0,0,0,0] },
+        { nome:'Caixa (suave)', icone:'🪘', padrao:'Somente no 2 e 4', tipo:'snare',
+          steps:[0,0,0.5,0, 0,0,0,0, 0,0,0.5,0, 0,0,0,0] },
+        { nome:'Órgão/Teclado', icone:'🎹', padrao:'Acordes plenos em semínimas\n1 . 2 . 3 . 4 .', tipo:'chord',
+          steps:[1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0] },
+        { nome:'Piano', icone:'🎹', padrao:'Alberti bass ou acordes simples', tipo:'chord',
+          steps:[1,0,0.5,0, 1,0,0.5,0, 1,0,0.5,0, 1,0,0.5,0] },
+        { nome:'Baixo', icone:'🎵', padrao:'Semínimas seguindo a harmonia', tipo:'bass',
+          steps:[1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0] },
+      ]
+    },
+
     worship: { nome:'Worship Moderno', icone:'✨', bpm:'68–76 BPM', bpmDemo:72,
-      steps:[
-        {t:'kick',f:true},{t:'silence'},{t:'hihat'},{t:'silence'},
-        {t:'snare',f:true},{t:'silence'},{t:'hihat'},{t:'silence'},
-        {t:'kick',f:true},{t:'hihat'},{t:'hihat'},{t:'silence'},
-        {t:'snare',f:true},{t:'silence'},{t:'hihat'},{t:'silence'}
-      ],
-      descricao:'Estilo Hillsong/Bethel/Elevation. Atmosférico, construção gradual, altamente emocional.', instrumentos:[{nome:'Bateria', padrao:'INTRO: apenas hi-hat ou ride\nVERSO: kick e snare suaves\nREFRÃO: fill + abertura total da bateria'},{nome:'Guitarra', padrao:'Delay/reverb expressivo\nArpejos no verso, power chords no refrão'},{nome:'Keys/Teclado', padrao:'PAD sustentado durante toda a música\nPiano preenche nos espaços'},{nome:'Baixo', padrao:'Segue o bombo no refrão\nLiberdade melódica na ponte'}], dica:'Dinâmica é tudo no worship moderno. A "subida" para o refrão deve ser sentida pela congregação — construa com intenção!' },
+      descricao:'Estilo Hillsong/Bethel/Elevation. Atmosférico, construção gradual, altamente emocional.',
+      dica:'Dinâmica é tudo no worship. A "subida" para o refrão deve ser sentida pela congregação!',
+      instrumentos:[
+        { nome:'Bumbo', icone:'🥁', padrao:'Kick no 1 e 3, leve no refrão', tipo:'kick',
+          steps:[1,0,0,0, 0,0,0,0, 1,0,0.5,0, 0,0,0,0] },
+        { nome:'Caixa', icone:'🪘', padrao:'Snare no 2 e 4 com ghost notes', tipo:'snare',
+          steps:[0,0,1,0, 0,0,0,0.2, 0,0,1,0, 0,0,0,0.2] },
+        { nome:'Hi-Hat / Ride', icone:'🎵', padrao:'Ride aberto atmosférico', tipo:'hihat',
+          steps:[1,0,0.5,0, 0.5,0,1,0, 1,0,0.5,0, 0.5,0,1,0] },
+        { nome:'Guitarra (delay)', icone:'🎸', padrao:'Arpejo com delay/reverb expressivo\nPower chords no refrão', tipo:'chord',
+          steps:[1,0,0,0.5, 0,0,0.5,0, 1,0,0,0.5, 0,0,0.5,0] },
+        { nome:'Keys (pad)', icone:'🎹', padrao:'PAD sustentado durante toda a música', tipo:'chord',
+          steps:[1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0] },
+        { nome:'Baixo', icone:'🎵', padrao:'Segue o bombo no refrão\nLiberdade melódica na ponte', tipo:'bass',
+          steps:[1,0,0,0, 0,0,0,0, 1,0,0,0.5, 0,0,0,0] },
+      ]
+    },
+
     xote: { nome:'Xote / Forró', icone:'🎺', bpm:'100–130 BPM', bpmDemo:115,
-      steps:[
-        {t:'kick',f:true},{t:'hihat'},{t:'snare'},{t:'hihat'},
-        {t:'kick'},{t:'hihat'},{t:'snare',f:true},{t:'hihat'},
-        {t:'kick',f:true},{t:'hihat'},{t:'snare'},{t:'hihat'},
-        {t:'kick'},{t:'kick'},{t:'snare',f:true},{t:'hihat'}
-      ],
-      descricao:'Ritmo nordestino animado, presente em louvores brasileiros mais festivos e evangelísticos.', instrumentos:[{nome:'Zabumba', padrao:'FORTE no 1 e 3 com aro no 2 e 4\n↓ . ↑ . ↓ . ↑ .'},{nome:'Triângulo', padrao:'X . X . X . X . (constante em semínimas)'},{nome:'Sanfona/Teclado', padrao:'Acordes em colcheias com swing (shuffle feel)'},{nome:'Baixo', padrao:'Seguindo o bombo com caminhadas na escala'}], dica:'O swing do forró é diferente do straight — as colcheias não são iguais, a primeira é um pouco mais longa!' },
+      descricao:'Ritmo nordestino animado, presente em louvores brasileiros mais festivos.',
+      dica:'O swing do forró é diferente do straight — as colcheias têm um "quicar" característico!',
+      instrumentos:[
+        { nome:'Zabumba (forte)', icone:'🥁', padrao:'FORTE no 1 e 3\nARO no 2 e 4', tipo:'kick',
+          steps:[1,0,0.5,0, 1,0,0.5,0, 1,0,0.5,0, 1,0,0.5,0] },
+        { nome:'Triângulo', icone:'🔺', padrao:'X . X . X . X . (constante)', tipo:'triangle',
+          steps:[1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0] },
+        { nome:'Sanfona/Teclado', icone:'🎹', padrao:'Acordes em colcheias com swing', tipo:'chord',
+          steps:[1,0.5,0,0.5, 1,0.5,0,0.5, 1,0.5,0,0.5, 1,0.5,0,0.5] },
+        { nome:'Baixo', icone:'🎵', padrao:'Seguindo o bumbo com caminhadas', tipo:'bass',
+          steps:[1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0.5,0] },
+      ]
+    },
+
     valsa: { nome:'Valsa Sacra', icone:'💃', bpm:'120–160 BPM', bpmDemo:140,
-      steps:[
-        {t:'kick',f:true},{t:'silence'},{t:'silence'},
-        {t:'snare'},{t:'silence'},{t:'silence'},
-        {t:'kick',f:true},{t:'silence'},{t:'silence'},
-        {t:'snare'},{t:'silence'},{t:'silence'}
-      ],
-      descricao:'Compasso ternário (3/4). Elegante e majestoso, usado em hinos solenes de adoração.', instrumentos:[{nome:'Piano/Teclado', padrao:'1 . . 2 . . 3 . .\nACORDE no 1 (baixo), harmonia no 2 e 3'},{nome:'Bateria', padrao:'BUMBO: tempo 1\nHI-HAT: tempos 2 e 3 (suave)'},{nome:'Violão', padrao:'BAIXO no 1, RASQUEADO no 2 e 3'},{nome:'Cello/Cordas', padrao:'Arco longo no 1, pizzicato no 2 e 3 (se disponível)'}], dica:'A valsa tem um balanço único — o 1 é forte, o 2 e 3 são "levantamento". Sinta o movimento de "para baixo / para cima".' },
+      descricao:'Compasso ternário (3/4). Elegante e majestoso, usado em hinos solenes de adoração.',
+      dica:'A valsa tem balanço único: o 1 é forte, o 2 e 3 são "levantamento". Sinta o movimento!',
+      // Valsa tem 12 steps (3 batidas × 4 subdivisões)
+      instrumentos:[
+        { nome:'Bumbo', icone:'🥁', padrao:'BUMBO apenas no tempo 1', tipo:'kick',
+          steps:[1,0,0, 0,0,0, 1,0,0, 0,0,0] },
+        { nome:'Hi-Hat / Prato', icone:'🎵', padrao:'Hi-hat nos tempos 2 e 3 suave', tipo:'hihat',
+          steps:[0,0,0, 0.4,0,0, 0,0,0, 0.4,0,0] },
+        { nome:'Piano/Teclado', icone:'🎹', padrao:'ACORDE no 1 (baixo)\nHarmonia no 2 e 3', tipo:'chord',
+          steps:[1,0,0, 0.6,0,0, 0.6,0,0, 0,0,0] },
+        { nome:'Violão', icone:'🎸', padrao:'BAIXO no 1\nRASQUEADO no 2 e 3', tipo:'chord',
+          steps:[1,0,0, 0.7,0,0.4, 1,0,0, 0.7,0,0.4] },
+        { nome:'Baixo', icone:'🎵', padrao:'Nota longa apenas no tempo 1', tipo:'bass',
+          steps:[1,0,0, 0,0,0, 1,0,0, 0,0,0] },
+      ]
+    },
   };
 
-  // ── ENGINE DE ÁUDIO ──
-  var demoAtivo = false, demoStep = 0, demoTimerId = null, demoCtx = null, demoBpm = 100, demoRitmoId = null;
+  // ═══════════════════════════════════════════════════
+  // MOTOR DE ÁUDIO — Web Audio API
+  // ═══════════════════════════════════════════════════
+  var actx = null;
+  var masterGain = null;
 
-  function criarSom(tipo, forte) {
-    if (!demoCtx) return;
-    var t = demoCtx.currentTime;
+  function initAudio() {
+    if (actx && actx.state !== 'closed') return Promise.resolve();
+    actx = new (window.AudioContext || window.webkitAudioContext)();
+    masterGain = actx.createGain();
+    masterGain.gain.value = 0.85;
+    masterGain.connect(actx.destination);
+    return actx.state === 'suspended' ? actx.resume() : Promise.resolve();
+  }
+
+  // Gera nó de reverb simples (convolution simulada por impulso)
+  function makeReverb(wet) {
+    var conv = actx.createConvolver();
+    var len = actx.sampleRate * 1.2;
+    var buf = actx.createBuffer(2, len, actx.sampleRate);
+    for (var ch = 0; ch < 2; ch++) {
+      var d = buf.getChannelData(ch);
+      for (var i = 0; i < len; i++) d[i] = (Math.random()*2-1) * Math.pow(1 - i/len, 4);
+    }
+    conv.buffer = buf;
+    var wg = actx.createGain(); wg.gain.value = wet;
+    var dg = actx.createGain(); dg.gain.value = 1 - wet;
+    return { conv, wg, dg };
+  }
+
+  // Sons sintetizados por instrumento
+  function tocarSom(tipo, volume) {
+    if (!actx || volume <= 0) return;
+    var t = actx.currentTime;
+    var v = Math.min(1, volume);
+
     if (tipo === 'kick') {
-      var osc = demoCtx.createOscillator(), g = demoCtx.createGain();
+      var osc = actx.createOscillator(), g = actx.createGain();
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(forte ? 150 : 110, t);
-      osc.frequency.exponentialRampToValueAtTime(40, t + 0.12);
-      g.gain.setValueAtTime(forte ? 0.9 : 0.6, t);
-      g.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
-      osc.connect(g); g.connect(demoCtx.destination);
-      osc.start(t); osc.stop(t + 0.2);
+      osc.frequency.setValueAtTime(v > 0.7 ? 160 : 120, t);
+      osc.frequency.exponentialRampToValueAtTime(35, t + 0.15);
+      g.gain.setValueAtTime(v * 1.1, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+      osc.connect(g); g.connect(masterGain);
+      osc.start(t); osc.stop(t + 0.25);
+      // Sub click
+      var cl = actx.createOscillator(), gcl = actx.createGain();
+      cl.type = 'triangle'; cl.frequency.value = 2500;
+      gcl.gain.setValueAtTime(v * 0.3, t); gcl.gain.exponentialRampToValueAtTime(0.001, t+0.01);
+      cl.connect(gcl); gcl.connect(masterGain); cl.start(t); cl.stop(t+0.015);
+
     } else if (tipo === 'snare') {
-      var buf = demoCtx.createBuffer(1, demoCtx.sampleRate * 0.12, demoCtx.sampleRate);
+      // Ruído
+      var len = Math.floor(actx.sampleRate * 0.18);
+      var buf = actx.createBuffer(1, len, actx.sampleRate);
       var d = buf.getChannelData(0);
-      for (var i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
-      var src = demoCtx.createBufferSource(), gS = demoCtx.createGain();
-      var filt = demoCtx.createBiquadFilter();
-      filt.type = 'bandpass'; filt.frequency.value = forte ? 1800 : 1400; filt.Q.value = 0.8;
-      gS.gain.setValueAtTime(forte ? 0.85 : 0.55, t);
-      gS.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+      for (var i=0; i<len; i++) d[i] = (Math.random()*2-1) * (1 - i/len);
+      var src = actx.createBufferSource();
       src.buffer = buf;
-      src.connect(filt); filt.connect(gS); gS.connect(demoCtx.destination);
-      src.start(t);
+      var bpf = actx.createBiquadFilter(); bpf.type='bandpass'; bpf.frequency.value= v>0.5?1800:1200; bpf.Q.value=0.7;
+      var gs = actx.createGain(); gs.gain.setValueAtTime(v*0.9, t); gs.gain.exponentialRampToValueAtTime(0.001, t+0.16);
+      src.connect(bpf); bpf.connect(gs); gs.connect(masterGain); src.start(t);
+      // Corpo (oscilador)
+      if (v > 0.5) {
+        var o2 = actx.createOscillator(), go2 = actx.createGain();
+        o2.type='triangle'; o2.frequency.value=180;
+        go2.gain.setValueAtTime(v*0.25, t); go2.gain.exponentialRampToValueAtTime(0.001, t+0.06);
+        o2.connect(go2); go2.connect(masterGain); o2.start(t); o2.stop(t+0.07);
+      }
+
     } else if (tipo === 'hihat') {
-      var buf2 = demoCtx.createBuffer(1, demoCtx.sampleRate * 0.06, demoCtx.sampleRate);
+      var len2 = Math.floor(actx.sampleRate * (v>0.5 ? 0.08 : 0.05));
+      var buf2 = actx.createBuffer(1, len2, actx.sampleRate);
       var d2 = buf2.getChannelData(0);
-      for (var j = 0; j < d2.length; j++) d2[j] = (Math.random() * 2 - 1) * (1 - j / d2.length);
-      var src2 = demoCtx.createBufferSource(), gH = demoCtx.createGain();
-      var filt2 = demoCtx.createBiquadFilter();
-      filt2.type = 'highpass'; filt2.frequency.value = 7000;
-      gH.gain.setValueAtTime(0.25, t);
-      gH.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
-      src2.buffer = buf2;
-      src2.connect(filt2); filt2.connect(gH); gH.connect(demoCtx.destination);
-      src2.start(t);
+      for (var j=0; j<len2; j++) d2[j] = (Math.random()*2-1) * (1 - j/len2);
+      var src2 = actx.createBufferSource(); src2.buffer = buf2;
+      var hpf = actx.createBiquadFilter(); hpf.type='highpass'; hpf.frequency.value=7500;
+      var gh = actx.createGain(); gh.gain.setValueAtTime(v*0.35, t); gh.gain.exponentialRampToValueAtTime(0.001, t+0.07);
+      src2.connect(hpf); hpf.connect(gh); gh.connect(masterGain); src2.start(t);
+
+    } else if (tipo === 'perc') {
+      // Tamborim / percussão aguda
+      var buf3 = actx.createBuffer(1, Math.floor(actx.sampleRate*0.06), actx.sampleRate);
+      var d3 = buf3.getChannelData(0);
+      for (var k=0; k<d3.length; k++) d3[k] = (Math.random()*2-1) * (1-k/d3.length);
+      var src3 = actx.createBufferSource(); src3.buffer = buf3;
+      var bpf3 = actx.createBiquadFilter(); bpf3.type='bandpass'; bpf3.frequency.value=3000; bpf3.Q.value=1.5;
+      var gp = actx.createGain(); gp.gain.setValueAtTime(v*0.6, t); gp.gain.exponentialRampToValueAtTime(0.001, t+0.055);
+      src3.connect(bpf3); bpf3.connect(gp); gp.connect(masterGain); src3.start(t);
+
+    } else if (tipo === 'triangle') {
+      // Triângulo metálico
+      var freqs = [4000, 6000, 8500];
+      freqs.forEach(function(fr) {
+        var o = actx.createOscillator(), g = actx.createGain();
+        o.type = 'sine'; o.frequency.value = fr;
+        g.gain.setValueAtTime(v * 0.15, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+        o.connect(g); g.connect(masterGain); o.start(t); o.stop(t + 0.38);
+      });
+
+    } else if (tipo === 'shaker') {
+      var slen = Math.floor(actx.sampleRate * 0.04);
+      var sbuf = actx.createBuffer(1, slen, actx.sampleRate);
+      var sd = sbuf.getChannelData(0);
+      for (var si=0; si<slen; si++) sd[si] = (Math.random()*2-1) * (1-si/slen);
+      var ssrc = actx.createBufferSource(); ssrc.buffer = sbuf;
+      var shpf = actx.createBiquadFilter(); shpf.type='bandpass'; shpf.frequency.value=8000; shpf.Q.value=2;
+      var sg = actx.createGain(); sg.gain.setValueAtTime(v*0.2, t); sg.gain.exponentialRampToValueAtTime(0.001, t+0.04);
+      ssrc.connect(shpf); shpf.connect(sg); sg.connect(masterGain); ssrc.start(t);
+
+    } else if (tipo === 'bass') {
+      // Baixo elétrico sintético
+      var bo = actx.createOscillator(), bg = actx.createGain();
+      var bo2 = actx.createOscillator(), bg2 = actx.createGain();
+      bo.type = 'sawtooth'; bo.frequency.value = 80 + (v > 0.8 ? 8 : 0);
+      bo2.type = 'square'; bo2.frequency.value = 80 + (v > 0.8 ? 8 : 0);
+      var lpf = actx.createBiquadFilter(); lpf.type = 'lowpass'; lpf.frequency.value = 400; lpf.Q.value = 2;
+      bg.gain.setValueAtTime(v*0.55, t); bg.gain.setValueAtTime(v*0.55, t+0.005); bg.gain.exponentialRampToValueAtTime(v*0.25, t+0.12); bg.gain.exponentialRampToValueAtTime(0.001, t+0.35);
+      bg2.gain.setValueAtTime(v*0.12, t); bg2.gain.exponentialRampToValueAtTime(0.001, t+0.2);
+      bo.connect(bg); bg.connect(lpf);
+      bo2.connect(bg2); bg2.connect(lpf);
+      lpf.connect(masterGain);
+      bo.start(t); bo.stop(t+0.38);
+      bo2.start(t); bo2.stop(t+0.38);
+
+    } else if (tipo === 'chord') {
+      // Acorde/harmonia sintética — toca uma tríade
+      var notas = [261.63, 329.63, 392.00]; // C-E-G (dó maior)
+      notas.forEach(function(freq, ni) {
+        var co = actx.createOscillator(), cg = actx.createGain();
+        co.type = ni === 0 ? 'sawtooth' : 'triangle';
+        co.frequency.value = freq * (ni===0 ? 0.5 : 1);
+        var chLpf = actx.createBiquadFilter(); chLpf.type='lowpass'; chLpf.frequency.value=1800;
+        cg.gain.setValueAtTime(v*0.18, t); cg.gain.setValueAtTime(v*0.18, t+0.01);
+        cg.gain.exponentialRampToValueAtTime(v*0.08, t+0.18); cg.gain.exponentialRampToValueAtTime(0.001, t+0.28);
+        co.connect(chLpf); chLpf.connect(cg); cg.connect(masterGain);
+        co.start(t); co.stop(t+0.3);
+      });
     }
   }
 
-  function demoTick() {
-    if (!demoAtivo) return;
-    var r = RITMOS_DATA[demoRitmoId]; if (!r) return;
-    var steps = r.steps;
-    var s = steps[demoStep % steps.length];
-    if (s.t !== 'silence') criarSom(s.t, !!s.f);
+  // ═══════════════════════════════════════════════════
+  // ESTADO DO PLAYER
+  // ═══════════════════════════════════════════════════
+  var playing = false;
+  var stepAtual = 0;
+  var timerId = null;
+  var bpmAtual = 100;
+  var ritmoAtual = null;
+  // mutedInstruments: set com indices dos instrumentos silenciados
+  var mutedInst = {};
+  // soloInstrument: index ou null
+  var soloInst = null;
 
-    // Visual
-    var dots = document.querySelectorAll('.ritmo-beat-dot');
-    dots.forEach(function(d, i) {
-      d.classList.remove('on', 'forte-on');
-      if (i === demoStep % steps.length) {
-        d.classList.add('on');
-        if (s.f) d.classList.add('forte-on');
-      }
-    });
-
-    demoStep++;
-    var stepMs = (60000 / demoBpm) / 4;
-    demoTimerId = setTimeout(demoTick, stepMs);
+  function pararTudo() {
+    playing = false;
+    if (timerId) { clearTimeout(timerId); timerId = null; }
+    stepAtual = 0;
+    atualizarBotaoPlay(false);
+    limparVisuais();
   }
 
-  function demoParar() {
-    demoAtivo = false;
-    if (demoTimerId) { clearTimeout(demoTimerId); demoTimerId = null; }
-    demoStep = 0;
-    document.querySelectorAll('.ritmo-beat-dot').forEach(function(d){ d.classList.remove('on','forte-on'); });
+  function atualizarBotaoPlay(on) {
     var btn = document.getElementById('btn-ritmo-play');
-    if (btn) { btn.classList.remove('stop'); document.getElementById('ritmo-play-icon').textContent = '▶'; document.getElementById('ritmo-play-label').textContent = 'Ouvir Ritmo'; }
+    if (!btn) return;
+    btn.classList.toggle('stop', on);
+    document.getElementById('ritmo-play-icon').textContent = on ? '⏹' : '▶';
+    document.getElementById('ritmo-play-label').textContent = on ? 'Parar Tudo' : 'Tocar Todos';
   }
 
-  window.ritmoDemoToggle = function() {
-    if (demoAtivo) { demoParar(); return; }
-    if (!demoCtx || demoCtx.state === 'closed') demoCtx = new (window.AudioContext || window.webkitAudioContext)();
-    var resume = demoCtx.state === 'suspended' ? demoCtx.resume() : Promise.resolve();
-    resume.then(function() {
-      demoAtivo = true; demoStep = 0;
-      var btn = document.getElementById('btn-ritmo-play');
-      if (btn) { btn.classList.add('stop'); document.getElementById('ritmo-play-icon').textContent = '⏹'; document.getElementById('ritmo-play-label').textContent = 'Parar'; }
-      demoTick();
+  function limparVisuais() {
+    document.querySelectorAll('.ritmo-beat-dot').forEach(function(d){ d.classList.remove('on','forte-on'); });
+    document.querySelectorAll('.inst-beat-dot').forEach(function(d){ d.classList.remove('on'); });
+  }
+
+  function tick() {
+    if (!playing || !ritmoAtual) return;
+    var r = RITMOS_DATA[ritmoAtual];
+    var totalSteps = r.instrumentos[0].steps.length;
+    var step = stepAtual % totalSteps;
+
+    // Tocar cada instrumento
+    r.instrumentos.forEach(function(inst, ii) {
+      var vol = inst.steps[step] || 0;
+      var muted = mutedInst[ii];
+      var soloAtivo = soloInst !== null;
+      var deveTocar = !muted && (!soloAtivo || soloInst === ii);
+      if (deveTocar && vol > 0) tocarSom(inst.tipo, vol);
+
+      // Visual dos beats por instrumento
+      var dotId = 'ibeat-' + ii + '-' + step;
+      // Apaga dot anterior desta linha
+      var prevStep = (step - 1 + totalSteps) % totalSteps;
+      var prevDot = document.getElementById('ibeat-' + ii + '-' + prevStep);
+      if (prevDot) prevDot.classList.remove('on');
+      var curDot = document.getElementById(dotId);
+      if (curDot && vol > 0 && deveTocar) curDot.classList.add('on');
     });
+
+    // Visual geral (barra de progresso dos beats)
+    document.querySelectorAll('.ritmo-beat-dot').forEach(function(d, i) {
+      d.classList.remove('on','forte-on');
+      if (i === step) { d.classList.add('on'); }
+    });
+
+    stepAtual++;
+    var stepMs = (60000 / bpmAtual) / 4;
+    timerId = setTimeout(tick, stepMs);
+  }
+
+  function iniciarPlayer() {
+    initAudio().then(function() {
+      playing = true; stepAtual = 0;
+      atualizarBotaoPlay(true);
+      tick();
+    });
+  }
+
+  // ═══════════════════════════════════════════════════
+  // INTERFACE — controles globais
+  // ═══════════════════════════════════════════════════
+  window.ritmoDemoToggle = function() {
+    if (playing) { pararTudo(); } else { iniciarPlayer(); }
   };
 
   window.ritmoDemoBpmAdj = function(d) {
-    demoBpm = Math.max(50, Math.min(200, demoBpm + d));
-    var el = document.getElementById('ritmo-demo-bpm-val'); if (el) el.textContent = demoBpm;
+    bpmAtual = Math.max(40, Math.min(220, bpmAtual + d));
+    var el = document.getElementById('ritmo-demo-bpm-val'); if (el) el.textContent = bpmAtual;
   };
 
+  // Liga/desliga instrumento individual
+  window.instToggleMute = function(ii) {
+    mutedInst[ii] = !mutedInst[ii];
+    var btn = document.getElementById('inst-btn-' + ii);
+    var card = document.getElementById('inst-card-' + ii);
+    if (btn) btn.classList.toggle('muted', !!mutedInst[ii]);
+    if (card) card.classList.toggle('inst-muted', !!mutedInst[ii]);
+  };
+
+  // Solo — ouvir só este instrumento
+  window.instSolo = function(ii) {
+    soloInst = (soloInst === ii) ? null : ii;
+    document.querySelectorAll('.inst-solo-btn').forEach(function(b, i) {
+      b.classList.toggle('solo-on', soloInst === i);
+    });
+  };
+
+  // ═══════════════════════════════════════════════════
+  // RENDER DA PÁGINA DE DETALHE DO RITMO
+  // ═══════════════════════════════════════════════════
   function esc2(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/\n/g,'<br>'); }
+
+  function buildInstCard(inst, ii, totalSteps) {
+    var dots = '';
+    for (var s = 0; s < totalSteps; s++) {
+      var vol = inst.steps[s] || 0;
+      var cls = 'inst-beat-dot';
+      if (vol >= 0.8) cls += ' dot-forte';
+      else if (vol >= 0.4) cls += ' dot-medio';
+      else if (vol > 0) cls += ' dot-fraco';
+      // Marcadores de compasso (a cada 4)
+      if (s % 4 === 0) cls += ' dot-beat1';
+      dots += '<div class="' + cls + '" id="ibeat-' + ii + '-' + s + '"></div>';
+    }
+    return '<div class="inst-card" id="inst-card-' + ii + '">' +
+      '<div class="inst-card-top">' +
+        '<div class="inst-card-info">' +
+          '<span class="inst-icone">' + inst.icone + '</span>' +
+          '<div>' +
+            '<div class="inst-nome">' + esc2(inst.nome) + '</div>' +
+            '<div class="inst-padrao">' + esc2(inst.padrao) + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="inst-card-btns">' +
+          '<button class="inst-solo-btn" id="inst-solo-' + ii + '" onclick="instSolo(' + ii + ')" title="Solo">S</button>' +
+          '<button class="inst-mute-btn" id="inst-btn-' + ii + '" onclick="instToggleMute(' + ii + ')" title="Mute/Solo">▶</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="inst-beats-row">' + dots + '</div>' +
+    '</div>';
+  }
 
   window.abrirRitmo = function(id) {
     var r = RITMOS_DATA[id]; if (!r) return;
-    demoParar(); demoRitmoId = id; demoBpm = r.bpmDemo || 100;
+    pararTudo();
+    ritmoAtual = id;
+    bpmAtual = r.bpmDemo || 100;
+    mutedInst = {}; soloInst = null;
+
     document.getElementById('ritmo-detalhe').style.display = 'block';
     document.getElementById('ritmos-grid').style.display   = 'none';
     document.getElementById('rd-icone').textContent = r.icone;
     document.getElementById('rd-nome').textContent  = r.nome;
     document.getElementById('rd-bpm').textContent   = r.bpm;
-    var bpmEl = document.getElementById('ritmo-demo-bpm-val'); if (bpmEl) bpmEl.textContent = demoBpm;
+    var bpmEl = document.getElementById('ritmo-demo-bpm-val'); if (bpmEl) bpmEl.textContent = bpmAtual;
     var descEl = document.getElementById('rd-demo-desc');
-    if (descEl) descEl.textContent = 'Ouça o padrão rítmico de ' + r.nome;
-    // Beats visual
+    if (descEl) descEl.textContent = 'Toque ▶ para ouvir todos os instrumentos juntos, ou ligue/desligue individualmente';
+
+    // Beats visual (barra geral)
     var visual = document.getElementById('ritmo-beats-visual');
     if (visual) {
       visual.innerHTML = '';
-      r.steps.forEach(function(s, i) {
+      var totalSteps = r.instrumentos[0].steps.length;
+      for (var s = 0; s < totalSteps; s++) {
         var d = document.createElement('div');
-        d.className = 'ritmo-beat-dot' + (s.f ? ' forte' : '');
+        d.className = 'ritmo-beat-dot' + (s % 4 === 0 ? ' forte' : '');
         visual.appendChild(d);
-      });
+      }
     }
-    var html = '<p>' + esc2(r.descricao) + '</p>';
-    r.instrumentos.forEach(function(inst){
-      html += '<div class="ritmo-instrumento"><strong>🎵 ' + esc2(inst.nome) + '</strong><span class="ritmo-padrao">' + esc2(inst.padrao) + '</span></div>';
+
+    // Cards dos instrumentos
+    var totalSteps2 = r.instrumentos[0].steps.length;
+    var instHtml = '<div class="inst-secao-titulo">🎼 Instrumentos — Toque individual</div>';
+    instHtml += '<div class="inst-cards-wrap">';
+    r.instrumentos.forEach(function(inst, ii) {
+      instHtml += buildInstCard(inst, ii, totalSteps2);
     });
-    if (r.dica) html += '<div class="ritmo-dica">💡 <strong>Dica:</strong> ' + esc2(r.dica) + '</div>';
-    document.getElementById('rd-corpo').innerHTML = html;
+    instHtml += '</div>';
+
+    // Descrição e dica
+    var infoHtml = '<div class="ritmo-descricao-txt"><p>' + esc2(r.descricao) + '</p>';
+    if (r.dica) infoHtml += '<div class="ritmo-dica">💡 <strong>Dica:</strong> ' + esc2(r.dica) + '</div>';
+    infoHtml += '</div>';
+
+    document.getElementById('rd-corpo').innerHTML = instHtml + infoHtml;
     document.getElementById('ritmo-detalhe').scrollIntoView({behavior:'smooth',block:'start'});
   };
 
   window.fecharRitmo = function() {
-    demoParar();
+    pararTudo();
     document.getElementById('ritmo-detalhe').style.display = 'none';
     document.getElementById('ritmos-grid').style.display   = 'grid';
   };
 
-  // Parar demo ao trocar de aba
   var _swRitmo = window.switchTab;
-  window.switchTab = function(tab) { if (tab !== 'ritmos') demoParar(); if (_swRitmo) _swRitmo(tab); };
+  window.switchTab = function(tab) { if (tab !== 'ritmos') pararTudo(); if (_swRitmo) _swRitmo(tab); };
 })();
 
 // ══ AFINADOR — MODO CROMÁTICO AUTOMÁTICO ══
