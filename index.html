@@ -1147,20 +1147,40 @@
 
   // ── Salvar link no Firestore ──
   window.gspSalvarLink = async function() {
-    const url   = (document.getElementById('gsp-novo-url')?.value || '').trim();
-    const label = (document.getElementById('gsp-novo-label')?.value || '').trim();
-    if (!url || (!url.startsWith('http://') && !url.startsWith('https://'))) {
-      showToast('Cole um link válido (começa com http)', 'danger'); return;
+    // Captura valores ANTES de qualquer operação assíncrona (evita perda com re-render)
+    const urlEl = document.getElementById('gsp-novo-url');
+    const labEl = document.getElementById('gsp-novo-label');
+    const url   = (urlEl?.value || '').trim();
+    const label = (labEl?.value || '').trim();
+
+    if (!url) { showToast('Cole o link antes de salvar', 'danger'); return; }
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      showToast('Link inválido — deve começar com http:// ou https://', 'danger'); return;
     }
+    if (!label) { showToast('Informe o nome do link', 'danger'); return; }
+
+    // Desabilita o botão para evitar duplo clique
+    const btnSalvar = document.querySelector('.gsp-btn-salvar-link');
+    if (btnSalvar) { btnSalvar.disabled = true; btnSalvar.textContent = 'Salvando...'; }
+
     try {
+      if (!igrejaId) throw new Error('Sessão inválida — faça login novamente.');
       await addDoc(collection(db,'gospelteca_links'), {
         url, label, categoria: gspCategAtiva, igrejaId, criadoEm: serverTimestamp()
       });
-      const urlEl = document.getElementById('gsp-novo-url');
-      const labEl = document.getElementById('gsp-novo-label');
-      if (urlEl) urlEl.value = ''; if (labEl) labEl.value = '';
+      // Limpa campos após salvar com sucesso
+      if (urlEl) urlEl.value = '';
+      if (labEl) labEl.value = '';
       showToast('Link salvo!', 'success');
-    } catch(err) { console.error(err); showToast('Erro ao salvar link', 'danger'); }
+    } catch(err) {
+      console.error('Erro ao salvar link:', err);
+      const msg = err.code === 'permission-denied'
+        ? 'Sem permissão. Verifique as regras do Firestore.'
+        : err.message || 'Erro ao salvar link';
+      showToast(msg, 'danger');
+    } finally {
+      if (btnSalvar) { btnSalvar.disabled = false; btnSalvar.textContent = 'Salvar Link'; }
+    }
   };
 
   window.gspDeletarLink = async function(id) {
@@ -1197,8 +1217,15 @@
     const link      = document.getElementById('gsp-link').value.trim();
     const obs       = document.getElementById('gsp-obs').value.trim();
     if (!titulo) { showToast('Informe o título da música','danger'); return; }
+    // Valida link se preenchido
+    if (link && !link.startsWith('http://') && !link.startsWith('https://')) {
+      showToast('Link inválido — deve começar com http:// ou https://','danger'); return;
+    }
+    const btnSalvarM = document.getElementById('btn-salvar-musica');
+    if (btnSalvarM) { btnSalvarM.disabled = true; btnSalvarM.textContent = 'Salvando...'; }
     const obj = { titulo, artista, categoria, link, obs, igrejaId, updatedAt: serverTimestamp() };
     try {
+      if (!igrejaId) throw new Error('Sessão inválida — faça login novamente.');
       if (gspEditId) {
         await updateDoc(doc(db,'gospelteca',gspEditId), obj);
         showToast('Música atualizada!','success');
@@ -1208,7 +1235,15 @@
         showToast('Música adicionada!','success');
       }
       fecharFormMusica();
-    } catch(err) { console.error(err); showToast('Erro ao salvar','danger'); }
+    } catch(err) {
+      console.error('Erro ao salvar música:', err);
+      const msg = err.code === 'permission-denied'
+        ? 'Sem permissão. Verifique as regras do Firestore.'
+        : err.message || 'Erro ao salvar';
+      showToast(msg, 'danger');
+    } finally {
+      if (btnSalvarM) { btnSalvarM.disabled = false; btnSalvarM.textContent = 'Salvar Música'; }
+    }
   };
 
   window.deletarMusica = async function(id) {
@@ -3145,114 +3180,277 @@ window.metroHomeAbrir = function(sub) {
     return { conv, wg, dg };
   }
 
-  // Sons sintetizados por instrumento
-  function tocarSom(tipo, volume) {
-    if (!actx || volume <= 0) return;
-    var t = actx.currentTime;
-    var v = Math.min(1, volume);
+  // ─── Utilidade: distortion suave ───
+  function makeDistortion(amount) {
+    var ws = actx.createWaveShaper();
+    var n = 256, curve = new Float32Array(n);
+    for (var i = 0; i < n; i++) {
+      var x = (i * 2) / n - 1;
+      curve[i] = ((Math.PI + amount) * x) / (Math.PI + amount * Math.abs(x));
+    }
+    ws.curve = curve; ws.oversample = '2x'; return ws;
+  }
 
+  // ─── Sons realistas por instrumento ───
+  // nomeInst: nome do instrumento para diferenciar violin/guitarra/teclado dentro do tipo 'chord'
+  function tocarSom(tipo, volume, nomeInst) {
+    if (!actx || volume <= 0) return;
+    var t = actx.currentTime + 0.005; // micro-delay evita cliques
+    var v = Math.min(1, volume);
+    var nm = (nomeInst || '').toLowerCase();
+
+    // ── BUMBO / KICK ──
     if (tipo === 'kick') {
+      // Oscilador principal: pitch envelope 180→38 Hz
       var osc = actx.createOscillator(), g = actx.createGain();
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(v > 0.7 ? 160 : 120, t);
-      osc.frequency.exponentialRampToValueAtTime(35, t + 0.15);
-      g.gain.setValueAtTime(v * 1.1, t);
-      g.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
-      osc.connect(g); g.connect(masterGain);
-      osc.start(t); osc.stop(t + 0.25);
-      // Sub click
-      var cl = actx.createOscillator(), gcl = actx.createGain();
-      cl.type = 'triangle'; cl.frequency.value = 2500;
-      gcl.gain.setValueAtTime(v * 0.3, t); gcl.gain.exponentialRampToValueAtTime(0.001, t+0.01);
-      cl.connect(gcl); gcl.connect(masterGain); cl.start(t); cl.stop(t+0.015);
+      osc.frequency.setValueAtTime(v > 0.7 ? 180 : 130, t);
+      osc.frequency.exponentialRampToValueAtTime(38, t + 0.12);
+      g.gain.setValueAtTime(v * 1.2, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
+      // Compressão leve para punch
+      var comp = actx.createDynamicsCompressor();
+      comp.threshold.value = -12; comp.ratio.value = 6;
+      osc.connect(g); g.connect(comp); comp.connect(masterGain);
+      osc.start(t); osc.stop(t + 0.32);
+      // Sub-harmônico para graves reais
+      var sub = actx.createOscillator(), gs = actx.createGain();
+      sub.type = 'sine'; sub.frequency.setValueAtTime(55, t);
+      sub.frequency.exponentialRampToValueAtTime(28, t + 0.08);
+      gs.gain.setValueAtTime(v * 0.5, t); gs.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+      sub.connect(gs); gs.connect(masterGain); sub.start(t); sub.stop(t + 0.2);
+      // Transiente (clique de ataque)
+      var nt = actx.createBuffer(1, Math.floor(actx.sampleRate * 0.008), actx.sampleRate);
+      var nd = nt.getChannelData(0);
+      for (var ni2=0; ni2<nd.length; ni2++) nd[ni2] = (Math.random()*2-1) * (1 - ni2/nd.length);
+      var ns = actx.createBufferSource(); ns.buffer = nt;
+      var ng = actx.createGain(); ng.gain.setValueAtTime(v * 0.4, t); ng.gain.exponentialRampToValueAtTime(0.001, t + 0.008);
+      ns.connect(ng); ng.connect(masterGain); ns.start(t);
 
+    // ── CAIXA / SNARE ──
     } else if (tipo === 'snare') {
-      // Ruído
-      var len = Math.floor(actx.sampleRate * 0.18);
-      var buf = actx.createBuffer(1, len, actx.sampleRate);
-      var d = buf.getChannelData(0);
-      for (var i=0; i<len; i++) d[i] = (Math.random()*2-1) * (1 - i/len);
-      var src = actx.createBufferSource();
-      src.buffer = buf;
-      var bpf = actx.createBiquadFilter(); bpf.type='bandpass'; bpf.frequency.value= v>0.5?1800:1200; bpf.Q.value=0.7;
-      var gs = actx.createGain(); gs.gain.setValueAtTime(v*0.9, t); gs.gain.exponentialRampToValueAtTime(0.001, t+0.16);
-      src.connect(bpf); bpf.connect(gs); gs.connect(masterGain); src.start(t);
-      // Corpo (oscilador)
-      if (v > 0.5) {
-        var o2 = actx.createOscillator(), go2 = actx.createGain();
-        o2.type='triangle'; o2.frequency.value=180;
-        go2.gain.setValueAtTime(v*0.25, t); go2.gain.exponentialRampToValueAtTime(0.001, t+0.06);
-        o2.connect(go2); go2.connect(masterGain); o2.start(t); o2.stop(t+0.07);
+      var sr = actx.sampleRate;
+      // Ruído da esteira (corpo)
+      var slen = Math.floor(sr * 0.22);
+      var sbuf = actx.createBuffer(1, slen, sr);
+      var sd = sbuf.getChannelData(0);
+      for (var si=0; si<slen; si++) sd[si] = (Math.random()*2-1) * Math.exp(-si/(slen*0.35));
+      var ssrc = actx.createBufferSource(); ssrc.buffer = sbuf;
+      // 2 filtros em série: bandpass + highpass
+      var bp = actx.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value = v>0.5 ? 2200 : 1400; bp.Q.value = 0.8;
+      var hp = actx.createBiquadFilter(); hp.type='highpass'; hp.frequency.value = 900;
+      var gn = actx.createGain(); gn.gain.setValueAtTime(v * 1.0, t); gn.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+      ssrc.connect(bp); bp.connect(hp); hp.connect(gn); gn.connect(masterGain); ssrc.start(t);
+      // Corpo tonal (membrana)
+      var oc = actx.createOscillator(), gc = actx.createGain();
+      oc.type = 'triangle'; oc.frequency.setValueAtTime(220, t); oc.frequency.exponentialRampToValueAtTime(160, t+0.04);
+      gc.gain.setValueAtTime(v * (v>0.5 ? 0.35 : 0.12), t); gc.gain.exponentialRampToValueAtTime(0.001, t + 0.07);
+      oc.connect(gc); gc.connect(masterGain); oc.start(t); oc.stop(t + 0.08);
+      // Ghost note: ruído muito curto e baixo
+      if (v < 0.5) {
+        var ghn = actx.createBuffer(1, Math.floor(sr*0.05), sr);
+        var ghd = ghn.getChannelData(0);
+        for (var gi=0; gi<ghd.length; gi++) ghd[gi] = (Math.random()*2-1) * (1-gi/ghd.length);
+        var ghs = actx.createBufferSource(); ghs.buffer = ghn;
+        var ghg = actx.createGain(); ghg.gain.setValueAtTime(v * 0.25, t); ghg.gain.exponentialRampToValueAtTime(0.001, t+0.05);
+        var ghf = actx.createBiquadFilter(); ghf.type='bandpass'; ghf.frequency.value=2000;
+        ghs.connect(ghf); ghf.connect(ghg); ghg.connect(masterGain); ghs.start(t);
       }
 
+    // ── HI-HAT ──
     } else if (tipo === 'hihat') {
-      var len2 = Math.floor(actx.sampleRate * (v>0.5 ? 0.08 : 0.05));
-      var buf2 = actx.createBuffer(1, len2, actx.sampleRate);
-      var d2 = buf2.getChannelData(0);
-      for (var j=0; j<len2; j++) d2[j] = (Math.random()*2-1) * (1 - j/len2);
-      var src2 = actx.createBufferSource(); src2.buffer = buf2;
-      var hpf = actx.createBiquadFilter(); hpf.type='highpass'; hpf.frequency.value=7500;
-      var gh = actx.createGain(); gh.gain.setValueAtTime(v*0.35, t); gh.gain.exponentialRampToValueAtTime(0.001, t+0.07);
-      src2.connect(hpf); hpf.connect(gh); gh.connect(masterGain); src2.start(t);
+      var sr2 = actx.sampleRate;
+      // Mistura de 6 frequências metálicas (emula o prato)
+      var metalFreqs = [3100, 4400, 6200, 8800, 11200, 14000];
+      var hDur = v > 0.5 ? 0.10 : 0.055; // aberto vs fechado
+      var hBuf = actx.createBuffer(1, Math.floor(sr2 * hDur * 1.5), sr2);
+      var hd = hBuf.getChannelData(0);
+      for (var hi=0; hi<hd.length; hi++) hd[hi] = Math.random()*2-1;
+      var hsrc = actx.createBufferSource(); hsrc.buffer = hBuf;
+      // Filtro passa-alto para timbre metálico brilhante
+      var hhpf = actx.createBiquadFilter(); hhpf.type='highpass'; hhpf.frequency.value=7000;
+      var hbpf = actx.createBiquadFilter(); hbpf.type='bandpass'; hbpf.frequency.value=10000; hbpf.Q.value=0.5;
+      var hg = actx.createGain();
+      hg.gain.setValueAtTime(v * 0.4, t);
+      hg.gain.exponentialRampToValueAtTime(0.001, t + hDur);
+      hsrc.connect(hhpf); hhpf.connect(hbpf); hbpf.connect(hg); hg.connect(masterGain); hsrc.start(t);
+      // Tom metálico sutil
+      metalFreqs.slice(0,3).forEach(function(mf) {
+        var mo = actx.createOscillator(), mg2 = actx.createGain();
+        mo.type = 'square'; mo.frequency.value = mf;
+        mg2.gain.setValueAtTime(v * 0.02, t); mg2.gain.exponentialRampToValueAtTime(0.001, t + hDur * 0.5);
+        mo.connect(mg2); mg2.connect(masterGain); mo.start(t); mo.stop(t + hDur * 0.5);
+      });
 
+    // ── TAMBORIM / PERCUSSÃO ──
     } else if (tipo === 'perc') {
-      // Tamborim / percussão aguda
-      var buf3 = actx.createBuffer(1, Math.floor(actx.sampleRate*0.06), actx.sampleRate);
-      var d3 = buf3.getChannelData(0);
-      for (var k=0; k<d3.length; k++) d3[k] = (Math.random()*2-1) * (1-k/d3.length);
-      var src3 = actx.createBufferSource(); src3.buffer = buf3;
-      var bpf3 = actx.createBiquadFilter(); bpf3.type='bandpass'; bpf3.frequency.value=3000; bpf3.Q.value=1.5;
-      var gp = actx.createGain(); gp.gain.setValueAtTime(v*0.6, t); gp.gain.exponentialRampToValueAtTime(0.001, t+0.055);
-      src3.connect(bpf3); bpf3.connect(gp); gp.connect(masterGain); src3.start(t);
+      var sr3 = actx.sampleRate;
+      // Corpo do tamborim: som sintético agudo com ressonância
+      var to = actx.createOscillator(), tg = actx.createGain();
+      to.type = 'triangle'; to.frequency.setValueAtTime(600, t); to.frequency.exponentialRampToValueAtTime(380, t+0.03);
+      tg.gain.setValueAtTime(v * 0.5, t); tg.gain.exponentialRampToValueAtTime(0.001, t + 0.07);
+      to.connect(tg); tg.connect(masterGain); to.start(t); to.stop(t + 0.08);
+      // Ruído de aro
+      var tbuf = actx.createBuffer(1, Math.floor(sr3*0.06), sr3);
+      var td = tbuf.getChannelData(0);
+      for (var ti=0; ti<td.length; ti++) td[ti] = (Math.random()*2-1) * (1-ti/td.length);
+      var tsrc = actx.createBufferSource(); tsrc.buffer = tbuf;
+      var tbp = actx.createBiquadFilter(); tbp.type='bandpass'; tbp.frequency.value=3500; tbp.Q.value=2;
+      var tgg = actx.createGain(); tgg.gain.setValueAtTime(v*0.55, t); tgg.gain.exponentialRampToValueAtTime(0.001, t+0.06);
+      tsrc.connect(tbp); tbp.connect(tgg); tgg.connect(masterGain); tsrc.start(t);
 
+    // ── TRIÂNGULO METÁLICO ──
     } else if (tipo === 'triangle') {
-      // Triângulo metálico
-      var freqs = [4000, 6000, 8500];
-      freqs.forEach(function(fr) {
-        var o = actx.createOscillator(), g = actx.createGain();
-        o.type = 'sine'; o.frequency.value = fr;
-        g.gain.setValueAtTime(v * 0.15, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
-        o.connect(g); g.connect(masterGain); o.start(t); o.stop(t + 0.38);
+      // Triângulo real: parciais ímpares + longo sustain
+      var trFreqs = [2756, 4130, 6050, 8250, 10800];
+      var trAmps  = [0.32,  0.20, 0.12,  0.07,  0.04];
+      var trDur = 0.7 + v * 0.4; // sustain mais longo
+      trFreqs.forEach(function(fr, fi) {
+        var to2 = actx.createOscillator(), tg2 = actx.createGain();
+        to2.type = 'sine'; to2.frequency.value = fr;
+        tg2.gain.setValueAtTime(v * trAmps[fi], t);
+        tg2.gain.exponentialRampToValueAtTime(0.001, t + trDur * (1 - fi * 0.12));
+        to2.connect(tg2); tg2.connect(masterGain); to2.start(t); to2.stop(t + trDur + 0.05);
       });
+      // Transiente de ataque (varinha)
+      var trbuf = actx.createBuffer(1, Math.floor(actx.sampleRate*0.005), actx.sampleRate);
+      var trd = trbuf.getChannelData(0);
+      for (var tri=0; tri<trd.length; tri++) trd[tri] = (Math.random()*2-1);
+      var trs = actx.createBufferSource(); trs.buffer = trbuf;
+      var trg = actx.createGain(); trg.gain.setValueAtTime(v*0.3, t); trg.gain.exponentialRampToValueAtTime(0.001, t+0.005);
+      trs.connect(trg); trg.connect(masterGain); trs.start(t);
 
+    // ── SHAKER / PANDEIRO ──
     } else if (tipo === 'shaker') {
-      var slen = Math.floor(actx.sampleRate * 0.04);
-      var sbuf = actx.createBuffer(1, slen, actx.sampleRate);
-      var sd = sbuf.getChannelData(0);
-      for (var si=0; si<slen; si++) sd[si] = (Math.random()*2-1) * (1-si/slen);
-      var ssrc = actx.createBufferSource(); ssrc.buffer = sbuf;
-      var shpf = actx.createBiquadFilter(); shpf.type='bandpass'; shpf.frequency.value=8000; shpf.Q.value=2;
-      var sg = actx.createGain(); sg.gain.setValueAtTime(v*0.2, t); sg.gain.exponentialRampToValueAtTime(0.001, t+0.04);
-      ssrc.connect(shpf); shpf.connect(sg); sg.connect(masterGain); ssrc.start(t);
-
-    } else if (tipo === 'bass') {
-      // Baixo elétrico sintético
-      var bo = actx.createOscillator(), bg = actx.createGain();
-      var bo2 = actx.createOscillator(), bg2 = actx.createGain();
-      bo.type = 'sawtooth'; bo.frequency.value = 80 + (v > 0.8 ? 8 : 0);
-      bo2.type = 'square'; bo2.frequency.value = 80 + (v > 0.8 ? 8 : 0);
-      var lpf = actx.createBiquadFilter(); lpf.type = 'lowpass'; lpf.frequency.value = 400; lpf.Q.value = 2;
-      bg.gain.setValueAtTime(v*0.55, t); bg.gain.setValueAtTime(v*0.55, t+0.005); bg.gain.exponentialRampToValueAtTime(v*0.25, t+0.12); bg.gain.exponentialRampToValueAtTime(0.001, t+0.35);
-      bg2.gain.setValueAtTime(v*0.12, t); bg2.gain.exponentialRampToValueAtTime(0.001, t+0.2);
-      bo.connect(bg); bg.connect(lpf);
-      bo2.connect(bg2); bg2.connect(lpf);
-      lpf.connect(masterGain);
-      bo.start(t); bo.stop(t+0.38);
-      bo2.start(t); bo2.stop(t+0.38);
-
-    } else if (tipo === 'chord') {
-      // Acorde/harmonia sintética — toca uma tríade
-      var notas = [261.63, 329.63, 392.00]; // C-E-G (dó maior)
-      notas.forEach(function(freq, ni) {
-        var co = actx.createOscillator(), cg = actx.createGain();
-        co.type = ni === 0 ? 'sawtooth' : 'triangle';
-        co.frequency.value = freq * (ni===0 ? 0.5 : 1);
-        var chLpf = actx.createBiquadFilter(); chLpf.type='lowpass'; chLpf.frequency.value=1800;
-        cg.gain.setValueAtTime(v*0.18, t); cg.gain.setValueAtTime(v*0.18, t+0.01);
-        cg.gain.exponentialRampToValueAtTime(v*0.08, t+0.18); cg.gain.exponentialRampToValueAtTime(0.001, t+0.28);
-        co.connect(chLpf); chLpf.connect(cg); cg.connect(masterGain);
-        co.start(t); co.stop(t+0.3);
+      var shsr = actx.sampleRate;
+      // Duplo burst de ruído para simular sacudida
+      [0, 0.025].forEach(function(delay) {
+        var shBuf = actx.createBuffer(1, Math.floor(shsr * 0.045), shsr);
+        var shd = shBuf.getChannelData(0);
+        for (var shi=0; shi<shd.length; shi++) shd[shi] = (Math.random()*2-1) * Math.exp(-shi/(shd.length*0.4));
+        var shsrc = actx.createBufferSource(); shsrc.buffer = shBuf;
+        var shbp = actx.createBiquadFilter(); shbp.type='bandpass'; shbp.frequency.value=7500+delay*1000; shbp.Q.value=1.5;
+        var shg = actx.createGain(); shg.gain.setValueAtTime(v * (delay===0?0.28:0.16), t+delay);
+        shg.gain.exponentialRampToValueAtTime(0.001, t + delay + 0.045);
+        shsrc.connect(shbp); shbp.connect(shg); shg.connect(masterGain); shsrc.start(t + delay);
       });
+
+    // ── BAIXO ELÉTRICO ──
+    } else if (tipo === 'bass') {
+      // Frequência base varia com volume (simula diferentes notas)
+      var bf = nm.includes('slap') ? 90 : (nm.includes('lent') ? 65 : 80);
+      // Oscilador principal sawtooth — timbre rico
+      var bo = actx.createOscillator(), bg = actx.createGain();
+      bo.type = 'sawtooth'; bo.frequency.value = bf * (v > 0.8 ? 1.1 : 1);
+      // Segundo harmônico (oitava acima) para definição
+      var bo2 = actx.createOscillator(), bg2 = actx.createGain();
+      bo2.type = 'square'; bo2.frequency.value = bf * 2;
+      // LPF com Q alto = "toque de dedo" no baixo
+      var blpf = actx.createBiquadFilter(); blpf.type='lowpass'; blpf.frequency.value=700; blpf.Q.value=3;
+      bg.gain.setValueAtTime(v*0.7, t); bg.gain.setValueAtTime(v*0.7, t+0.003);
+      bg.gain.exponentialRampToValueAtTime(v*0.3, t+0.08); bg.gain.exponentialRampToValueAtTime(0.001, t+0.42);
+      bg2.gain.setValueAtTime(v*0.15, t); bg2.gain.exponentialRampToValueAtTime(0.001, t+0.15);
+      // Transiente de ataque (dedo/palheta)
+      if (v > 0.5) {
+        var bAt = actx.createOscillator(), bAg = actx.createGain();
+        bAt.type = 'triangle'; bAt.frequency.value = bf * 3;
+        bAg.gain.setValueAtTime(v*0.2, t); bAg.gain.exponentialRampToValueAtTime(0.001, t+0.015);
+        bAt.connect(bAg); bAg.connect(masterGain); bAt.start(t); bAt.stop(t+0.02);
+      }
+      bo.connect(bg); bg.connect(blpf);
+      bo2.connect(bg2); bg2.connect(blpf);
+      blpf.connect(masterGain);
+      bo.start(t); bo.stop(t+0.45);
+      bo2.start(t); bo2.stop(t+0.18);
+
+    // ── ACORDE: VIOLÃO / GUITARRA / TECLADO / ÓRGÃO / SANFONA ──
+    } else if (tipo === 'chord') {
+      // Tríade de G maior — frequências G3-B3-D4 (392-493-587 Hz), mais natural que C
+      var chFreqs = [196.00, 246.94, 293.66, 392.00, 493.88]; // G2-B2-D3-G3-B3
+
+      if (nm.includes('violão') || nm.includes('violao') || nm.includes('guitar') || nm.includes('guitarra')) {
+        // ── VIOLÃO/GUITARRA: ataque rápido, decay natural, formantes de madeira ──
+        var isGtr = nm.includes('guitarra') || nm.includes('muted') || nm.includes('riff');
+        // "String pluck" via múltiplos osciladores com decay muito rápido
+        chFreqs.forEach(function(freq, fi) {
+          var co = actx.createOscillator(), cg = actx.createGain();
+          // Guitarra: sawtooth; Violão: triangle (mais quente)
+          co.type = isGtr ? 'sawtooth' : 'triangle';
+          co.frequency.value = freq;
+          // Formante de caixa de madeira
+          var cf = actx.createBiquadFilter(); cf.type='peaking'; cf.frequency.value=800; cf.gain.value=4; cf.Q.value=2;
+          var chpf = actx.createBiquadFilter(); chpf.type='highpass'; chpf.frequency.value=100;
+          // Ataque escalonado = rasqueado (cada corda 8ms depois da anterior)
+          var attackDelay = fi * 0.008;
+          cg.gain.setValueAtTime(0, t + attackDelay);
+          cg.gain.linearRampToValueAtTime(v * (isGtr ? 0.28 : 0.22) * (1-fi*0.08), t + attackDelay + 0.005);
+          cg.gain.exponentialRampToValueAtTime(v * 0.04, t + attackDelay + (isGtr ? 0.18 : 0.35));
+          cg.gain.exponentialRampToValueAtTime(0.001, t + attackDelay + (isGtr ? 0.28 : 0.55));
+          co.connect(cf); cf.connect(chpf); chpf.connect(cg);
+          if (isGtr) {
+            // Distortion leve para guitarra
+            var dst = makeDistortion(15);
+            cg.connect(dst); dst.connect(masterGain);
+          } else {
+            cg.connect(masterGain);
+          }
+          co.start(t + attackDelay); co.stop(t + attackDelay + 0.6);
+        });
+
+      } else if (nm.includes('piano') || nm.includes('teclado') || nm.includes('keys') || nm.includes('pad') || nm.includes('rhodes')) {
+        // ── PIANO/TECLADO: ataque percussivo, decay longo, shimmer ──
+        var isPad = nm.includes('pad');
+        var isRhodes = nm.includes('rhodes');
+        chFreqs.slice(0,4).forEach(function(freq, fi) {
+          var co = actx.createOscillator(), cg = actx.createGain();
+          // Rhodes: sawtooth com LPF; Piano: triangle; Pad: sine puro
+          co.type = isPad ? 'sine' : (isRhodes ? 'sawtooth' : 'triangle');
+          co.frequency.value = freq;
+          var clf = actx.createBiquadFilter(); clf.type='lowpass'; clf.frequency.value = isPad ? 3000 : (isRhodes ? 2500 : 4000);
+          var attackT = isPad ? 0.08 : 0.003; // Pad tem fade-in suave
+          var sustainT = isPad ? 0.8 : (isRhodes ? 0.4 : 0.35);
+          var releaseT = isPad ? 1.4 : 0.5;
+          cg.gain.setValueAtTime(0, t);
+          cg.gain.linearRampToValueAtTime(v * 0.22 * (1-fi*0.05), t + attackT);
+          cg.gain.exponentialRampToValueAtTime(v * (isPad?0.18:0.06), t + sustainT);
+          cg.gain.exponentialRampToValueAtTime(0.001, t + releaseT);
+          co.connect(clf); clf.connect(cg); cg.connect(masterGain);
+          co.start(t); co.stop(t + releaseT + 0.05);
+        });
+
+      } else if (nm.includes('órgão') || nm.includes('orgao') || nm.includes('organ') || nm.includes('sanfona') || nm.includes('acordeon')) {
+        // ── ÓRGÃO/SANFONA: harmônicos contínuos (som de fole/reed) ──
+        var orgBaseFreq = 196.00; // G2
+        var orgHarmonics = [1, 2, 3, 4, 6, 8]; // série harmônica do órgão
+        var orgAmps = [0.28, 0.20, 0.14, 0.10, 0.06, 0.04];
+        orgHarmonics.forEach(function(h, hi) {
+          var oo = actx.createOscillator(), og = actx.createGain();
+          oo.type = hi < 2 ? 'sawtooth' : 'square';
+          oo.frequency.value = orgBaseFreq * h;
+          var oLpf = actx.createBiquadFilter(); oLpf.type='lowpass'; oLpf.frequency.value=3000-(hi*200);
+          var attackO = 0.025; // ataque suave de fole
+          og.gain.setValueAtTime(0, t);
+          og.gain.linearRampToValueAtTime(v * orgAmps[hi], t + attackO);
+          og.gain.setValueAtTime(v * orgAmps[hi], t + 0.25);
+          og.gain.exponentialRampToValueAtTime(0.001, t + 0.38);
+          oo.connect(oLpf); oLpf.connect(og); og.connect(masterGain);
+          oo.start(t); oo.stop(t + 0.4);
+        });
+
+      } else {
+        // ── GENÉRICO MELHORADO (chord padrão) ──
+        chFreqs.slice(0,4).forEach(function(freq, fi) {
+          var co = actx.createOscillator(), cg = actx.createGain();
+          co.type = fi === 0 ? 'sawtooth' : 'triangle';
+          co.frequency.value = freq;
+          var clf2 = actx.createBiquadFilter(); clf2.type='lowpass'; clf2.frequency.value=2200;
+          cg.gain.setValueAtTime(v*0.2*(1-fi*0.06), t);
+          cg.gain.exponentialRampToValueAtTime(v*0.05, t+0.2);
+          cg.gain.exponentialRampToValueAtTime(0.001, t+0.38);
+          co.connect(clf2); clf2.connect(cg); cg.connect(masterGain);
+          co.start(t); co.stop(t+0.4);
+        });
+      }
     }
   }
 
@@ -3302,7 +3500,7 @@ window.metroHomeAbrir = function(sub) {
       var muted = mutedInst[ii];
       var soloAtivo = soloInst !== null;
       var deveTocar = !muted && (!soloAtivo || soloInst === ii);
-      if (deveTocar && vol > 0) tocarSom(inst.tipo, vol);
+      if (deveTocar && vol > 0) tocarSom(inst.tipo, vol, inst.nome);
 
       // Visual dos beats por instrumento
       var dotId = 'ibeat-' + ii + '-' + step;
