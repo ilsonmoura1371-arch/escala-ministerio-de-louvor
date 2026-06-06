@@ -421,7 +421,7 @@
     if (tab==='escala-atual') { filtroMes=new Date().getMonth(); filtroAno=new Date().getFullYear(); renderLista(); }
     if (tab==='proxima-escala') renderProxima();
     if (tab==='mensagens') { setTimeout(()=>{ const c=document.getElementById('msg-lista'); if(c) c.scrollTop=c.scrollHeight; },100); }
-    if (tab==='gospelteca') renderGospelteca();
+    if (tab==='gospelteca') { if(typeof gspPaginaAtiva!=='undefined') gspPaginaAtiva=null; renderGospelteca(); }
   };
 
   /* ══════════════════════════════════════
@@ -1012,17 +1012,18 @@
   /* ══════════════════════════════════════
      GOSPELTECA — Firebase
   ══════════════════════════════════════ */
-  let musicasGsp = [], gspEditId = null, gspCategAtiva = 'todas', unsubGsp = null;
+  let musicasGsp = [], gspEditId = null, gspPaginaAtiva = null, unsubGsp = null;
+
   const GSP_CATS = [
-    { id:'todas', label:'Todas' },
-    { id:'adoracao', label:'Adoração' },
-    { id:'louvor', label:'Louvor' },
-    { id:'hino', label:'Hinos' },
-    { id:'infantil', label:'Infantil' },
-    { id:'especial', label:'Especial' },
-    { id:'outro', label:'Outro' },
+    { id:'adoracao', label:'Adoração',  icon:'🙏', cor:'#a78bfa', gradient:'135deg,rgba(124,58,237,0.15),rgba(124,58,237,0.03)' },
+    { id:'louvor',   label:'Louvor',    icon:'🎉', cor:'#fbbf24', gradient:'135deg,rgba(251,191,36,0.15),rgba(251,191,36,0.03)' },
+    { id:'hino',     label:'Hinos',     icon:'♪',  cor:'#34d399', gradient:'135deg,rgba(52,211,153,0.15),rgba(52,211,153,0.03)' },
+    { id:'infantil', label:'Infantil',  icon:'🧒', cor:'#60a5fa', gradient:'135deg,rgba(96,165,250,0.15),rgba(96,165,250,0.03)' },
+    { id:'especial', label:'Especial',  icon:'🌹', cor:'#f87171', gradient:'135deg,rgba(248,113,113,0.15),rgba(248,113,113,0.03)' },
+    { id:'outro',    label:'Outro',     icon:'🎵', cor:'#00e5ff', gradient:'135deg,rgba(0,229,255,0.15),rgba(0,229,255,0.03)' },
   ];
-  const GSP_CAT_ICON = { adoracao:'🙏', louvor:'🎉', hino:'♪', infantil:'🧒', especial:'🌹', outro:'🎵' };
+
+  function getCat(id){ return GSP_CATS.find(c=>c.id===id) || GSP_CATS[GSP_CATS.length-1]; }
 
   function iniciarListenerGsp() {
     if (!igrejaId) return;
@@ -1030,192 +1031,222 @@
     const qG = query(collection(db,'gospelteca'), where('igrejaId','==',igrejaId), orderBy('titulo','asc'));
     unsubGsp = onSnapshot(qG,
       snap => { musicasGsp = snap.docs.map(d=>({id:d.id,...d.data()})); renderGospelteca(); },
-      err  => console.error(err)
+      err  => console.error('Gospelteca listener:', err)
     );
   }
 
-  window.renderGospelteca = function renderGospelteca() {
-    const tabs = document.getElementById('gsp-subtabs'); if (!tabs) return;
-    tabs.innerHTML = GSP_CATS.map(c =>
-      `<button class="gsp-subtab${gspCategAtiva===c.id?' ativo':''}" onclick="gspSetCateg('${c.id}')">${esc(c.label)}</button>`
-    ).join('');
+  /* ── renderiza a tela principal da Gospelteca (grade de categorias) ── */
+  window.renderGospelteca = function() {
     const lista = document.getElementById('gsp-lista'); if (!lista) return;
-    const filtradas = gspCategAtiva==='todas' ? musicasGsp : musicasGsp.filter(m=>m.categoria===gspCategAtiva);
+    // Se estiver numa página de categoria, atualiza apenas ela
+    if (gspPaginaAtiva) { renderPaginaCategoria(gspPaginaAtiva); return; }
+    renderHomeGospelteca();
+  };
+
+  function renderHomeGospelteca() {
+    const lista = document.getElementById('gsp-lista'); if (!lista) return;
+    const header = document.getElementById('gsp-header-bar');
+    if (header) header.innerHTML = '<span>&#127911; Gospelteca</span>';
+
     const lider = isLider();
-    const btnMusica = document.getElementById('btn-nova-musica');
-    if (btnMusica) btnMusica.style.display = lider ? 'block' : 'none';
-
-    // Agrupar por categoria para mostrar como "pastas"
-    const cats = gspCategAtiva === 'todas' ? GSP_CATS : GSP_CATS.filter(c=>c.id===gspCategAtiva);
-    let html = '';
-    cats.forEach(cat => {
-      const musicas = filtradas.filter(m => m.categoria === cat.id);
-      const ico = GSP_CAT_ICON[cat.id] || '🎵';
-      const linksDiretos = (window.gspLinksRapidos && window.gspLinksRapidos[cat.id]) || [];
-      const totalItens = musicas.length + linksDiretos.length;
-      html += `<div class="gsp-pasta-section">
-        <div class="gsp-pasta-header" onclick="gspTogglePasta('${cat.id}')">
-          <div class="gsp-pasta-titulo">${ico} ${esc(cat.label)} <span class="gsp-pasta-count">${totalItens}</span></div>
-          <span class="gsp-pasta-toggle${gspPastaAberta[cat.id]===false?'':' aberto'}" id="gsp-toggle-${cat.id}">&#8250;</span>
-        </div>
-        <div class="gsp-pasta-links${gspPastaAberta[cat.id]===false?' fechado':''}" id="gsp-links-${cat.id}">`;
-
-      // Músicas do Firestore
-      if (musicas.length === 0 && linksDiretos.length === 0) {
-        html += `<div class="gsp-empty-pasta">${lider ? 'Nenhuma música. Adicione usando o botão abaixo.' : 'Nenhuma música nesta categoria.'}</div>`;
-      }
-      musicas.forEach(m => {
-        const linkBtn = m.link ? `<a href="${esc(m.link)}" target="_blank" rel="noopener noreferrer" class="gsp-btn-ouvir">▶ Ouvir</a>` : '';
-        const delBtn  = lider ? `<button class="gsp-btn-del" onclick="deletarMusica('${m.id}')">×</button>` : '';
-        html += `<div class="gsp-link-item">
-          <div class="gsp-link-thumb">${ico}</div>
-          <div class="gsp-link-info">
-            <div class="gsp-link-titulo">${esc(m.titulo||'Sem título')}</div>
-            <div class="gsp-link-artista">${esc(m.artista||'')}${m.obs?` <span class="gsp-obs-tag">${esc(m.obs)}</span>`:''}</div>
-          </div>
-          <div style="display:flex;gap:6px;align-items:center;">${linkBtn}${delBtn}</div>
-        </div>`;
-      });
-
-      // Links rápidos salvos localmente por categoria
-      linksDiretos.forEach((lk, idx) => {
-        html += `<div class="gsp-link-item">
-          <div class="gsp-link-thumb">🔗</div>
-          <div class="gsp-link-info">
-            <div class="gsp-link-titulo">${esc(lk.label||lk.url)}</div>
-            <div class="gsp-link-artista" style="font-size:11px;">${esc(lk.url.length>40?lk.url.substring(0,40)+'...':lk.url)}</div>
-          </div>
-          <div style="display:flex;gap:6px;align-items:center;">
-            <a href="${esc(lk.url)}" target="_blank" rel="noopener noreferrer" class="gsp-btn-ouvir">▶ Abrir</a>
-            ${lider?`<button class="gsp-btn-del" onclick="gspRemoverLinkRapido('${cat.id}',${idx})">×</button>`:''}
-          </div>
-        </div>`;
-      });
-
-      // Formulário de link rápido (apenas líder)
-      if (lider) {
-        html += `<button class="gsp-btn-toggle-form" onclick="gspToggleFormLink('${cat.id}')">&#43; Adicionar link a esta pasta</button>
-        <div class="gsp-add-link-form" id="gsp-form-link-${cat.id}">
-          <div class="gsp-add-link-row">
-            <input type="text" id="gsp-link-label-${cat.id}" class="gsp-add-link-input" placeholder="Nome (opcional)">
-          </div>
-          <div class="gsp-add-link-row">
-            <input type="url" id="gsp-link-url-${cat.id}" class="gsp-add-link-input" placeholder="https://youtube.com/... ou outro link">
-            <button class="gsp-btn-add-link" onclick="gspAdicionarLinkRapido('${cat.id}')">Salvar</button>
-          </div>
-        </div>`;
-      }
-      html += `</div></div>`; // fecha gsp-pasta-links e gsp-pasta-section
+    let html = '<div class="gsp-grade">';
+    GSP_CATS.forEach(cat => {
+      const total = musicasGsp.filter(m=>m.categoria===cat.id).length;
+      html += `<div class="gsp-cat-card" onclick="gspAbrirCategoria('${cat.id}')" style="background:linear-gradient(${cat.gradient});border-color:${cat.cor}33;">
+        <div class="gsp-cat-icon" style="color:${cat.cor}">${cat.icon}</div>
+        <div class="gsp-cat-nome" style="color:${cat.cor}">${esc(cat.label)}</div>
+        <div class="gsp-cat-count">${total} música${total!==1?'s':''}</div>
+        <div class="gsp-cat-arrow">›</div>
+      </div>`;
     });
-
-    if (!html) html = `<div class="gsp-empty"><div class="gsp-empty-icon">🎵</div>Selecione uma categoria.</div>`;
+    html += '</div>';
     lista.innerHTML = html;
-  };
-
-  // Estado das pastas abertas/fechadas
-  window.gspPastaAberta = {};
-  window.gspTogglePasta = function(catId) {
-    gspPastaAberta[catId] = gspPastaAberta[catId] === false ? true : false;
-    var linksEl = document.getElementById('gsp-links-' + catId);
-    var toggleEl = document.getElementById('gsp-toggle-' + catId);
-    if (linksEl) linksEl.classList.toggle('fechado', gspPastaAberta[catId] === false);
-    if (toggleEl) toggleEl.classList.toggle('aberto', gspPastaAberta[catId] !== false);
-  };
-
-  window.gspToggleFormLink = function(catId) {
-    var formEl = document.getElementById('gsp-form-link-' + catId);
-    if (formEl) formEl.classList.toggle('aberto');
-  };
-
-  // Links rápidos salvos em memória (por sessão) + localStorage por igrejaId
-  window.gspLinksRapidos = {};
-  function gspCarregarLinks() {
-    try {
-      const key = 'gsp_links_' + (window.igrejaId || 'x');
-      const raw = localStorage.getItem(key);
-      if (raw) window.gspLinksRapidos = JSON.parse(raw);
-    } catch(e) {}
   }
-  function gspSalvarLinks() {
-    try {
-      const key = 'gsp_links_' + (window.igrejaId || 'x');
-      localStorage.setItem(key, JSON.stringify(window.gspLinksRapidos));
-    } catch(e) {}
-  }
-  gspCarregarLinks();
 
-  window.gspAdicionarLinkRapido = function(catId) {
-    const urlEl = document.getElementById('gsp-link-url-' + catId);
-    const labelEl = document.getElementById('gsp-link-label-' + catId);
-    if (!urlEl) return;
-    const url = urlEl.value.trim();
-    const label = labelEl ? labelEl.value.trim() : '';
-    if (!url || (!url.startsWith('http://') && !url.startsWith('https://'))) {
-      showToast('Informe um link válido (http/https)', 'danger'); return;
+  window.gspAbrirCategoria = function(catId) {
+    gspPaginaAtiva = catId;
+    renderPaginaCategoria(catId);
+  };
+
+  window.gspVoltarHome = function() {
+    // Fechar form se aberto
+    const form = document.getElementById('gsp-inline-form');
+    if (form) form.style.display = 'none';
+    gspPaginaAtiva = null;
+    renderHomeGospelteca();
+    const header = document.getElementById('gsp-header-bar');
+    if (header) header.innerHTML = '<span>&#127911; Gospelteca</span>';
+  };
+
+  function renderPaginaCategoria(catId) {
+    const cat  = getCat(catId);
+    const lista = document.getElementById('gsp-lista'); if (!lista) return;
+    const header = document.getElementById('gsp-header-bar');
+    if (header) header.innerHTML =
+      `<div style="display:flex;align-items:center;gap:10px;">
+         <button class="gsp-voltar-btn" onclick="gspVoltarHome()">&#8592;</button>
+         <span style="color:${cat.cor}">${cat.icon} ${esc(cat.label)}</span>
+       </div>
+       ${isLider() ? `<button class="gsp-btn-add-topo" onclick="gspToggleForm()">+ Música</button>` : ''}`;
+
+    const musicas = musicasGsp.filter(m => m.categoria === catId);
+    const lider = isLider();
+
+    let html = `
+      <!-- Formulário inline (oculto por padrão) -->
+      <div id="gsp-inline-form" class="gsp-inline-form-card" style="display:none;">
+        <div class="gsp-inline-form-titulo" style="color:${cat.cor}">${cat.icon} Nova música em ${esc(cat.label)}</div>
+        <div class="gsp-field"><label>Título da música *</label>
+          <input id="gi-titulo" type="text" class="input-neon" placeholder="Ex: Oceans, Reckless Love...">
+        </div>
+        <div class="gsp-field"><label>Artista / Ministério</label>
+          <input id="gi-artista" type="text" class="input-neon" placeholder="Ex: Hillsong, Aline Barros...">
+        </div>
+        <div class="gsp-field"><label>Link (YouTube, Spotify, Drive…) *</label>
+          <input id="gi-link" type="url" class="input-neon" placeholder="https://youtube.com/watch?v=...">
+        </div>
+        <div class="gsp-field"><label>Tom / Observações (opcional)</label>
+          <input id="gi-obs" type="text" class="input-neon" placeholder="Ex: Tom de Ré, versão ao vivo...">
+        </div>
+        <input type="hidden" id="gi-edit-id" value="">
+        <div class="gsp-inline-form-btns">
+          <button class="btn btn-primary" onclick="gspSalvarInline('${catId}')">Salvar</button>
+          <button class="btn btn-secondary" onclick="gspToggleForm()">Cancelar</button>
+        </div>
+      </div>`;
+
+    if (musicas.length === 0) {
+      html += `<div class="gsp-empty-cat">
+        <div class="gsp-empty-icon">${cat.icon}</div>
+        <div>Nenhuma música em <strong>${esc(cat.label)}</strong> ainda.</div>
+        ${lider ? '<div style="font-size:12px;margin-top:6px;color:#64748b;">Toque em <strong>+ Música</strong> para adicionar.</div>' : ''}
+      </div>`;
+    } else {
+      html += '<div class="gsp-musicas-lista">';
+      musicas.forEach((m, idx) => {
+        const plataforma = detectarPlataforma(m.link);
+        html += `<div class="gsp-musica-row" style="animation-delay:${idx*0.04}s">
+          <div class="gsp-musica-plat" style="background:${plataforma.cor}22;border-color:${plataforma.cor}44;">
+            ${plataforma.icon}
+          </div>
+          <div class="gsp-musica-dados">
+            <div class="gsp-musica-nome">${esc(m.titulo||'Sem título')}</div>
+            <div class="gsp-musica-meta">
+              ${m.artista ? `<span>${esc(m.artista)}</span>` : ''}
+              ${m.obs ? `<span class="gsp-obs-pill">${esc(m.obs)}</span>` : ''}
+            </div>
+          </div>
+          <div class="gsp-musica-acoes">
+            ${m.link ? `<a href="${esc(m.link)}" target="_blank" rel="noopener noreferrer" class="gsp-btn-play" style="background:${plataforma.cor}22;border-color:${plataforma.cor}55;color:${plataforma.cor}">▶</a>` : ''}
+            ${lider ? `<button class="gsp-btn-editar" onclick="gspEditarMusica('${m.id}')" title="Editar">✏️</button>` : ''}
+            ${lider ? `<button class="gsp-btn-del2" onclick="gspDeletar('${m.id}')">×</button>` : ''}
+          </div>
+        </div>`;
+      });
+      html += '</div>';
     }
-    if (!window.gspLinksRapidos[catId]) window.gspLinksRapidos[catId] = [];
-    window.gspLinksRapidos[catId].push({ url, label });
-    gspSalvarLinks();
-    urlEl.value = ''; if (labelEl) labelEl.value = '';
-    renderGospelteca();
-    showToast('Link adicionado!', 'success');
+
+    lista.innerHTML = html;
+  }
+
+  // Detecta plataforma pelo link para dar ícone/cor
+  function detectarPlataforma(link) {
+    if (!link) return { icon:'🔗', cor:'#64748b' };
+    const l = link.toLowerCase();
+    if (l.includes('youtube') || l.includes('youtu.be')) return { icon:'▶', cor:'#ef4444' };
+    if (l.includes('spotify'))   return { icon:'♫', cor:'#22c55e' };
+    if (l.includes('drive.google')) return { icon:'▲', cor:'#60a5fa' };
+    if (l.includes('soundcloud')) return { icon:'☁', cor:'#f97316' };
+    if (l.includes('deezer'))    return { icon:'♬', cor:'#a78bfa' };
+    if (l.includes('apple'))     return { icon:'♩', cor:'#ec4899' };
+    return { icon:'🔗', cor:'#00e5ff' };
+  }
+
+  window.gspToggleForm = function(editId) {
+    const form = document.getElementById('gsp-inline-form');
+    if (!form) return;
+    const aberto = form.style.display !== 'none';
+    if (aberto) {
+      form.style.display = 'none';
+    } else {
+      // Limpar campos
+      ['gi-titulo','gi-artista','gi-link','gi-obs'].forEach(id => {
+        const el = document.getElementById(id); if(el) el.value='';
+      });
+      const eid = document.getElementById('gi-edit-id'); if(eid) eid.value='';
+      form.style.display = 'block';
+      form.scrollIntoView({behavior:'smooth',block:'start'});
+    }
   };
 
-  window.gspRemoverLinkRapido = function(catId, idx) {
-    if (!window.gspLinksRapidos[catId]) return;
-    window.gspLinksRapidos[catId].splice(idx, 1);
-    gspSalvarLinks();
-    renderGospelteca();
-    showToast('Link removido', 'danger');
+  window.gspEditarMusica = function(id) {
+    const m = musicasGsp.find(x=>x.id===id); if(!m) return;
+    const form = document.getElementById('gsp-inline-form');
+    if (!form) return;
+    const set = (elId, val) => { const el=document.getElementById(elId); if(el) el.value=val||''; };
+    set('gi-titulo',  m.titulo);
+    set('gi-artista', m.artista);
+    set('gi-link',    m.link);
+    set('gi-obs',     m.obs);
+    set('gi-edit-id', m.id);
+    form.style.display = 'block';
+    form.scrollIntoView({behavior:'smooth',block:'start'});
   };
 
-  window.abrirFormMusica = function(id) {
-    if (!isLider()) { showToast('Apenas o líder pode adicionar músicas','danger'); return; }
-    gspEditId = id || null;
-    const m = id ? musicasGsp.find(x=>x.id===id) : null;
-    document.getElementById('gsp-form-titulo-label').textContent = m ? 'Editar Música' : 'Nova Música';
-    document.getElementById('gsp-titulo').value    = m ? (m.titulo||'') : '';
-    document.getElementById('gsp-artista').value   = m ? (m.artista||'') : '';
-    document.getElementById('gsp-categoria').value = m ? (m.categoria||'adoracao') : 'adoracao';
-    document.getElementById('gsp-link').value      = m ? (m.link||'') : '';
-    document.getElementById('gsp-obs').value       = m ? (m.obs||'') : '';
-    document.getElementById('gsp-form').style.display = 'block';
-    document.getElementById('gsp-form').scrollIntoView({behavior:'smooth',block:'start'});
-  };
-
-  window.fecharFormMusica = function() {
-    document.getElementById('gsp-form').style.display = 'none';
-    gspEditId = null;
-  };
-
-  window.salvarMusica = async function() {
+  window.gspSalvarInline = async function(catId) {
     if (!isLider()) { showToast('Apenas o líder pode adicionar','danger'); return; }
-    const titulo    = document.getElementById('gsp-titulo').value.trim();
-    const artista   = document.getElementById('gsp-artista').value.trim();
-    const categoria = document.getElementById('gsp-categoria').value;
-    const link      = document.getElementById('gsp-link').value.trim();
-    const obs       = document.getElementById('gsp-obs').value.trim();
+    const get = (id) => { const el=document.getElementById(id); return el ? el.value.trim() : ''; };
+    const titulo  = get('gi-titulo');
+    const artista = get('gi-artista');
+    const link    = get('gi-link');
+    const obs     = get('gi-obs');
+    const editId  = get('gi-edit-id');
+
     if (!titulo) { showToast('Informe o título da música','danger'); return; }
-    const obj = { titulo, artista, categoria, link, obs, igrejaId, updatedAt: serverTimestamp() };
+    if (!link)   { showToast('Informe o link da música','danger');   return; }
+    if (!link.startsWith('http')) { showToast('Link deve começar com http:// ou https://','danger'); return; }
+
+    const obj = { titulo, artista, categoria: catId, link, obs, igrejaId, updatedAt: serverTimestamp() };
+    const btn = document.querySelector('#gsp-inline-form .btn-primary');
+    if (btn) btn.textContent = 'Salvando…';
     try {
-      if (gspEditId) {
-        await updateDoc(doc(db,'gospelteca',gspEditId), obj);
+      if (editId) {
+        await updateDoc(doc(db,'gospelteca',editId), obj);
         showToast('Música atualizada!','success');
       } else {
         obj.createdAt = serverTimestamp();
         await addDoc(collection(db,'gospelteca'), obj);
-        showToast('Música adicionada à Gospelteca!','success');
+        showToast('Música adicionada!','success');
       }
-      fecharFormMusica();
-    } catch(err) { console.error(err); showToast('Erro ao salvar','danger'); }
+      const form = document.getElementById('gsp-inline-form');
+      if (form) form.style.display = 'none';
+    } catch(err) {
+      console.error(err);
+      showToast('Erro ao salvar. Verifique o link.','danger');
+      if (btn) btn.textContent = 'Salvar';
+    }
   };
 
-  window.deletarMusica = async function(id) {
+  window.gspDeletar = async function(id) {
     if (!isLider()) { showToast('Apenas o líder pode remover','danger'); return; }
     if (!confirm('Remover esta música da Gospelteca?')) return;
     try { await deleteDoc(doc(db,'gospelteca',id)); showToast('Música removida','danger'); }
     catch(err) { showToast('Erro ao remover','danger'); }
   };
+
+  // Manter compatibilidade com chamadas antigas
+  window.abrirFormMusica  = window.gspToggleForm;
+  window.fecharFormMusica = window.gspToggleForm;
+  window.salvarMusica     = () => gspSalvarInline(gspPaginaAtiva || 'outro');
+  window.deletarMusica    = window.gspDeletar;
+  window.gspSetCateg      = window.gspAbrirCategoria;
+  // Links rápidos antigos — não mais usados, mas evitar erros
+  window.gspTogglePasta       = ()=>{};
+  window.gspToggleFormLink    = ()=>{};
+  window.gspAdicionarLinkRapido = ()=>{};
+  window.gspRemoverLinkRapido   = ()=>{};
+  window.gspLinksRapidos = {};
+  window.gspPastaAberta  = {};
 
   function isLider(){ return !!usuarioLogado; }
   function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -1597,31 +1628,71 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
 .ritmo-beat-dot.on{background:var(--accent);border-color:var(--accent);box-shadow:0 0 10px rgba(0,229,255,0.6);transform:scale(1.25);}
 .ritmo-beat-dot.forte-on{background:#fbbf24 !important;border-color:#fbbf24 !important;box-shadow:0 0 14px rgba(251,191,36,0.7) !important;transform:scale(1.4) !important;}
 
-/* ══ GOSPELTECA PASTAS ══ */
-.gsp-pasta-section{background:var(--bg-card);border:1px solid var(--border-neon);border-radius:var(--radius);padding:16px;margin-bottom:16px;box-shadow:var(--shadow-neon);}
-.gsp-pasta-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;cursor:pointer;}
-.gsp-pasta-titulo{font-family:"Playfair Display",serif;font-size:16px;font-weight:700;color:var(--accent);display:flex;align-items:center;gap:8px;}
-.gsp-pasta-count{font-size:11px;font-weight:700;background:rgba(0,229,255,0.1);border:1px solid rgba(0,229,255,0.2);color:var(--accent);padding:2px 9px;border-radius:12px;}
-.gsp-pasta-toggle{font-size:18px;color:var(--text-muted);transition:transform .2s;display:inline-block;}
-.gsp-pasta-toggle.aberto{transform:rotate(90deg);}
-.gsp-pasta-links{display:flex;flex-direction:column;gap:8px;}
-.gsp-pasta-links.fechado{display:none;}
-.gsp-link-item{display:flex;align-items:center;gap:10px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.05);border-radius:var(--radius-sm);padding:10px 12px;}
-.gsp-link-thumb{width:36px;height:36px;border-radius:6px;background:linear-gradient(135deg,#1a1a2e,#16213e);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
-.gsp-link-info{flex:1;min-width:0;}
-.gsp-link-titulo{font-size:14px;font-weight:700;color:var(--text-main);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.gsp-link-artista{font-size:12px;color:var(--text-muted);}
-.gsp-btn-ouvir{display:inline-flex;align-items:center;gap:5px;background:rgba(0,229,255,0.08);border:1px solid rgba(0,229,255,0.25);color:var(--accent);padding:6px 12px;border-radius:20px;font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap;}
-.gsp-btn-del{background:transparent;border:none;color:#ef4444;cursor:pointer;font-size:15px;padding:4px;opacity:.7;}
-.gsp-add-link-form{margin-top:12px;border-top:1px solid rgba(255,255,255,0.05);padding-top:12px;display:none;}
-.gsp-add-link-form.aberto{display:block;}
-.gsp-add-link-row{display:flex;gap:8px;margin-bottom:8px;}
-.gsp-add-link-input{flex:1;background:var(--bg-input);border:1px solid rgba(0,229,255,0.15);border-radius:var(--radius-sm);color:var(--text-main);font-family:"DM Sans",sans-serif;font-size:14px;padding:10px 12px;outline:none;}
-.gsp-add-link-input:focus{border-color:var(--accent);}
-.gsp-btn-add-link{background:linear-gradient(135deg,#00acc1,#006064);color:#fff;border:none;border-radius:var(--radius-sm);font-family:"DM Sans",sans-serif;font-size:13px;font-weight:700;padding:10px 14px;cursor:pointer;white-space:nowrap;}
-.gsp-btn-toggle-form{background:rgba(0,229,255,0.07);border:1px solid rgba(0,229,255,0.2);color:var(--accent);border-radius:var(--radius-sm);font-family:"DM Sans",sans-serif;font-size:12px;font-weight:700;padding:7px 14px;cursor:pointer;margin-top:8px;display:flex;align-items:center;gap:6px;}
-.gsp-empty-pasta{font-size:13px;color:var(--text-muted);font-style:italic;padding:6px 0;}
-.gsp-obs-tag{font-size:11px;color:#a78bfa;background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.2);border-radius:10px;padding:2px 8px;}
+/* ══ GOSPELTECA NOVO ══ */
+.gsp-wrap{padding:0 0 80px;}
+.gsp-header-bar{display:flex;align-items:center;justify-content:space-between;padding:14px 0 16px;font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:var(--accent);min-height:52px;}
+.gsp-voltar-btn{background:rgba(0,229,255,0.08);border:1px solid rgba(0,229,255,0.2);color:var(--accent);border-radius:10px;width:34px;height:34px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.gsp-btn-add-topo{background:linear-gradient(135deg,#00acc1,#006064);color:#fff;border:none;border-radius:20px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;padding:9px 16px;cursor:pointer;white-space:nowrap;}
+.gsp-grade{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding-top:4px;}
+.gsp-cat-card{position:relative;background:var(--bg-card);border:1px solid rgba(0,229,255,0.15);border-radius:18px;padding:20px 16px;cursor:pointer;transition:all 0.15s;overflow:hidden;}
+.gsp-cat-card:active{transform:scale(0.96);}
+.gsp-cat-icon{font-size:30px;margin-bottom:8px;font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
+.gsp-cat-nome{font-size:16px;font-weight:700;margin-bottom:4px;}
+.gsp-cat-count{font-size:12px;color:var(--text-muted);}
+.gsp-cat-arrow{position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:22px;color:rgba(255,255,255,0.2);}
+.gsp-musicas-lista{display:flex;flex-direction:column;gap:10px;padding-top:4px;}
+.gsp-musica-row{display:flex;align-items:center;gap:10px;background:var(--bg-card);border:1px solid var(--border-neon);border-radius:14px;padding:12px 14px;animation:fadeSlideIn .25s ease both;}
+@keyframes fadeSlideIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.gsp-musica-plat{width:40px;height:40px;border-radius:12px;border:1px solid;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+.gsp-musica-dados{flex:1;min-width:0;}
+.gsp-musica-nome{font-size:14px;font-weight:700;color:var(--text-main);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.gsp-musica-meta{display:flex;align-items:center;gap:6px;margin-top:3px;font-size:12px;color:var(--text-muted);flex-wrap:wrap;}
+.gsp-obs-pill{font-size:11px;color:#a78bfa;background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.2);border-radius:10px;padding:1px 8px;}
+.gsp-musica-acoes{display:flex;align-items:center;gap:6px;flex-shrink:0;}
+.gsp-btn-play{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;border:1px solid;font-size:14px;text-decoration:none;font-weight:700;transition:all .12s;}
+.gsp-btn-play:active{transform:scale(0.9);}
+.gsp-btn-editar{background:transparent;border:none;font-size:15px;cursor:pointer;padding:4px;opacity:.6;}
+.gsp-btn-del2{background:transparent;border:none;color:#ef4444;font-size:18px;font-weight:700;cursor:pointer;padding:4px;opacity:.7;line-height:1;}
+.gsp-inline-form-card{background:var(--bg-card);border:1px solid rgba(0,229,255,0.3);border-radius:16px;padding:18px;margin-bottom:14px;box-shadow:0 0 20px rgba(0,229,255,0.08);animation:fadeSlideIn .2s ease both;}
+.gsp-inline-form-titulo{font-family:'Playfair Display',serif;font-size:16px;font-weight:700;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,0.06);}
+.gsp-field{margin-bottom:10px;}
+.gsp-field label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);margin-bottom:5px;}
+.gsp-inline-form-btns{display:flex;gap:8px;margin-top:14px;}
+.gsp-empty-cat{background:var(--bg-card);border:1px solid rgba(0,229,255,0.1);border-radius:16px;padding:36px 20px;text-align:center;color:var(--text-muted);font-size:14px;line-height:1.7;}
+.gsp-empty-icon{font-size:40px;margin-bottom:12px;font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
+.gsp-voltar-btn{background:rgba(0,229,255,0.08);border:1px solid rgba(0,229,255,0.2);color:var(--accent);border-radius:10px;width:34px;height:34px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.gsp-btn-add-topo{background:linear-gradient(135deg,#00acc1,#006064);color:#fff;border:none;border-radius:20px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;padding:9px 16px;cursor:pointer;white-space:nowrap;}
+/* Grade de categorias */
+.gsp-grade{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding-top:4px;}
+.gsp-cat-card{position:relative;background:var(--bg-card);border:1px solid rgba(0,229,255,0.15);border-radius:18px;padding:20px 16px;cursor:pointer;transition:all 0.15s;overflow:hidden;}
+.gsp-cat-card:active{transform:scale(0.96);}
+.gsp-cat-icon{font-size:30px;margin-bottom:8px;font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
+.gsp-cat-nome{font-size:16px;font-weight:700;margin-bottom:4px;}
+.gsp-cat-count{font-size:12px;color:var(--text-muted);}
+.gsp-cat-arrow{position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:22px;color:rgba(255,255,255,0.2);}
+/* Lista de músicas numa categoria */
+.gsp-musicas-lista{display:flex;flex-direction:column;gap:10px;padding-top:4px;}
+.gsp-musica-row{display:flex;align-items:center;gap:10px;background:var(--bg-card);border:1px solid var(--border-neon);border-radius:14px;padding:12px 14px;animation:fadeSlideIn .25s ease both;}
+@keyframes fadeSlideIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.gsp-musica-plat{width:40px;height:40px;border-radius:12px;border:1px solid;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+.gsp-musica-dados{flex:1;min-width:0;}
+.gsp-musica-nome{font-size:14px;font-weight:700;color:var(--text-main);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.gsp-musica-meta{display:flex;align-items:center;gap:6px;margin-top:3px;font-size:12px;color:var(--text-muted);flex-wrap:wrap;}
+.gsp-obs-pill{font-size:11px;color:#a78bfa;background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.2);border-radius:10px;padding:1px 8px;}
+.gsp-musica-acoes{display:flex;align-items:center;gap:6px;flex-shrink:0;}
+.gsp-btn-play{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;border:1px solid;font-size:14px;text-decoration:none;font-weight:700;transition:all .12s;}
+.gsp-btn-play:active{transform:scale(0.9);}
+.gsp-btn-editar{background:transparent;border:none;font-size:15px;cursor:pointer;padding:4px;opacity:.6;}
+.gsp-btn-del2{background:transparent;border:none;color:#ef4444;font-size:18px;font-weight:700;cursor:pointer;padding:4px;opacity:.7;line-height:1;}
+/* Formulário inline */
+.gsp-inline-form-card{background:var(--bg-card);border:1px solid rgba(0,229,255,0.3);border-radius:16px;padding:18px;margin-bottom:14px;box-shadow:0 0 20px rgba(0,229,255,0.08);animation:fadeSlideIn .2s ease both;}
+.gsp-inline-form-titulo{font-family:'Playfair Display',serif;font-size:16px;font-weight:700;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,0.06);}
+.gsp-field{margin-bottom:10px;}
+.gsp-field label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);margin-bottom:5px;}
+.gsp-inline-form-btns{display:flex;gap:8px;margin-top:14px;}
+/* Vazio */
+.gsp-empty-cat{background:var(--bg-card);border:1px solid rgba(0,229,255,0.1);border-radius:16px;padding:36px 20px;text-align:center;color:var(--text-muted);font-size:14px;line-height:1.7;}
+.gsp-empty-icon{font-size:40px;margin-bottom:12px;font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
 
 /* ══ TOAST / DIALOG ══ */
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:#0c1424;color:#fff;padding:12px 24px;border-radius:50px;font-size:14px;font-weight:700;box-shadow:0 10px 30px rgba(0,0,0,0.6);opacity:0;transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1);z-index:999;white-space:nowrap;border:1px solid var(--border);}
@@ -2507,41 +2578,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
     <!-- PANEL: GOSPELTECA -->
     <div id="panel-gospelteca" class="panel">
       <div class="gsp-wrap">
-        <div class="gsp-header-bar">
+        <div class="gsp-header-bar" id="gsp-header-bar">
           <span>&#127911; Gospelteca</span>
-          <button id="btn-nova-musica" class="btn-novo-evento" onclick="abrirFormMusica()" style="display:none;">+ Música</button>
         </div>
-
-        <!-- Sub-abas categorias -->
-        <div class="gsp-subtabs" id="gsp-subtabs"></div>
-
-        <!-- Lista de músicas -->
         <div id="gsp-lista" class="gsp-lista"></div>
-
-        <!-- Formulário nova/editar música -->
-        <div id="gsp-form" class="gsp-form-card" style="display:none;">
-          <div class="gsp-form-titulo" id="gsp-form-titulo-label">Nova Música</div>
-          <div class="field-group"><label>Título</label><input type="text" id="gsp-titulo" class="input-neon" placeholder="Nome da música"></div>
-          <div class="field-group"><label>Artista / Ministério</label><input type="text" id="gsp-artista" class="input-neon" placeholder="Ex: Hillsong, Aline Barros..."></div>
-          <div class="field-group">
-            <label>Categoria</label>
-            <select id="gsp-categoria" class="input-neon">
-              <option value="adoracao">Adoração</option>
-              <option value="louvor">Louvor</option>
-              <option value="hino">Hinos Clássicos</option>
-              <option value="infantil">Infantil</option>
-              <option value="especial">Especial / Ofertório</option>
-              <option value="outro">Outro</option>
-            </select>
-          </div>
-          <div class="field-group"><label>Link (YouTube, Spotify, etc.)</label><input type="url" id="gsp-link" class="input-neon" placeholder="https://youtube.com/watch?v=..."></div>
-          <div class="field-group"><label>Observações (opcional)</label><textarea id="gsp-obs" class="input-neon" rows="2" placeholder="Tom, andamento, notas..."></textarea></div>
-          <div style="display:flex;gap:8px;margin-top:10px;">
-            <button class="btn btn-primary" onclick="salvarMusica()">Salvar</button>
-            <button class="btn btn-secondary" onclick="fecharFormMusica()">Cancelar</button>
-          </div>
-        </div>
-
       </div>
     </div>
 
