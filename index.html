@@ -400,6 +400,7 @@
       if(typeof iniciarListenerMensagens==='function') iniciarListenerMensagens();
       if(typeof iniciarListenerEventos==='function') iniciarListenerEventos();
       if(typeof iniciarListenerGsp==='function') iniciarListenerGsp();
+      if(typeof iniciarListenerGspLinks==='function') iniciarListenerGspLinks();
     },0);
   }
 
@@ -421,7 +422,7 @@
     if (tab==='escala-atual') { filtroMes=new Date().getMonth(); filtroAno=new Date().getFullYear(); renderLista(); }
     if (tab==='proxima-escala') renderProxima();
     if (tab==='mensagens') { setTimeout(()=>{ const c=document.getElementById('msg-lista'); if(c) c.scrollTop=c.scrollHeight; },100); }
-    if (tab==='gospelteca') { if(typeof gspPaginaAtiva!=='undefined') gspPaginaAtiva=null; renderGospelteca(); }
+    if (tab==='gospelteca') renderGospelteca();
   };
 
   /* ══════════════════════════════════════
@@ -1012,241 +1013,210 @@
   /* ══════════════════════════════════════
      GOSPELTECA — Firebase
   ══════════════════════════════════════ */
-  let musicasGsp = [], gspEditId = null, gspPaginaAtiva = null, unsubGsp = null;
-
+  let musicasGsp = [], gspEditId = null, gspCategAtiva = 'adoracao', unsubGsp = null;
   const GSP_CATS = [
-    { id:'adoracao', label:'Adoração',  icon:'🙏', cor:'#a78bfa', gradient:'135deg,rgba(124,58,237,0.15),rgba(124,58,237,0.03)' },
-    { id:'louvor',   label:'Louvor',    icon:'🎉', cor:'#fbbf24', gradient:'135deg,rgba(251,191,36,0.15),rgba(251,191,36,0.03)' },
-    { id:'hino',     label:'Hinos',     icon:'♪',  cor:'#34d399', gradient:'135deg,rgba(52,211,153,0.15),rgba(52,211,153,0.03)' },
-    { id:'infantil', label:'Infantil',  icon:'🧒', cor:'#60a5fa', gradient:'135deg,rgba(96,165,250,0.15),rgba(96,165,250,0.03)' },
-    { id:'especial', label:'Especial',  icon:'🌹', cor:'#f87171', gradient:'135deg,rgba(248,113,113,0.15),rgba(248,113,113,0.03)' },
-    { id:'outro',    label:'Outro',     icon:'🎵', cor:'#00e5ff', gradient:'135deg,rgba(0,229,255,0.15),rgba(0,229,255,0.03)' },
+    { id:'adoracao', label:'Adoração',  icon:'🙏' },
+    { id:'louvor',   label:'Louvor',    icon:'🎉' },
+    { id:'hino',     label:'Hinos',     icon:'🎼' },
+    { id:'infantil', label:'Infantil',  icon:'🧒' },
+    { id:'especial', label:'Especial',  icon:'🌹' },
+    { id:'outro',    label:'Outro',     icon:'🎵' },
   ];
 
-  function getCat(id){ return GSP_CATS.find(c=>c.id===id) || GSP_CATS[GSP_CATS.length-1]; }
-
-  function iniciarListenerGsp() {
+  window.iniciarListenerGsp = function iniciarListenerGsp() {
     if (!igrejaId) return;
     if (unsubGsp) unsubGsp();
     const qG = query(collection(db,'gospelteca'), where('igrejaId','==',igrejaId), orderBy('titulo','asc'));
     unsubGsp = onSnapshot(qG,
       snap => { musicasGsp = snap.docs.map(d=>({id:d.id,...d.data()})); renderGospelteca(); },
-      err  => console.error('Gospelteca listener:', err)
+      err  => console.error(err)
     );
-  }
-
-  /* ── renderiza a tela principal da Gospelteca (grade de categorias) ── */
-  window.renderGospelteca = function() {
-    const lista = document.getElementById('gsp-lista'); if (!lista) return;
-    // Se estiver numa página de categoria, atualiza apenas ela
-    if (gspPaginaAtiva) { renderPaginaCategoria(gspPaginaAtiva); return; }
-    renderHomeGospelteca();
   };
 
-  function renderHomeGospelteca() {
-    const lista = document.getElementById('gsp-lista'); if (!lista) return;
-    const header = document.getElementById('gsp-header-bar');
-    if (header) header.innerHTML = '<span>&#127911; Gospelteca</span>';
+  // Links diretos por categoria — salvos no Firestore
+  let gspLinks = {}; // { adoracao: [{id, label, url}], louvor: [...], ... }
+  let unsubGspLinks = null;
 
+  window.iniciarListenerGspLinks = function iniciarListenerGspLinks() {
+    if (!igrejaId) return;
+    if (unsubGspLinks) unsubGspLinks();
+    const qL = query(collection(db,'gospelteca_links'), where('igrejaId','==',igrejaId));
+    unsubGspLinks = onSnapshot(qL, snap => {
+      gspLinks = {};
+      snap.docs.forEach(d => {
+        const data = d.data();
+        if (!gspLinks[data.categoria]) gspLinks[data.categoria] = [];
+        gspLinks[data.categoria].push({ id: d.id, label: data.label||'', url: data.url||'' });
+      });
+      renderGospelteca();
+    }, err => console.error(err));
+  };
+
+  window.renderGospelteca = function renderGospelteca() {
+    // Monta abas de categoria (sem "Todas")
+    const tabs = document.getElementById('gsp-subtabs'); if (!tabs) return;
+    tabs.innerHTML = GSP_CATS.map(c =>
+      `<button class="gsp-subtab${gspCategAtiva===c.id?' ativo':''}" onclick="gspSetCateg('${c.id}')">${c.icon} ${esc(c.label)}</button>`
+    ).join('');
+
+    const lista = document.getElementById('gsp-lista'); if (!lista) return;
     const lider = isLider();
-    let html = '<div class="gsp-grade">';
-    GSP_CATS.forEach(cat => {
-      const total = musicasGsp.filter(m=>m.categoria===cat.id).length;
-      html += `<div class="gsp-cat-card" onclick="gspAbrirCategoria('${cat.id}')" style="background:linear-gradient(${cat.gradient});border-color:${cat.cor}33;">
-        <div class="gsp-cat-icon" style="color:${cat.cor}">${cat.icon}</div>
-        <div class="gsp-cat-nome" style="color:${cat.cor}">${esc(cat.label)}</div>
-        <div class="gsp-cat-count">${total} música${total!==1?'s':''}</div>
-        <div class="gsp-cat-arrow">›</div>
-      </div>`;
-    });
-    html += '</div>';
-    lista.innerHTML = html;
-  }
+    const btnMusica = document.getElementById('btn-nova-musica');
+    if (btnMusica) btnMusica.style.display = 'none'; // removido do header, integrado na página
 
-  window.gspAbrirCategoria = function(catId) {
-    gspPaginaAtiva = catId;
-    renderPaginaCategoria(catId);
-  };
+    const cat = GSP_CATS.find(c => c.id === gspCategAtiva);
+    if (!cat) return;
 
-  window.gspVoltarHome = function() {
-    // Fechar form se aberto
-    const form = document.getElementById('gsp-inline-form');
-    if (form) form.style.display = 'none';
-    gspPaginaAtiva = null;
-    renderHomeGospelteca();
-    const header = document.getElementById('gsp-header-bar');
-    if (header) header.innerHTML = '<span>&#127911; Gospelteca</span>';
-  };
+    const musicas = musicasGsp.filter(m => m.categoria === gspCategAtiva);
+    const links   = gspLinks[gspCategAtiva] || [];
+    const total   = musicas.length + links.length;
 
-  function renderPaginaCategoria(catId) {
-    const cat  = getCat(catId);
-    const lista = document.getElementById('gsp-lista'); if (!lista) return;
-    const header = document.getElementById('gsp-header-bar');
-    if (header) header.innerHTML =
-      `<div style="display:flex;align-items:center;gap:10px;">
-         <button class="gsp-voltar-btn" onclick="gspVoltarHome()">&#8592;</button>
-         <span style="color:${cat.cor}">${cat.icon} ${esc(cat.label)}</span>
-       </div>
-       ${isLider() ? `<button class="gsp-btn-add-topo" onclick="gspToggleForm()">+ Música</button>` : ''}`;
-
-    const musicas = musicasGsp.filter(m => m.categoria === catId);
-    const lider = isLider();
-
-    let html = `
-      <!-- Formulário inline (oculto por padrão) -->
-      <div id="gsp-inline-form" class="gsp-inline-form-card" style="display:none;">
-        <div class="gsp-inline-form-titulo" style="color:${cat.cor}">${cat.icon} Nova música em ${esc(cat.label)}</div>
-        <div class="gsp-field"><label>Título da música *</label>
-          <input id="gi-titulo" type="text" class="input-neon" placeholder="Ex: Oceans, Reckless Love...">
-        </div>
-        <div class="gsp-field"><label>Artista / Ministério</label>
-          <input id="gi-artista" type="text" class="input-neon" placeholder="Ex: Hillsong, Aline Barros...">
-        </div>
-        <div class="gsp-field"><label>Link (YouTube, Spotify, Drive…) *</label>
-          <input id="gi-link" type="url" class="input-neon" placeholder="https://youtube.com/watch?v=...">
-        </div>
-        <div class="gsp-field"><label>Tom / Observações (opcional)</label>
-          <input id="gi-obs" type="text" class="input-neon" placeholder="Ex: Tom de Ré, versão ao vivo...">
-        </div>
-        <input type="hidden" id="gi-edit-id" value="">
-        <div class="gsp-inline-form-btns">
-          <button class="btn btn-primary" onclick="gspSalvarInline('${catId}')">Salvar</button>
-          <button class="btn btn-secondary" onclick="gspToggleForm()">Cancelar</button>
+    let html = `<div class="gsp-pagina">
+      <div class="gsp-pagina-header">
+        <div class="gsp-pagina-icone">${cat.icon}</div>
+        <div>
+          <div class="gsp-pagina-titulo">${esc(cat.label)}</div>
+          <div class="gsp-pagina-count">${total} ${total===1?'item':'itens'}</div>
         </div>
       </div>`;
 
-    if (musicas.length === 0) {
-      html += `<div class="gsp-empty-cat">
-        <div class="gsp-empty-icon">${cat.icon}</div>
-        <div>Nenhuma música em <strong>${esc(cat.label)}</strong> ainda.</div>
-        ${lider ? '<div style="font-size:12px;margin-top:6px;color:#64748b;">Toque em <strong>+ Música</strong> para adicionar.</div>' : ''}
-      </div>`;
+    // ── Seção de Links Diretos ──
+    html += `<div class="gsp-sec-titulo">🔗 Links e Pastas</div>`;
+    if (links.length === 0) {
+      html += `<div class="gsp-vazio-links">${lider ? 'Adicione links de YouTube, Spotify ou Google Drive abaixo.' : 'Nenhum link cadastrado ainda.'}</div>`;
     } else {
-      html += '<div class="gsp-musicas-lista">';
-      musicas.forEach((m, idx) => {
-        const plataforma = detectarPlataforma(m.link);
-        html += `<div class="gsp-musica-row" style="animation-delay:${idx*0.04}s">
-          <div class="gsp-musica-plat" style="background:${plataforma.cor}22;border-color:${plataforma.cor}44;">
-            ${plataforma.icon}
+      links.forEach((lk, idx) => {
+        const dominio = (() => { try { return new URL(lk.url).hostname.replace('www.',''); } catch(e){ return lk.url; } })();
+        const icoDom = lk.url.includes('youtube') || lk.url.includes('youtu.be') ? '▶' :
+                       lk.url.includes('spotify') ? '🎧' :
+                       lk.url.includes('drive.google') ? '📁' :
+                       lk.url.includes('soundcloud') ? '☁' : '🔗';
+        html += `<div class="gsp-link-row">
+          <div class="gsp-link-row-ico">${icoDom}</div>
+          <div class="gsp-link-row-info">
+            <div class="gsp-link-row-titulo">${esc(lk.label || dominio)}</div>
+            <div class="gsp-link-row-url">${esc(dominio)}</div>
           </div>
-          <div class="gsp-musica-dados">
-            <div class="gsp-musica-nome">${esc(m.titulo||'Sem título')}</div>
-            <div class="gsp-musica-meta">
-              ${m.artista ? `<span>${esc(m.artista)}</span>` : ''}
-              ${m.obs ? `<span class="gsp-obs-pill">${esc(m.obs)}</span>` : ''}
-            </div>
-          </div>
-          <div class="gsp-musica-acoes">
-            ${m.link ? `<a href="${esc(m.link)}" target="_blank" rel="noopener noreferrer" class="gsp-btn-play" style="background:${plataforma.cor}22;border-color:${plataforma.cor}55;color:${plataforma.cor}">▶</a>` : ''}
-            ${lider ? `<button class="gsp-btn-editar" onclick="gspEditarMusica('${m.id}')" title="Editar">✏️</button>` : ''}
-            ${lider ? `<button class="gsp-btn-del2" onclick="gspDeletar('${m.id}')">×</button>` : ''}
-          </div>
+          <a href="${esc(lk.url)}" target="_blank" rel="noopener noreferrer" class="gsp-btn-abrir">Abrir ↗</a>
+          ${lider ? `<button class="gsp-btn-del-link" onclick="gspDeletarLink('${lk.id}')">×</button>` : ''}
         </div>`;
       });
-      html += '</div>';
     }
 
-    lista.innerHTML = html;
-  }
+    // ── Formulário de adicionar link (sempre visível para líder) ──
+    if (lider) {
+      html += `<div class="gsp-form-link-inline">
+        <div class="gsp-form-link-titulo">+ Adicionar link</div>
+        <input type="text" id="gsp-novo-label" class="gsp-input-link" placeholder="Nome do link (ex: Playlist Adoração)">
+        <input type="url"  id="gsp-novo-url"   class="gsp-input-link" placeholder="https://youtube.com/... ou drive.google.com/...">
+        <button class="gsp-btn-salvar-link" onclick="gspSalvarLink()">Salvar Link</button>
+      </div>`;
+    }
 
-  // Detecta plataforma pelo link para dar ícone/cor
-  function detectarPlataforma(link) {
-    if (!link) return { icon:'🔗', cor:'#64748b' };
-    const l = link.toLowerCase();
-    if (l.includes('youtube') || l.includes('youtu.be')) return { icon:'▶', cor:'#ef4444' };
-    if (l.includes('spotify'))   return { icon:'♫', cor:'#22c55e' };
-    if (l.includes('drive.google')) return { icon:'▲', cor:'#60a5fa' };
-    if (l.includes('soundcloud')) return { icon:'☁', cor:'#f97316' };
-    if (l.includes('deezer'))    return { icon:'♬', cor:'#a78bfa' };
-    if (l.includes('apple'))     return { icon:'♩', cor:'#ec4899' };
-    return { icon:'🔗', cor:'#00e5ff' };
-  }
-
-  window.gspToggleForm = function(editId) {
-    const form = document.getElementById('gsp-inline-form');
-    if (!form) return;
-    const aberto = form.style.display !== 'none';
-    if (aberto) {
-      form.style.display = 'none';
+    // ── Seção de Músicas cadastradas ──
+    html += `<div class="gsp-sec-titulo" style="margin-top:20px;">🎵 Músicas Cadastradas</div>`;
+    if (musicas.length === 0) {
+      html += `<div class="gsp-vazio-links">${lider ? 'Nenhuma música. Use "+ Música" para cadastrar.' : 'Nenhuma música nesta categoria.'}</div>`;
     } else {
-      // Limpar campos
-      ['gi-titulo','gi-artista','gi-link','gi-obs'].forEach(id => {
-        const el = document.getElementById(id); if(el) el.value='';
+      musicas.forEach(m => {
+        html += `<div class="gsp-link-row">
+          <div class="gsp-link-row-ico">🎵</div>
+          <div class="gsp-link-row-info">
+            <div class="gsp-link-row-titulo">${esc(m.titulo||'Sem título')}</div>
+            <div class="gsp-link-row-url">${esc(m.artista||'')}${m.obs ? ' • ' + esc(m.obs) : ''}</div>
+          </div>
+          ${m.link ? `<a href="${esc(m.link)}" target="_blank" rel="noopener noreferrer" class="gsp-btn-abrir">Ouvir ↗</a>` : ''}
+          ${lider ? `<button class="gsp-btn-del-link" onclick="deletarMusica('${m.id}')">×</button>` : ''}
+        </div>`;
       });
-      const eid = document.getElementById('gi-edit-id'); if(eid) eid.value='';
-      form.style.display = 'block';
-      form.scrollIntoView({behavior:'smooth',block:'start'});
     }
+
+    // ── Botão cadastrar música ──
+    if (lider) {
+      html += `<button class="gsp-btn-nova-musica" onclick="abrirFormMusica()">+ Cadastrar Música</button>`;
+    }
+
+    html += `</div>`; // fecha gsp-pagina
+    lista.innerHTML = html;
   };
 
-  window.gspEditarMusica = function(id) {
-    const m = musicasGsp.find(x=>x.id===id); if(!m) return;
-    const form = document.getElementById('gsp-inline-form');
-    if (!form) return;
-    const set = (elId, val) => { const el=document.getElementById(elId); if(el) el.value=val||''; };
-    set('gi-titulo',  m.titulo);
-    set('gi-artista', m.artista);
-    set('gi-link',    m.link);
-    set('gi-obs',     m.obs);
-    set('gi-edit-id', m.id);
-    form.style.display = 'block';
-    form.scrollIntoView({behavior:'smooth',block:'start'});
+  window.gspSetCateg = function(id) {
+    gspCategAtiva = id;
+    renderGospelteca();
   };
 
-  window.gspSalvarInline = async function(catId) {
-    if (!isLider()) { showToast('Apenas o líder pode adicionar','danger'); return; }
-    const get = (id) => { const el=document.getElementById(id); return el ? el.value.trim() : ''; };
-    const titulo  = get('gi-titulo');
-    const artista = get('gi-artista');
-    const link    = get('gi-link');
-    const obs     = get('gi-obs');
-    const editId  = get('gi-edit-id');
-
-    if (!titulo) { showToast('Informe o título da música','danger'); return; }
-    if (!link)   { showToast('Informe o link da música','danger');   return; }
-    if (!link.startsWith('http')) { showToast('Link deve começar com http:// ou https://','danger'); return; }
-
-    const obj = { titulo, artista, categoria: catId, link, obs, igrejaId, updatedAt: serverTimestamp() };
-    const btn = document.querySelector('#gsp-inline-form .btn-primary');
-    if (btn) btn.textContent = 'Salvando…';
+  // ── Salvar link no Firestore ──
+  window.gspSalvarLink = async function() {
+    const url   = (document.getElementById('gsp-novo-url')?.value || '').trim();
+    const label = (document.getElementById('gsp-novo-label')?.value || '').trim();
+    if (!url || (!url.startsWith('http://') && !url.startsWith('https://'))) {
+      showToast('Cole um link válido (começa com http)', 'danger'); return;
+    }
     try {
-      if (editId) {
-        await updateDoc(doc(db,'gospelteca',editId), obj);
+      await addDoc(collection(db,'gospelteca_links'), {
+        url, label, categoria: gspCategAtiva, igrejaId, criadoEm: serverTimestamp()
+      });
+      const urlEl = document.getElementById('gsp-novo-url');
+      const labEl = document.getElementById('gsp-novo-label');
+      if (urlEl) urlEl.value = ''; if (labEl) labEl.value = '';
+      showToast('Link salvo!', 'success');
+    } catch(err) { console.error(err); showToast('Erro ao salvar link', 'danger'); }
+  };
+
+  window.gspDeletarLink = async function(id) {
+    if (!isLider()) return;
+    if (!confirm('Remover este link?')) return;
+    try { await deleteDoc(doc(db,'gospelteca_links',id)); showToast('Link removido','danger'); }
+    catch(e) { showToast('Erro ao remover','danger'); }
+  };
+
+  window.abrirFormMusica = function(id) {
+    if (!isLider()) { showToast('Apenas o líder pode adicionar músicas','danger'); return; }
+    gspEditId = id || null;
+    const m = id ? musicasGsp.find(x=>x.id===id) : null;
+    document.getElementById('gsp-form-titulo-label').textContent = m ? 'Editar Música' : 'Nova Música';
+    document.getElementById('gsp-titulo').value    = m ? (m.titulo||'') : '';
+    document.getElementById('gsp-artista').value   = m ? (m.artista||'') : '';
+    document.getElementById('gsp-categoria').value = m ? (m.categoria||gspCategAtiva) : gspCategAtiva;
+    document.getElementById('gsp-link').value      = m ? (m.link||'') : '';
+    document.getElementById('gsp-obs').value       = m ? (m.obs||'') : '';
+    document.getElementById('gsp-form').style.display = 'block';
+    document.getElementById('gsp-form').scrollIntoView({behavior:'smooth',block:'start'});
+  };
+
+  window.fecharFormMusica = function() {
+    document.getElementById('gsp-form').style.display = 'none';
+    gspEditId = null;
+  };
+
+  window.salvarMusica = async function() {
+    if (!isLider()) { showToast('Apenas o líder pode adicionar','danger'); return; }
+    const titulo    = document.getElementById('gsp-titulo').value.trim();
+    const artista   = document.getElementById('gsp-artista').value.trim();
+    const categoria = document.getElementById('gsp-categoria').value;
+    const link      = document.getElementById('gsp-link').value.trim();
+    const obs       = document.getElementById('gsp-obs').value.trim();
+    if (!titulo) { showToast('Informe o título da música','danger'); return; }
+    const obj = { titulo, artista, categoria, link, obs, igrejaId, updatedAt: serverTimestamp() };
+    try {
+      if (gspEditId) {
+        await updateDoc(doc(db,'gospelteca',gspEditId), obj);
         showToast('Música atualizada!','success');
       } else {
         obj.createdAt = serverTimestamp();
         await addDoc(collection(db,'gospelteca'), obj);
         showToast('Música adicionada!','success');
       }
-      const form = document.getElementById('gsp-inline-form');
-      if (form) form.style.display = 'none';
-    } catch(err) {
-      console.error(err);
-      showToast('Erro ao salvar. Verifique o link.','danger');
-      if (btn) btn.textContent = 'Salvar';
-    }
+      fecharFormMusica();
+    } catch(err) { console.error(err); showToast('Erro ao salvar','danger'); }
   };
 
-  window.gspDeletar = async function(id) {
+  window.deletarMusica = async function(id) {
     if (!isLider()) { showToast('Apenas o líder pode remover','danger'); return; }
     if (!confirm('Remover esta música da Gospelteca?')) return;
     try { await deleteDoc(doc(db,'gospelteca',id)); showToast('Música removida','danger'); }
     catch(err) { showToast('Erro ao remover','danger'); }
   };
-
-  // Manter compatibilidade com chamadas antigas
-  window.abrirFormMusica  = window.gspToggleForm;
-  window.fecharFormMusica = window.gspToggleForm;
-  window.salvarMusica     = () => gspSalvarInline(gspPaginaAtiva || 'outro');
-  window.deletarMusica    = window.gspDeletar;
-  window.gspSetCateg      = window.gspAbrirCategoria;
-  // Links rápidos antigos — não mais usados, mas evitar erros
-  window.gspTogglePasta       = ()=>{};
-  window.gspToggleFormLink    = ()=>{};
-  window.gspAdicionarLinkRapido = ()=>{};
-  window.gspRemoverLinkRapido   = ()=>{};
-  window.gspLinksRapidos = {};
-  window.gspPastaAberta  = {};
 
   function isLider(){ return !!usuarioLogado; }
   function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -1628,72 +1598,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
 .ritmo-beat-dot.on{background:var(--accent);border-color:var(--accent);box-shadow:0 0 10px rgba(0,229,255,0.6);transform:scale(1.25);}
 .ritmo-beat-dot.forte-on{background:#fbbf24 !important;border-color:#fbbf24 !important;box-shadow:0 0 14px rgba(251,191,36,0.7) !important;transform:scale(1.4) !important;}
 
-/* ══ GOSPELTECA NOVO ══ */
-.gsp-wrap{padding:0 0 80px;}
-.gsp-header-bar{display:flex;align-items:center;justify-content:space-between;padding:14px 0 16px;font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:var(--accent);min-height:52px;}
-.gsp-voltar-btn{background:rgba(0,229,255,0.08);border:1px solid rgba(0,229,255,0.2);color:var(--accent);border-radius:10px;width:34px;height:34px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
-.gsp-btn-add-topo{background:linear-gradient(135deg,#00acc1,#006064);color:#fff;border:none;border-radius:20px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;padding:9px 16px;cursor:pointer;white-space:nowrap;}
-.gsp-grade{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding-top:4px;}
-.gsp-cat-card{position:relative;background:var(--bg-card);border:1px solid rgba(0,229,255,0.15);border-radius:18px;padding:20px 16px;cursor:pointer;transition:all 0.15s;overflow:hidden;}
-.gsp-cat-card:active{transform:scale(0.96);}
-.gsp-cat-icon{font-size:30px;margin-bottom:8px;font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
-.gsp-cat-nome{font-size:16px;font-weight:700;margin-bottom:4px;}
-.gsp-cat-count{font-size:12px;color:var(--text-muted);}
-.gsp-cat-arrow{position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:22px;color:rgba(255,255,255,0.2);}
-.gsp-musicas-lista{display:flex;flex-direction:column;gap:10px;padding-top:4px;}
-.gsp-musica-row{display:flex;align-items:center;gap:10px;background:var(--bg-card);border:1px solid var(--border-neon);border-radius:14px;padding:12px 14px;animation:fadeSlideIn .25s ease both;}
-@keyframes fadeSlideIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-.gsp-musica-plat{width:40px;height:40px;border-radius:12px;border:1px solid;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
-.gsp-musica-dados{flex:1;min-width:0;}
-.gsp-musica-nome{font-size:14px;font-weight:700;color:var(--text-main);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.gsp-musica-meta{display:flex;align-items:center;gap:6px;margin-top:3px;font-size:12px;color:var(--text-muted);flex-wrap:wrap;}
-.gsp-obs-pill{font-size:11px;color:#a78bfa;background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.2);border-radius:10px;padding:1px 8px;}
-.gsp-musica-acoes{display:flex;align-items:center;gap:6px;flex-shrink:0;}
-.gsp-btn-play{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;border:1px solid;font-size:14px;text-decoration:none;font-weight:700;transition:all .12s;}
-.gsp-btn-play:active{transform:scale(0.9);}
-.gsp-btn-editar{background:transparent;border:none;font-size:15px;cursor:pointer;padding:4px;opacity:.6;}
-.gsp-btn-del2{background:transparent;border:none;color:#ef4444;font-size:18px;font-weight:700;cursor:pointer;padding:4px;opacity:.7;line-height:1;}
-.gsp-inline-form-card{background:var(--bg-card);border:1px solid rgba(0,229,255,0.3);border-radius:16px;padding:18px;margin-bottom:14px;box-shadow:0 0 20px rgba(0,229,255,0.08);animation:fadeSlideIn .2s ease both;}
-.gsp-inline-form-titulo{font-family:'Playfair Display',serif;font-size:16px;font-weight:700;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,0.06);}
-.gsp-field{margin-bottom:10px;}
-.gsp-field label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);margin-bottom:5px;}
-.gsp-inline-form-btns{display:flex;gap:8px;margin-top:14px;}
-.gsp-empty-cat{background:var(--bg-card);border:1px solid rgba(0,229,255,0.1);border-radius:16px;padding:36px 20px;text-align:center;color:var(--text-muted);font-size:14px;line-height:1.7;}
-.gsp-empty-icon{font-size:40px;margin-bottom:12px;font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
-.gsp-voltar-btn{background:rgba(0,229,255,0.08);border:1px solid rgba(0,229,255,0.2);color:var(--accent);border-radius:10px;width:34px;height:34px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
-.gsp-btn-add-topo{background:linear-gradient(135deg,#00acc1,#006064);color:#fff;border:none;border-radius:20px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;padding:9px 16px;cursor:pointer;white-space:nowrap;}
-/* Grade de categorias */
-.gsp-grade{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding-top:4px;}
-.gsp-cat-card{position:relative;background:var(--bg-card);border:1px solid rgba(0,229,255,0.15);border-radius:18px;padding:20px 16px;cursor:pointer;transition:all 0.15s;overflow:hidden;}
-.gsp-cat-card:active{transform:scale(0.96);}
-.gsp-cat-icon{font-size:30px;margin-bottom:8px;font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
-.gsp-cat-nome{font-size:16px;font-weight:700;margin-bottom:4px;}
-.gsp-cat-count{font-size:12px;color:var(--text-muted);}
-.gsp-cat-arrow{position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:22px;color:rgba(255,255,255,0.2);}
-/* Lista de músicas numa categoria */
-.gsp-musicas-lista{display:flex;flex-direction:column;gap:10px;padding-top:4px;}
-.gsp-musica-row{display:flex;align-items:center;gap:10px;background:var(--bg-card);border:1px solid var(--border-neon);border-radius:14px;padding:12px 14px;animation:fadeSlideIn .25s ease both;}
-@keyframes fadeSlideIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-.gsp-musica-plat{width:40px;height:40px;border-radius:12px;border:1px solid;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
-.gsp-musica-dados{flex:1;min-width:0;}
-.gsp-musica-nome{font-size:14px;font-weight:700;color:var(--text-main);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.gsp-musica-meta{display:flex;align-items:center;gap:6px;margin-top:3px;font-size:12px;color:var(--text-muted);flex-wrap:wrap;}
-.gsp-obs-pill{font-size:11px;color:#a78bfa;background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.2);border-radius:10px;padding:1px 8px;}
-.gsp-musica-acoes{display:flex;align-items:center;gap:6px;flex-shrink:0;}
-.gsp-btn-play{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;border:1px solid;font-size:14px;text-decoration:none;font-weight:700;transition:all .12s;}
-.gsp-btn-play:active{transform:scale(0.9);}
-.gsp-btn-editar{background:transparent;border:none;font-size:15px;cursor:pointer;padding:4px;opacity:.6;}
-.gsp-btn-del2{background:transparent;border:none;color:#ef4444;font-size:18px;font-weight:700;cursor:pointer;padding:4px;opacity:.7;line-height:1;}
-/* Formulário inline */
-.gsp-inline-form-card{background:var(--bg-card);border:1px solid rgba(0,229,255,0.3);border-radius:16px;padding:18px;margin-bottom:14px;box-shadow:0 0 20px rgba(0,229,255,0.08);animation:fadeSlideIn .2s ease both;}
-.gsp-inline-form-titulo{font-family:'Playfair Display',serif;font-size:16px;font-weight:700;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,0.06);}
-.gsp-field{margin-bottom:10px;}
-.gsp-field label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);margin-bottom:5px;}
-.gsp-inline-form-btns{display:flex;gap:8px;margin-top:14px;}
-/* Vazio */
-.gsp-empty-cat{background:var(--bg-card);border:1px solid rgba(0,229,255,0.1);border-radius:16px;padding:36px 20px;text-align:center;color:var(--text-muted);font-size:14px;line-height:1.7;}
-.gsp-empty-icon{font-size:40px;margin-bottom:12px;font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
-
 /* ══ TOAST / DIALOG ══ */
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:#0c1424;color:#fff;padding:12px 24px;border-radius:50px;font-size:14px;font-weight:700;box-shadow:0 10px 30px rgba(0,0,0,0.6);opacity:0;transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1);z-index:999;white-space:nowrap;border:1px solid var(--border);}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
@@ -1851,64 +1755,47 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
 .ritmo-detalhe-corpo .ritmo-padrao{font-family:'Share Tech Mono',monospace;font-size:13px;color:#fbbf24;background:rgba(251,191,36,0.06);border-radius:6px;padding:8px 10px;margin-top:6px;display:block;letter-spacing:0.5px;}
 .ritmo-detalhe-corpo .ritmo-dica{background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.2);border-radius:var(--radius-sm);padding:10px 12px;font-size:13px;color:#c4b5fd;margin-top:12px;}
 
-/* ══ MIXER MULTIPISTAS ══ */
-.mx-box{background:rgba(0,0,0,0.35);border:1px solid rgba(0,229,255,0.2);border-radius:var(--radius);padding:14px 12px 10px;margin-bottom:16px;box-shadow:0 4px 30px rgba(0,229,255,0.05);}
-.mx-header{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;}
-.mx-title{font-size:13px;font-weight:700;color:var(--accent);flex:1;letter-spacing:0.3px;}
-.mx-bpm-group{display:flex;align-items:center;gap:5px;}
-.mx-bpm-btn{width:26px;height:26px;border-radius:6px;background:rgba(0,229,255,0.1);border:1px solid rgba(0,229,255,0.25);color:var(--accent);font-size:16px;font-weight:700;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center;}
-.mx-bpm-val{font-family:'Share Tech Mono',monospace;font-size:16px;font-weight:700;color:#fff;min-width:30px;text-align:center;}
-.mx-bpm-lbl{font-size:10px;color:var(--text-muted);font-weight:700;text-transform:uppercase;}
-.mx-play-btn{width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,var(--accent),#00b8cc);border:none;color:#000;font-size:18px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 0 12px rgba(0,229,255,0.3);transition:all 0.15s;flex-shrink:0;}
-.mx-play-btn.tocando{background:linear-gradient(135deg,#ef4444,#dc2626);box-shadow:0 0 12px rgba(239,68,68,0.35);color:#fff;}
-.mx-play-btn:active{transform:scale(0.93);}
-
-/* Step indicator bar */
-.mx-step-row{display:flex;gap:3px;margin-top:8px;padding:0 76px 0 0;}
-.mx-step-cell{flex:1;height:4px;border-radius:2px;background:rgba(255,255,255,0.06);transition:background 0.05s;}
-.mx-step-cell.cur{background:var(--accent);box-shadow:0 0 6px var(--accent);}
-
-/* Trilhas */
-.mx-tracks{display:flex;flex-direction:column;gap:6px;}
-.mx-track{display:flex;align-items:center;gap:6px;}
-.mx-track-ctrl{display:flex;flex-direction:column;align-items:flex-end;gap:3px;width:66px;flex-shrink:0;}
-.mx-track-name{font-size:10px;font-weight:700;color:var(--text-main);text-transform:uppercase;letter-spacing:0.5px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:66px;}
-.mx-track-btns{display:flex;gap:3px;}
-.mx-btn-m,.mx-btn-s{width:20px;height:18px;border-radius:4px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.05);color:var(--text-muted);font-size:9px;font-weight:700;cursor:pointer;line-height:1;font-family:'DM Sans',sans-serif;}
-.mx-btn-m.on{background:rgba(239,68,68,0.25);border-color:rgba(239,68,68,0.5);color:#f87171;}
-.mx-btn-s.on{background:rgba(251,191,36,0.25);border-color:rgba(251,191,36,0.5);color:#fbbf24;}
-.mx-vol{-webkit-appearance:none;appearance:none;width:100%;height:3px;background:rgba(255,255,255,0.08);border-radius:2px;outline:none;}
-.mx-vol::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:var(--accent);cursor:pointer;}
-.mx-vu{width:6px;height:100%;border-radius:3px;background:rgba(0,229,255,0.08);overflow:hidden;display:flex;flex-direction:column-reverse;flex-shrink:0;}
-.mx-vu-fill{width:100%;height:0%;border-radius:3px;background:linear-gradient(to top,#22c55e,#eab308,#ef4444);transition:height 0.08s;}
-
-/* Steps grid */
-.mx-steps{display:flex;gap:3px;flex:1;}
-.mx-step{width:100%;aspect-ratio:1;border-radius:5px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);cursor:pointer;transition:all 0.1s;position:relative;}
-.mx-step.on{background:rgba(0,229,255,0.18);border-color:rgba(0,229,255,0.45);}
-.mx-step.on.forte{background:rgba(0,229,255,0.35);border-color:rgba(0,229,255,0.7);box-shadow:0 0 6px rgba(0,229,255,0.3);}
-.mx-step.cur-hit{box-shadow:0 0 0 2px var(--accent) inset;transform:scale(0.88);transition:none;}
-
 /* ══ GOSPELTECA ══ */
 .gsp-wrap{padding:0 0 80px;}
-.gsp-header-bar{display:flex;align-items:center;justify-content:space-between;padding:14px 0 12px;font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:var(--accent);}
-.gsp-subtabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
-.gsp-subtab{padding:8px 16px;border-radius:20px;border:1px solid rgba(0,229,255,0.2);background:transparent;color:var(--text-muted);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.15s;}
-.gsp-subtab.ativo{background:rgba(0,229,255,0.1);border-color:rgba(0,229,255,0.4);color:var(--accent);}
-.gsp-lista{}
-.gsp-categoria-titulo{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);padding:10px 0 6px;border-bottom:1px solid var(--border);margin-bottom:8px;}
-.gsp-musica-card{background:var(--bg-card);border:1px solid var(--border-neon);border-radius:var(--radius-sm);padding:14px 16px;margin-bottom:8px;display:flex;align-items:center;gap:12px;transition:all 0.15s;}
-.gsp-musica-card:hover{border-color:rgba(0,229,255,0.35);}
-.gsp-musica-icon{width:38px;height:38px;border-radius:10px;background:rgba(0,229,255,0.08);border:1px solid rgba(0,229,255,0.2);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
-.gsp-musica-info{flex:1;min-width:0;}
-.gsp-musica-titulo{font-size:15px;font-weight:700;color:var(--text-main);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.gsp-musica-artista{font-size:12px;color:var(--text-muted);margin-top:2px;}
-.gsp-musica-obs{font-size:11px;color:#64748b;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.gsp-musica-acoes{display:flex;gap:6px;flex-shrink:0;}
-.gsp-btn-link{background:rgba(0,229,255,0.08);border:1px solid rgba(0,229,255,0.2);color:var(--accent);border-radius:8px;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;text-decoration:none;display:inline-block;}
-.gsp-btn-link:active{transform:scale(0.95);}
-.gsp-btn-del{background:rgba(239,68,68,0.07);border:1px solid rgba(239,68,68,0.2);color:#f87171;border-radius:8px;padding:7px 10px;font-size:12px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;}
-.gsp-btn-del:active{transform:scale(0.95);}
+.gsp-header-bar{display:flex;align-items:center;justify-content:space-between;padding:14px 0 10px;font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:var(--accent);}
+/* Abas de categoria — scroll horizontal */
+.gsp-subtabs{display:flex;gap:8px;overflow-x:auto;padding-bottom:8px;margin-bottom:16px;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+.gsp-subtabs::-webkit-scrollbar{display:none;}
+.gsp-subtab{flex-shrink:0;padding:9px 18px;border-radius:20px;border:1px solid rgba(0,229,255,0.2);background:transparent;color:var(--text-muted);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.15s;white-space:nowrap;}
+.gsp-subtab.ativo{background:linear-gradient(135deg,rgba(0,229,255,0.12),rgba(0,229,255,0.06));border-color:rgba(0,229,255,0.5);color:var(--accent);box-shadow:0 0 14px rgba(0,229,255,0.15);}
+/* Página de categoria */
+.gsp-pagina{padding-bottom:20px;}
+.gsp-pagina-header{display:flex;align-items:center;gap:16px;background:linear-gradient(135deg,rgba(0,229,255,0.06),rgba(0,229,255,0.02));border:1px solid rgba(0,229,255,0.18);border-radius:var(--radius);padding:18px 20px;margin-bottom:18px;box-shadow:var(--shadow-neon);}
+.gsp-pagina-icone{font-size:38px;flex-shrink:0;font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
+.gsp-pagina-titulo{font-family:'Playfair Display',serif;font-size:22px;font-weight:700;color:#fff;}
+.gsp-pagina-count{font-size:12px;color:var(--text-muted);margin-top:2px;}
+/* Títulos de seção */
+.gsp-sec-titulo{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:10px;display:flex;align-items:center;gap:6px;}
+/* Linhas de link */
+.gsp-link-row{display:flex;align-items:center;gap:10px;background:var(--bg-card);border:1px solid var(--border-neon);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:8px;transition:border-color .15s;}
+.gsp-link-row:hover{border-color:rgba(0,229,255,0.35);}
+.gsp-link-row-ico{font-size:20px;flex-shrink:0;width:32px;text-align:center;font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
+.gsp-link-row-info{flex:1;min-width:0;}
+.gsp-link-row-titulo{font-size:14px;font-weight:700;color:var(--text-main);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.gsp-link-row-url{font-size:11px;color:var(--text-muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.gsp-btn-abrir{display:inline-flex;align-items:center;gap:4px;background:rgba(0,229,255,0.08);border:1px solid rgba(0,229,255,0.25);color:var(--accent);padding:7px 13px;border-radius:20px;font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap;flex-shrink:0;}
+.gsp-btn-abrir:active{transform:scale(0.95);}
+.gsp-btn-del-link{background:transparent;border:none;color:#ef4444;cursor:pointer;font-size:18px;padding:4px 6px;flex-shrink:0;opacity:.7;line-height:1;}
+.gsp-btn-del-link:hover{opacity:1;}
+/* Vazio */
+.gsp-vazio-links{font-size:13px;color:var(--text-muted);font-style:italic;padding:10px 2px 12px;line-height:1.6;}
+/* Formulário de link inline */
+.gsp-form-link-inline{background:rgba(0,229,255,0.03);border:1px dashed rgba(0,229,255,0.2);border-radius:var(--radius-sm);padding:14px;margin-top:10px;}
+.gsp-form-link-titulo{font-size:12px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;}
+.gsp-input-link{display:block;width:100%;background:var(--bg-input);border:1px solid rgba(0,229,255,0.15);border-radius:var(--radius-sm);color:var(--text-main);font-family:'DM Sans',sans-serif;font-size:14px;padding:10px 12px;outline:none;margin-bottom:8px;box-sizing:border-box;}
+.gsp-input-link:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,229,255,0.07);}
+.gsp-input-link::placeholder{color:#2a3a50;}
+.gsp-btn-salvar-link{width:100%;padding:13px;border:none;border-radius:var(--radius-sm);background:linear-gradient(135deg,#00acc1,#006064);color:#fff;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 4px 18px rgba(0,229,255,0.25);}
+.gsp-btn-salvar-link:active{transform:scale(0.98);}
+/* Botão nova música */
+.gsp-btn-nova-musica{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:14px;padding:13px;border:1px dashed rgba(124,58,237,0.4);border-radius:var(--radius-sm);background:rgba(124,58,237,0.04);color:#c4b5fd;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;transition:all .2s;}
+.gsp-btn-nova-musica:hover{background:rgba(124,58,237,0.1);border-color:rgba(124,58,237,0.6);}
+/* Form de cadastro de música */
 .gsp-empty{background:rgba(0,229,255,0.04);border:1px solid rgba(0,229,255,0.12);border-radius:var(--radius);padding:28px 20px;text-align:center;color:var(--text-muted);font-size:13px;line-height:1.6;margin-bottom:12px;}
 .gsp-empty-icon{font-size:38px;margin-bottom:10px;font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
 .gsp-form-card{background:var(--bg-card);border:1px solid rgba(0,229,255,0.25);border-radius:var(--radius);padding:20px;margin-top:16px;box-shadow:var(--shadow-neon);}
@@ -2588,22 +2475,23 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
                 <div id="rd-bpm" class="ritmo-detalhe-bpm"></div>
               </div>
             </div>
-            <!-- MIXER MULTIPISTAS -->
-            <div class="mx-box" id="mixer-box">
-              <div class="mx-header">
-                <span class="mx-title">🎛️ Mixer / Sequenciador</span>
-                <div class="mx-bpm-group">
-                  <button class="mx-bpm-btn" onclick="mxBpmAdj(-5)">−</button>
-                  <span class="mx-bpm-val" id="mx-bpm-val">100</span>
-                  <span class="mx-bpm-lbl">BPM</span>
-                  <button class="mx-bpm-btn" onclick="mxBpmAdj(5)">+</button>
+            <!-- DEMO SONORA -->
+            <div class="ritmo-demo-box">
+              <div class="ritmo-demo-titulo">&#127911; Demonstrativo Sonoro</div>
+              <div class="ritmo-demo-desc" id="rd-demo-desc">Ouça o padrão rítmico deste estilo</div>
+              <div class="ritmo-demo-btns">
+                <button class="ritmo-demo-play" id="btn-ritmo-play" onclick="ritmoDemoToggle()">
+                  <span id="ritmo-play-icon">&#9654;</span>
+                  <span id="ritmo-play-label">Ouvir Ritmo</span>
+                </button>
+                <div class="ritmo-bpm-ctrl">
+                  <span class="ritmo-bpm-ctrl-label">BPM Demo</span>
+                  <button class="ritmo-bpm-adj" onclick="ritmoDemoBpmAdj(-5)">&#8722;</button>
+                  <span id="ritmo-demo-bpm-val">100</span>
+                  <button class="ritmo-bpm-adj" onclick="ritmoDemoBpmAdj(5)">&#43;</button>
                 </div>
-                <button class="mx-play-btn" id="mx-play-btn" onclick="mxToggle()">▶</button>
               </div>
-              <!-- Trilhas -->
-              <div class="mx-tracks" id="mx-tracks"></div>
-              <!-- Step indicator -->
-              <div class="mx-step-row" id="mx-step-row"></div>
+              <div class="ritmo-beats-visual" id="ritmo-beats-visual"></div>
             </div>
             <div id="rd-corpo" class="ritmo-detalhe-corpo"></div>
           </div>
@@ -2615,10 +2503,41 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
     <!-- PANEL: GOSPELTECA -->
     <div id="panel-gospelteca" class="panel">
       <div class="gsp-wrap">
-        <div class="gsp-header-bar" id="gsp-header-bar">
+        <div class="gsp-header-bar">
           <span>&#127911; Gospelteca</span>
+          <button id="btn-nova-musica" class="btn-novo-evento" onclick="abrirFormMusica()" style="display:none;">+ Música</button>
         </div>
+
+        <!-- Sub-abas categorias -->
+        <div class="gsp-subtabs" id="gsp-subtabs"></div>
+
+        <!-- Lista de músicas -->
         <div id="gsp-lista" class="gsp-lista"></div>
+
+        <!-- Formulário nova/editar música -->
+        <div id="gsp-form" class="gsp-form-card" style="display:none;">
+          <div class="gsp-form-titulo" id="gsp-form-titulo-label">Nova Música</div>
+          <div class="field-group"><label>Título</label><input type="text" id="gsp-titulo" class="input-neon" placeholder="Nome da música"></div>
+          <div class="field-group"><label>Artista / Ministério</label><input type="text" id="gsp-artista" class="input-neon" placeholder="Ex: Hillsong, Aline Barros..."></div>
+          <div class="field-group">
+            <label>Categoria</label>
+            <select id="gsp-categoria" class="input-neon">
+              <option value="adoracao">Adoração</option>
+              <option value="louvor">Louvor</option>
+              <option value="hino">Hinos Clássicos</option>
+              <option value="infantil">Infantil</option>
+              <option value="especial">Especial / Ofertório</option>
+              <option value="outro">Outro</option>
+            </select>
+          </div>
+          <div class="field-group"><label>Link (YouTube, Spotify, etc.)</label><input type="url" id="gsp-link" class="input-neon" placeholder="https://youtube.com/watch?v=..."></div>
+          <div class="field-group"><label>Observações (opcional)</label><textarea id="gsp-obs" class="input-neon" rows="2" placeholder="Tom, andamento, notas..."></textarea></div>
+          <div style="display:flex;gap:8px;margin-top:10px;">
+            <button class="btn btn-primary" onclick="salvarMusica()">Salvar</button>
+            <button class="btn btn-secondary" onclick="fecharFormMusica()">Cancelar</button>
+          </div>
+        </div>
+
       </div>
     </div>
 
@@ -2943,376 +2862,242 @@ window.metroHomeAbrir = function(sub) {
   setTimeout(function(){ buildBeats(); updUI(); },400);
 })();
 
-/* ══════════════════════════════════════════════════════
-   MIXER / SEQUENCIADOR MULTIPISTAS GOSPEL
-══════════════════════════════════════════════════════ */
+/* ══════════════════════════════════════
+   RITMOS + DEMO SONORA
+══════════════════════════════════════ */
 (function(){
+  var RITMOS_DATA = {
+    baiao: { nome:'Baião', icone:'🎸', bpm:'80–120 BPM', bpmDemo:100,
+      // padrão de 16 steps (1=kick forte, 2=kick fraco, 3=snare, 4=hihat)
+      // steps: array de {tipo:'kick'|'snare'|'hihat'|'silence', forte:bool}
+      steps:[
+        {t:'kick',f:true},{t:'hihat'},{t:'hihat'},{t:'hihat'},
+        {t:'hihat'},{t:'hihat'},{t:'snare'},{t:'hihat'},
+        {t:'kick',f:true},{t:'kick'},{t:'hihat'},{t:'hihat'},
+        {t:'hihat'},{t:'hihat'},{t:'snare'},{t:'hihat'}
+      ],
+      descricao:'Ritmo nordestino presente em muitos hinos contemporâneos gospel brasileiros. Tem feel dançante e alegre.', instrumentos:[{nome:'Zabumba / Bateria', padrao:'BOMBO: 1 . . . 3 . . .\nCAIXA: . . 2 . . . 4 .\nHI-HAT: x . x . x . x .'},{nome:'Triângulo', padrao:'X . X . X . X . (semínimas em loop)'},{nome:'Violão / Guitarra', padrao:'Baixo + rasqueado descendente no 1 e 3\nContratempo no 2 e 4'},{nome:'Teclado', padrao:'Acordes em colcheias staccato, realce no contratempo'}], dica:'Mantenha o triângulo constante. A energia vem da interação entre o bombo no 1 e 3 com o contratempo dos outros instrumentos.' },
+    samba: { nome:'Samba', icone:'🪘', bpm:'80–100 BPM', bpmDemo:90,
+      steps:[
+        {t:'kick',f:true},{t:'silence'},{t:'hihat'},{t:'hihat'},
+        {t:'kick'},{t:'hihat'},{t:'snare',f:true},{t:'hihat'},
+        {t:'kick',f:true},{t:'hihat'},{t:'hihat'},{t:'kick'},
+        {t:'hihat'},{t:'hihat'},{t:'snare',f:true},{t:'hihat'}
+      ],
+      descricao:'O samba gospel une a alegria do ritmo brasileiro com a mensagem cristã. Muito usado em louvores de celebração.', instrumentos:[{nome:'Surdo / Bumbo', padrao:'1 . . . 2 . . . (batida forte no 2)'},{nome:'Pandeiro', padrao:'X . x . X . x . (colcheias com acentos)'},{nome:'Violão', padrao:'Rasqueado típico: ↓ . ↑ ↓ . ↑ ↓ .'},{nome:'Baixo', padrao:'Segue o surdo + caminhadas cromáticas'}], dica:'O "balanço" do samba vem da sensação de levar o tempo entre o 1 e o 2. Evite tocar rígido demais — deixe fluir!' },
+    bolero: { nome:'Bolero Gospel', icone:'🎷', bpm:'60–80 BPM', bpmDemo:70,
+      steps:[
+        {t:'kick',f:true},{t:'silence'},{t:'hihat'},{t:'silence'},
+        {t:'silence'},{t:'hihat'},{t:'snare'},{t:'hihat'},
+        {t:'kick',f:true},{t:'silence'},{t:'hihat'},{t:'silence'},
+        {t:'silence'},{t:'hihat'},{t:'snare'},{t:'hihat'}
+      ],
+      descricao:'Ritmo romantico e suave, ótimo para músicas de intimidade com Deus e adoração contemplativa.', instrumentos:[{nome:'Bateria', padrao:'BALADA SUAVE: baquetas com vassouras'},{nome:'Baixo', padrao:'Notas longas, caminhos suaves entre as notas do acorde'},{nome:'Teclado/Piano', padrao:'Arpejos lentos nos acordes, melodia na mão direita'},{nome:'Violão/Guitarra', padrao:'Dedilhado arpejado, sem rasqueado brusco'}], dica:'Seja minimalista. O silêncio é tão importante quanto as notas. Bolero exige sensibilidade e dinâmica suave.' },
+    marcha: { nome:'Marcha Evangelical', icone:'🥁', bpm:'100–130 BPM', bpmDemo:115,
+      steps:[
+        {t:'kick',f:true},{t:'hihat'},{t:'hihat'},{t:'hihat'},
+        {t:'snare',f:true},{t:'hihat'},{t:'hihat'},{t:'hihat'},
+        {t:'kick',f:true},{t:'hihat'},{t:'kick'},{t:'hihat'},
+        {t:'snare',f:true},{t:'hihat'},{t:'hihat'},{t:'hihat'}
+      ],
+      descricao:'Ritmo firme e militante. Muito usado em hinos de avivamento e missão.', instrumentos:[{nome:'Bateria', padrao:'CAIXA nos contratempos 2 e 4\nBOMBO: 1 . . 2+ . . 4 .\nHI-HAT: fechado em colcheias constantes'},{nome:'Baixo', padrao:'Colcheias ou semínimas em unissono com o bombo'},{nome:'Guitarra/Violão', padrao:'Acordes em colcheias ou power chords'},{nome:'Metais (se houver)', padrao:'Reforço nos tempos fortes'}], dica:'A caixa nos contratempos dá o feel de marcha. Mantenha o grupo unido e forte — energia é o ponto!' },
+    pop: { nome:'Pop Gospel', icone:'🎵', bpm:'90–120 BPM', bpmDemo:105,
+      steps:[
+        {t:'kick',f:true},{t:'hihat'},{t:'hihat'},{t:'hihat'},
+        {t:'snare',f:true},{t:'hihat'},{t:'hihat'},{t:'kick'},
+        {t:'kick',f:true},{t:'hihat'},{t:'hihat'},{t:'hihat'},
+        {t:'snare',f:true},{t:'hihat'},{t:'kick'},{t:'hihat'}
+      ],
+      descricao:'Estilo mais contemporâneo, presente nas músicas de Hillsong, Bethel, Elevation. Padrão de pop rock cristão.', instrumentos:[{nome:'Bateria', padrao:'BOMBO: 1 . . . 3 . . .\nCAIXA: . . 2 . . . 4 .\nHI-HAT: x x x x x x x x (colcheias)'},{nome:'Baixo', padrao:'Segue o bombo, notas longas com variações no final do compasso'},{nome:'Guitarra', padrao:'Arpejo limpo na intro/verso, distorcido no refrão'},{nome:'Teclado', padrao:'Pad sustentado no verso, acordes rítmicos no refrão'}], dica:'O diferencial do pop gospel é a dinâmica: suave no verso, explosivo no refrão. Construa a emoção!' },
+    ballad: { nome:'Balada de Adoração', icone:'🎹', bpm:'60–80 BPM', bpmDemo:68,
+      steps:[
+        {t:'kick',f:true},{t:'silence'},{t:'silence'},{t:'hihat'},
+        {t:'silence'},{t:'silence'},{t:'snare'},{t:'silence'},
+        {t:'kick'},{t:'silence'},{t:'silence'},{t:'hihat'},
+        {t:'silence'},{t:'silence'},{t:'snare'},{t:'silence'}
+      ],
+      descricao:'Para músicas contemplativas e de intimidade. Exige sensibilidade e espaço para o vocal brilhar.', instrumentos:[{nome:'Piano/Teclado', padrao:'Arpejos lentos, sustentação de acordes\nMelodias intercaladas com o canto'},{nome:'Violão', padrao:'Dedilhado delicado: p-i-m-a em loop'},{nome:'Bateria', padrao:'Vassouras ou baquetas muito suaves\nRide cymbal gentil'},{nome:'Baixo', padrao:'Notas muito longas, minimalista'}], dica:'Menos é mais. Deixe os silêncios respirarem. O espaço dado ao vocal é o maior presente nesse ritmo.' },
+    funk: { nome:'Funk Gospel', icone:'🎸', bpm:'90–110 BPM', bpmDemo:100,
+      steps:[
+        {t:'kick',f:true},{t:'silence'},{t:'kick'},{t:'hihat'},
+        {t:'snare',f:true},{t:'hihat'},{t:'silence'},{t:'kick'},
+        {t:'kick',f:true},{t:'hihat'},{t:'kick'},{t:'silence'},
+        {t:'snare',f:true},{t:'hihat'},{t:'kick'},{t:'hihat'}
+      ],
+      descricao:'Groove pesado e dançante. Presente em louvor moderno afro-gospel e urbano.', instrumentos:[{nome:'Bateria', padrao:'BOMBO sincopado, CAIXA no 2 e 4\nHI-HAT: x . x x . x x . (síncopes)'},{nome:'Baixo', padrao:'Slap e groove — notas curtas e ataques no contratempo\nSíncope constante'},{nome:'Guitarra', padrao:'Muted chords (apagados) em síncopes\nRiff de terças no agudo'},{nome:'Teclado', padrao:'Rhodes/Clavinet em colcheias síncopes'}], dica:'O groove do funk vive nas pausas. Cada silêncio é intencional — não toque notas desnecessárias!' },
+    reggae: { nome:'Reggae Gospel', icone:'🌿', bpm:'70–90 BPM', bpmDemo:80,
+      steps:[
+        {t:'kick',f:true},{t:'silence'},{t:'silence'},{t:'hihat'},
+        {t:'silence'},{t:'silence'},{t:'snare'},{t:'hihat'},
+        {t:'kick',f:true},{t:'silence'},{t:'silence'},{t:'hihat'},
+        {t:'silence'},{t:'snare'},{t:'silence'},{t:'hihat'}
+      ],
+      descricao:'Feel caribenho e relaxado. Muito usado em músicas que falam de paz, liberdade e graça.', instrumentos:[{nome:'Bateria', padrao:'HI-HAT nos contratempos (e)\nSKANK na guitarra/teclado no 2+ e 4+'},{nome:'Baixo', padrao:'Melodia grave, notas longas no 1 e 3\nVariações no "e" do 2'},{nome:'Guitarra/Teclado (Skank)', padrao:'. X . X . X . X (X = contratempo)'},{nome:'Percussão', padrao:'Shaker ou pandeiro suave em colcheias'}], dica:'O skank (pancada no contratempo) é o coração do reggae. Sem ele o ritmo perde identidade!' },
+    hino: { nome:'Hino Clássico', icone:'♪', bpm:'70–100 BPM', bpmDemo:88,
+      steps:[
+        {t:'kick',f:true},{t:'silence'},{t:'snare'},{t:'silence'},
+        {t:'kick',f:true},{t:'silence'},{t:'snare'},{t:'silence'},
+        {t:'kick',f:true},{t:'silence'},{t:'snare'},{t:'silence'},
+        {t:'kick',f:true},{t:'silence'},{t:'snare'},{t:'silence'}
+      ],
+      descricao:'Estilo dos grandes hinários: Cantor Cristão, Corinhos de Ouro. Compasso binário ou ternário, solene.', instrumentos:[{nome:'Órgão/Teclado', padrao:'Acordes plenos em semínimas\n1 . 2 . 3 . 4 . (4/4)'},{nome:'Coral/Vozes', padrao:'SATB — Soprano, Alto, Tenor, Baixo em bloco'},{nome:'Piano', padrao:'Alberti bass ou acordes simples'},{nome:'Bateria/Percussão', padrao:'Opcional: apenas hi-hat ou surdo muito suave'}], dica:'Respeite a letra e a métrica do hino. O arranjo deve realçar a mensagem, não competir com ela.' },
+    worship: { nome:'Worship Moderno', icone:'✨', bpm:'68–76 BPM', bpmDemo:72,
+      steps:[
+        {t:'kick',f:true},{t:'silence'},{t:'hihat'},{t:'silence'},
+        {t:'snare',f:true},{t:'silence'},{t:'hihat'},{t:'silence'},
+        {t:'kick',f:true},{t:'hihat'},{t:'hihat'},{t:'silence'},
+        {t:'snare',f:true},{t:'silence'},{t:'hihat'},{t:'silence'}
+      ],
+      descricao:'Estilo Hillsong/Bethel/Elevation. Atmosférico, construção gradual, altamente emocional.', instrumentos:[{nome:'Bateria', padrao:'INTRO: apenas hi-hat ou ride\nVERSO: kick e snare suaves\nREFRÃO: fill + abertura total da bateria'},{nome:'Guitarra', padrao:'Delay/reverb expressivo\nArpejos no verso, power chords no refrão'},{nome:'Keys/Teclado', padrao:'PAD sustentado durante toda a música\nPiano preenche nos espaços'},{nome:'Baixo', padrao:'Segue o bombo no refrão\nLiberdade melódica na ponte'}], dica:'Dinâmica é tudo no worship moderno. A "subida" para o refrão deve ser sentida pela congregação — construa com intenção!' },
+    xote: { nome:'Xote / Forró', icone:'🎺', bpm:'100–130 BPM', bpmDemo:115,
+      steps:[
+        {t:'kick',f:true},{t:'hihat'},{t:'snare'},{t:'hihat'},
+        {t:'kick'},{t:'hihat'},{t:'snare',f:true},{t:'hihat'},
+        {t:'kick',f:true},{t:'hihat'},{t:'snare'},{t:'hihat'},
+        {t:'kick'},{t:'kick'},{t:'snare',f:true},{t:'hihat'}
+      ],
+      descricao:'Ritmo nordestino animado, presente em louvores brasileiros mais festivos e evangelísticos.', instrumentos:[{nome:'Zabumba', padrao:'FORTE no 1 e 3 com aro no 2 e 4\n↓ . ↑ . ↓ . ↑ .'},{nome:'Triângulo', padrao:'X . X . X . X . (constante em semínimas)'},{nome:'Sanfona/Teclado', padrao:'Acordes em colcheias com swing (shuffle feel)'},{nome:'Baixo', padrao:'Seguindo o bombo com caminhadas na escala'}], dica:'O swing do forró é diferente do straight — as colcheias não são iguais, a primeira é um pouco mais longa!' },
+    valsa: { nome:'Valsa Sacra', icone:'💃', bpm:'120–160 BPM', bpmDemo:140,
+      steps:[
+        {t:'kick',f:true},{t:'silence'},{t:'silence'},
+        {t:'snare'},{t:'silence'},{t:'silence'},
+        {t:'kick',f:true},{t:'silence'},{t:'silence'},
+        {t:'snare'},{t:'silence'},{t:'silence'}
+      ],
+      descricao:'Compasso ternário (3/4). Elegante e majestoso, usado em hinos solenes de adoração.', instrumentos:[{nome:'Piano/Teclado', padrao:'1 . . 2 . . 3 . .\nACORDE no 1 (baixo), harmonia no 2 e 3'},{nome:'Bateria', padrao:'BUMBO: tempo 1\nHI-HAT: tempos 2 e 3 (suave)'},{nome:'Violão', padrao:'BAIXO no 1, RASQUEADO no 2 e 3'},{nome:'Cello/Cordas', padrao:'Arco longo no 1, pizzicato no 2 e 3 (se disponível)'}], dica:'A valsa tem um balanço único — o 1 é forte, o 2 e 3 são "levantamento". Sinta o movimento de "para baixo / para cima".' },
+  };
 
-  // ── Padrões por ritmo: 4 trilhas × 16 steps ──
-  // Trilhas: 0=BUMBO, 1=CAIXA, 2=HI-HAT, 3=PERCUSSÃO
-  var PADS = {
-    baiao:{
-      BUMBO:   [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,1,0],
-      CAIXA:   [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0],
-      'HI-HAT':[1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1],
-      TRIÂNG:  [0,1,0,1, 0,1,0,1, 0,1,0,1, 0,1,1,1]
-    },
-    samba:{
-      BUMBO:   [1,0,0,1, 0,0,1,0, 1,0,0,1, 0,0,0,0],
-      CAIXA:   [0,0,1,0, 0,1,1,0, 0,0,1,0, 0,1,0,0],
-      'HI-HAT':[1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1],
-      PANDEIRO: [0,1,0,1, 1,0,1,0, 0,1,0,1, 1,0,1,1]
-    },
-    bolero:{
-      BUMBO:   [1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0],
-      CAIXA:   [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0],
-      'HI-HAT':[1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0],
-      SHAKER:  [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]
-    },
-    marcha:{
-      BUMBO:   [1,0,0,0, 0,0,1,0, 1,0,0,0, 0,0,1,0],
-      CAIXA:   [0,0,1,0, 0,0,0,1, 0,0,1,0, 0,0,0,1],
-      'HI-HAT':[1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1],
-      PRATO:   [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,1]
-    },
-    pop:{
-      BUMBO:   [1,0,0,0, 0,0,1,0, 1,0,0,0, 0,0,0,0],
-      CAIXA:   [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0],
-      'HI-HAT':[1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1],
-      RIDE:    [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,1]
-    },
-    ballad:{
-      BUMBO:   [1,0,0,0, 0,0,0,0, 0,0,1,0, 0,0,0,0],
-      CAIXA:   [0,0,0,0, 0,0,1,0, 0,0,0,0, 0,0,1,0],
-      'HI-HAT':[1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0],
-      SHAKER:  [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]
-    },
-    funk:{
-      BUMBO:   [1,0,0,1, 0,0,1,0, 1,0,1,0, 0,0,1,0],
-      CAIXA:   [0,0,1,0, 0,0,0,1, 0,0,1,0, 0,1,0,0],
-      'HI-HAT':[1,1,0,1, 1,0,1,1, 1,1,0,1, 1,0,1,1],
-      BAIXO:   [1,0,0,0, 1,0,0,1, 0,0,1,0, 0,1,0,0]
-    },
-    reggae:{
-      BUMBO:   [1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0],
-      CAIXA:   [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,1],
-      'HI-HAT':[0,1,0,1, 0,1,0,1, 0,1,0,1, 0,1,0,1],
-      SKANK:   [0,0,1,0, 0,1,0,0, 0,0,1,0, 0,1,0,0]
-    },
-    hino:{
-      BUMBO:   [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0],
-      CAIXA:   [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0],
-      'HI-HAT':[0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0],
-      PRATO:   [1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,1]
-    },
-    worship:{
-      BUMBO:   [1,0,0,0, 0,0,0,0, 1,0,0,1, 0,0,0,0],
-      CAIXA:   [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,1],
-      'HI-HAT':[1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,1],
-      RIDE:    [0,0,1,0, 0,0,1,0, 0,1,1,0, 0,0,1,0]
-    },
-    xote:{
-      BUMBO:   [1,0,0,0, 1,0,0,0, 1,0,1,0, 0,0,0,0],
-      CAIXA:   [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,1],
-      'HI-HAT':[1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1],
-      ZABUMBA: [1,0,0,1, 0,0,1,0, 1,0,0,1, 0,0,0,0]
-    },
-    valsa:{
-      BUMBO:   [1,0,0, 0,0,0, 1,0,0, 0,0,0],
-      CAIXA:   [0,0,0, 1,0,0, 0,0,0, 1,0,0],
-      'HI-HAT':[0,1,1, 0,1,1, 0,1,1, 0,1,1],
-      PRATO:   [1,0,0, 0,0,0, 1,0,0, 0,0,0]
+  // ── ENGINE DE ÁUDIO ──
+  var demoAtivo = false, demoStep = 0, demoTimerId = null, demoCtx = null, demoBpm = 100, demoRitmoId = null;
+
+  function criarSom(tipo, forte) {
+    if (!demoCtx) return;
+    var t = demoCtx.currentTime;
+    if (tipo === 'kick') {
+      var osc = demoCtx.createOscillator(), g = demoCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(forte ? 150 : 110, t);
+      osc.frequency.exponentialRampToValueAtTime(40, t + 0.12);
+      g.gain.setValueAtTime(forte ? 0.9 : 0.6, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+      osc.connect(g); g.connect(demoCtx.destination);
+      osc.start(t); osc.stop(t + 0.2);
+    } else if (tipo === 'snare') {
+      var buf = demoCtx.createBuffer(1, demoCtx.sampleRate * 0.12, demoCtx.sampleRate);
+      var d = buf.getChannelData(0);
+      for (var i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
+      var src = demoCtx.createBufferSource(), gS = demoCtx.createGain();
+      var filt = demoCtx.createBiquadFilter();
+      filt.type = 'bandpass'; filt.frequency.value = forte ? 1800 : 1400; filt.Q.value = 0.8;
+      gS.gain.setValueAtTime(forte ? 0.85 : 0.55, t);
+      gS.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+      src.buffer = buf;
+      src.connect(filt); filt.connect(gS); gS.connect(demoCtx.destination);
+      src.start(t);
+    } else if (tipo === 'hihat') {
+      var buf2 = demoCtx.createBuffer(1, demoCtx.sampleRate * 0.06, demoCtx.sampleRate);
+      var d2 = buf2.getChannelData(0);
+      for (var j = 0; j < d2.length; j++) d2[j] = (Math.random() * 2 - 1) * (1 - j / d2.length);
+      var src2 = demoCtx.createBufferSource(), gH = demoCtx.createGain();
+      var filt2 = demoCtx.createBiquadFilter();
+      filt2.type = 'highpass'; filt2.frequency.value = 7000;
+      gH.gain.setValueAtTime(0.25, t);
+      gH.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
+      src2.buffer = buf2;
+      src2.connect(filt2); filt2.connect(gH); gH.connect(demoCtx.destination);
+      src2.start(t);
     }
-  };
-
-  // Cores por trilha
-  var TRACK_COLORS = {
-    BUMBO:   '#00e5ff', CAIXA: '#a78bfa', 'HI-HAT': '#fbbf24',
-    PANDEIRO:'#34d399', TRIÂNG:'#f472b6', SHAKER:'#94a3b8',
-    PRATO:   '#fb923c', RIDE:  '#38bdf8', BAIXO:  '#4ade80',
-    ZABUMBA: '#f97316', SKANK: '#e879f9', RIDE:   '#38bdf8'
-  };
-
-  // Estado do mixer
-  var mxBpm = 100, mxPlaying = false, mxStep = 0;
-  var mxCtx = null, mxNextTime = 0, mxRafId = null;
-  var mxTracks = []; // [{name, steps, vol, muted, solo, vuFill}]
-  var mxCurrentId = null;
-
-  // ── Funções de síntese ──
-  function synthKick(ctx, t, vol){
-    var o=ctx.createOscillator(), g=ctx.createGain();
-    o.type='sine';
-    o.frequency.setValueAtTime(160,t);
-    o.frequency.exponentialRampToValueAtTime(38,t+0.14);
-    g.gain.setValueAtTime(vol*0.9,t);
-    g.gain.exponentialRampToValueAtTime(0.001,t+0.22);
-    o.connect(g); g.connect(ctx.destination);
-    o.start(t); o.stop(t+0.23);
-  }
-  function synthSnare(ctx, t, vol){
-    var dur=0.14;
-    var buf=ctx.createBuffer(1,Math.ceil(ctx.sampleRate*dur),ctx.sampleRate);
-    var d=buf.getChannelData(0);
-    for(var i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*(1-i/d.length);
-    var src=ctx.createBufferSource(), g=ctx.createGain(), f=ctx.createBiquadFilter();
-    f.type='bandpass'; f.frequency.value=1800; f.Q.value=0.9;
-    src.buffer=buf; src.connect(f); f.connect(g); g.connect(ctx.destination);
-    g.gain.setValueAtTime(vol*0.75,t);
-    g.gain.exponentialRampToValueAtTime(0.001,t+dur);
-    src.start(t); src.stop(t+dur+0.01);
-    // corpo
-    var o2=ctx.createOscillator(), g2=ctx.createGain();
-    o2.type='triangle'; o2.frequency.value=200;
-    g2.gain.setValueAtTime(vol*0.2,t);
-    g2.gain.exponentialRampToValueAtTime(0.001,t+0.06);
-    o2.connect(g2); g2.connect(ctx.destination);
-    o2.start(t); o2.stop(t+0.07);
-  }
-  function synthHihat(ctx, t, vol, open){
-    var dur = open ? 0.22 : 0.045;
-    var buf=ctx.createBuffer(1,Math.ceil(ctx.sampleRate*dur),ctx.sampleRate);
-    var d=buf.getChannelData(0);
-    for(var i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*(1-i/d.length*0.7);
-    var src=ctx.createBufferSource(), g=ctx.createGain(), f=ctx.createBiquadFilter();
-    f.type='highpass'; f.frequency.value=9000;
-    src.buffer=buf; src.connect(f); f.connect(g); g.connect(ctx.destination);
-    g.gain.setValueAtTime(vol*0.3,t);
-    g.gain.exponentialRampToValueAtTime(0.001,t+dur);
-    src.start(t); src.stop(t+dur+0.01);
-  }
-  function synthPerc(ctx, t, vol){
-    // Percussão genérica (pandeiro, triângulo, shaker, etc.)
-    var dur=0.09;
-    var buf=ctx.createBuffer(1,Math.ceil(ctx.sampleRate*dur),ctx.sampleRate);
-    var d=buf.getChannelData(0);
-    for(var i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*(1-i/d.length);
-    var src=ctx.createBufferSource(), g=ctx.createGain(), f=ctx.createBiquadFilter();
-    f.type='bandpass'; f.frequency.value=5000; f.Q.value=1.5;
-    src.buffer=buf; src.connect(f); f.connect(g); g.connect(ctx.destination);
-    g.gain.setValueAtTime(vol*0.35,t);
-    g.gain.exponentialRampToValueAtTime(0.001,t+dur);
-    src.start(t); src.stop(t+dur+0.01);
-    // Tom
-    var o=ctx.createOscillator(), g2=ctx.createGain();
-    o.type='sine'; o.frequency.value=440;
-    g2.gain.setValueAtTime(vol*0.15,t);
-    g2.gain.exponentialRampToValueAtTime(0.001,t+0.08);
-    o.connect(g2); g2.connect(ctx.destination);
-    o.start(t); o.stop(t+0.09);
   }
 
-  function dispararSom(name, t, vol){
-    if(!mxCtx) return;
-    var n = name.toUpperCase().replace(/[^A-ZÁÀÃÂÉÊÍÓÔÕÚÇ\-]/g,'');
-    if(n==='BUMBO'||n==='ZABUMBA') synthKick(mxCtx,t,vol);
-    else if(n==='CAIXA')           synthSnare(mxCtx,t,vol);
-    else if(n==='HI-HAT'||n==='RIDE') synthHihat(mxCtx,t,vol,n==='RIDE');
-    else                            synthPerc(mxCtx,t,vol);
-  }
+  function demoTick() {
+    if (!demoAtivo) return;
+    var r = RITMOS_DATA[demoRitmoId]; if (!r) return;
+    var steps = r.steps;
+    var s = steps[demoStep % steps.length];
+    if (s.t !== 'silence') criarSom(s.t, !!s.f);
 
-  // ── Build mixer UI ──
-  function mxBuild(ritmoId){
-    mxCurrentId = ritmoId;
-    var pads = PADS[ritmoId];
-    if(!pads){ pads = PADS['pop']; }
-    var names = Object.keys(pads);
-    var nSteps = pads[names[0]].length;
-
-    mxTracks = names.map(function(name){
-      return { name:name, steps: pads[name].slice(), vol:0.8, muted:false, solo:false };
-    });
-
-    // Step indicator
-    var stepRow = document.getElementById('mx-step-row');
-    if(stepRow){
-      stepRow.innerHTML = '';
-      for(var s=0;s<nSteps;s++){
-        var cell = document.createElement('div');
-        cell.className='mx-step-cell';
-        cell.id='mx-sc-'+s;
-        stepRow.appendChild(cell);
+    // Visual
+    var dots = document.querySelectorAll('.ritmo-beat-dot');
+    dots.forEach(function(d, i) {
+      d.classList.remove('on', 'forte-on');
+      if (i === demoStep % steps.length) {
+        d.classList.add('on');
+        if (s.f) d.classList.add('forte-on');
       }
-    }
+    });
 
-    // Tracks
-    var cont = document.getElementById('mx-tracks');
-    if(!cont) return;
-    cont.innerHTML = '';
+    demoStep++;
+    var stepMs = (60000 / demoBpm) / 4;
+    demoTimerId = setTimeout(demoTick, stepMs);
+  }
 
-    mxTracks.forEach(function(tr, ti){
-      var color = TRACK_COLORS[tr.name] || '#00e5ff';
-      var row = document.createElement('div');
-      row.className='mx-track';
+  function demoParar() {
+    demoAtivo = false;
+    if (demoTimerId) { clearTimeout(demoTimerId); demoTimerId = null; }
+    demoStep = 0;
+    document.querySelectorAll('.ritmo-beat-dot').forEach(function(d){ d.classList.remove('on','forte-on'); });
+    var btn = document.getElementById('btn-ritmo-play');
+    if (btn) { btn.classList.remove('stop'); document.getElementById('ritmo-play-icon').textContent = '▶'; document.getElementById('ritmo-play-label').textContent = 'Ouvir Ritmo'; }
+  }
 
-      // Control panel
-      var ctrl = document.createElement('div');
-      ctrl.className='mx-track-ctrl';
-      ctrl.innerHTML =
-        '<span class="mx-track-name" style="color:'+color+'">'+tr.name+'</span>'+
-        '<div class="mx-track-btns">'+
-          '<button class="mx-btn-m" id="mx-m-'+ti+'" onclick="mxToggleMute('+ti+')">M</button>'+
-          '<button class="mx-btn-s" id="mx-s-'+ti+'" onclick="mxToggleSolo('+ti+')">S</button>'+
-        '</div>'+
-        '<input type="range" class="mx-vol" min="0" max="100" value="80" '+
-               'oninput="mxSetVol('+ti+',this.value)" style="accent-color:'+color+';">';
-      row.appendChild(ctrl);
+  window.ritmoDemoToggle = function() {
+    if (demoAtivo) { demoParar(); return; }
+    if (!demoCtx || demoCtx.state === 'closed') demoCtx = new (window.AudioContext || window.webkitAudioContext)();
+    var resume = demoCtx.state === 'suspended' ? demoCtx.resume() : Promise.resolve();
+    resume.then(function() {
+      demoAtivo = true; demoStep = 0;
+      var btn = document.getElementById('btn-ritmo-play');
+      if (btn) { btn.classList.add('stop'); document.getElementById('ritmo-play-icon').textContent = '⏹'; document.getElementById('ritmo-play-label').textContent = 'Parar'; }
+      demoTick();
+    });
+  };
 
-      // Steps
-      var stepsDiv = document.createElement('div');
-      stepsDiv.className='mx-steps';
-      tr.steps.forEach(function(on, si){
-        var btn = document.createElement('div');
-        btn.className='mx-step'+(on?' on':'')+(on?' forte':'');
-        btn.id='mx-st-'+ti+'-'+si;
-        btn.style.borderColor = on ? color+'88' : '';
-        btn.style.background  = on ? color+'28' : '';
-        (function(t2,s2){ btn.addEventListener('click',function(){ mxToggleStep(t2,s2); }); })(ti,si);
-        stepsDiv.appendChild(btn);
+  window.ritmoDemoBpmAdj = function(d) {
+    demoBpm = Math.max(50, Math.min(200, demoBpm + d));
+    var el = document.getElementById('ritmo-demo-bpm-val'); if (el) el.textContent = demoBpm;
+  };
+
+  function esc2(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/\n/g,'<br>'); }
+
+  window.abrirRitmo = function(id) {
+    var r = RITMOS_DATA[id]; if (!r) return;
+    demoParar(); demoRitmoId = id; demoBpm = r.bpmDemo || 100;
+    document.getElementById('ritmo-detalhe').style.display = 'block';
+    document.getElementById('ritmos-grid').style.display   = 'none';
+    document.getElementById('rd-icone').textContent = r.icone;
+    document.getElementById('rd-nome').textContent  = r.nome;
+    document.getElementById('rd-bpm').textContent   = r.bpm;
+    var bpmEl = document.getElementById('ritmo-demo-bpm-val'); if (bpmEl) bpmEl.textContent = demoBpm;
+    var descEl = document.getElementById('rd-demo-desc');
+    if (descEl) descEl.textContent = 'Ouça o padrão rítmico de ' + r.nome;
+    // Beats visual
+    var visual = document.getElementById('ritmo-beats-visual');
+    if (visual) {
+      visual.innerHTML = '';
+      r.steps.forEach(function(s, i) {
+        var d = document.createElement('div');
+        d.className = 'ritmo-beat-dot' + (s.f ? ' forte' : '');
+        visual.appendChild(d);
       });
-      row.appendChild(stepsDiv);
-
-      // VU meter
-      var vu = document.createElement('div');
-      vu.className='mx-vu';
-      var fill = document.createElement('div');
-      fill.className='mx-vu-fill';
-      fill.id='mx-vu-'+ti;
-      vu.appendChild(fill);
-      row.appendChild(vu);
-
-      cont.appendChild(row);
-    });
-  }
-
-  // ── Controls ──
-  window.mxToggleStep = function(ti, si){
-    if(!mxTracks[ti]) return;
-    var on = !mxTracks[ti].steps[si];
-    mxTracks[ti].steps[si] = on ? 1 : 0;
-    var btn = document.getElementById('mx-st-'+ti+'-'+si);
-    var color = TRACK_COLORS[mxTracks[ti].name] || '#00e5ff';
-    if(btn){
-      btn.classList.toggle('on', on);
-      btn.classList.toggle('forte', on);
-      btn.style.borderColor = on ? color+'88' : '';
-      btn.style.background  = on ? color+'28' : '';
     }
-  };
-
-  window.mxToggleMute = function(ti){
-    if(!mxTracks[ti]) return;
-    mxTracks[ti].muted = !mxTracks[ti].muted;
-    var btn = document.getElementById('mx-m-'+ti);
-    if(btn) btn.classList.toggle('on', mxTracks[ti].muted);
-  };
-
-  window.mxToggleSolo = function(ti){
-    if(!mxTracks[ti]) return;
-    var wasSolo = mxTracks[ti].solo;
-    mxTracks.forEach(function(t){ t.solo=false; });
-    mxTracks[ti].solo = !wasSolo;
-    mxTracks.forEach(function(t,i){
-      var btn=document.getElementById('mx-s-'+i);
-      if(btn) btn.classList.toggle('on',t.solo);
+    var html = '<p>' + esc2(r.descricao) + '</p>';
+    r.instrumentos.forEach(function(inst){
+      html += '<div class="ritmo-instrumento"><strong>🎵 ' + esc2(inst.nome) + '</strong><span class="ritmo-padrao">' + esc2(inst.padrao) + '</span></div>';
     });
+    if (r.dica) html += '<div class="ritmo-dica">💡 <strong>Dica:</strong> ' + esc2(r.dica) + '</div>';
+    document.getElementById('rd-corpo').innerHTML = html;
+    document.getElementById('ritmo-detalhe').scrollIntoView({behavior:'smooth',block:'start'});
   };
 
-  window.mxSetVol = function(ti, val){
-    if(mxTracks[ti]) mxTracks[ti].vol = val/100;
+  window.fecharRitmo = function() {
+    demoParar();
+    document.getElementById('ritmo-detalhe').style.display = 'none';
+    document.getElementById('ritmos-grid').style.display   = 'grid';
   };
 
-  window.mxBpmAdj = function(delta){
-    mxBpm = Math.max(40, Math.min(220, mxBpm+delta));
-    var el=document.getElementById('mx-bpm-val');
-    if(el) el.textContent=mxBpm;
-  };
-
-  // ── Scheduler com lookahead ──
-  function mxSchedule(){
-    if(!mxPlaying) return;
-    var LOOKAHEAD = 0.12;
-    var STEP_DUR  = 60/(mxBpm*4);
-    var nSteps    = mxTracks.length ? mxTracks[0].steps.length : 16;
-    var hasSolo   = mxTracks.some(function(t){ return t.solo; });
-
-    while(mxNextTime < mxCtx.currentTime + LOOKAHEAD){
-      var curStep = mxStep % nSteps;
-
-      mxTracks.forEach(function(tr, ti){
-        var active = hasSolo ? tr.solo : !tr.muted;
-        if(active && tr.steps[curStep]){
-          dispararSom(tr.name, mxNextTime, tr.vol);
-          // VU flash
-          (function(i){ setTimeout(function(){
-            var vu=document.getElementById('mx-vu-'+i);
-            if(vu){ vu.style.height=(40+Math.random()*55)+'%'; setTimeout(function(){ if(vu)vu.style.height='0%'; },80); }
-          }, Math.max(0,(mxNextTime-mxCtx.currentTime)*1000)); })(ti);
-        }
-      });
-
-      // Step cursor
-      (function(s){ setTimeout(function(){
-        document.querySelectorAll('.mx-step-cell').forEach(function(el){ el.classList.remove('cur'); });
-        var sc=document.getElementById('mx-sc-'+s); if(sc) sc.classList.add('cur');
-        // flash step buttons
-        mxTracks.forEach(function(tr,ti){
-          var btn=document.getElementById('mx-st-'+ti+'-'+s);
-          if(btn&&tr.steps[s]){ btn.classList.add('cur-hit'); setTimeout(function(){ if(btn)btn.classList.remove('cur-hit'); },80); }
-        });
-      }, Math.max(0,(mxNextTime-mxCtx.currentTime)*1000)); })(curStep);
-
-      mxNextTime += STEP_DUR;
-      mxStep++;
-    }
-    mxRafId = requestAnimationFrame(mxSchedule);
-  }
-
-  window.mxToggle = function(){
-    if(mxPlaying){ mxStop(); return; }
-    if(!mxCtx||mxCtx.state==='closed') mxCtx=new(window.AudioContext||window.webkitAudioContext)();
-    var resume=mxCtx.state==='suspended'?mxCtx.resume():Promise.resolve();
-    resume.then(function(){
-      mxPlaying=true; mxStep=0;
-      mxNextTime=mxCtx.currentTime+0.05;
-      var btn=document.getElementById('mx-play-btn');
-      if(btn){ btn.textContent='⏹'; btn.classList.add('tocando'); }
-      mxSchedule();
-    });
-  };
-
-  function mxStop(){
-    mxPlaying=false;
-    if(mxRafId){ cancelAnimationFrame(mxRafId); mxRafId=null; }
-    mxStep=0;
-    document.querySelectorAll('.mx-step-cell').forEach(function(el){ el.classList.remove('cur'); });
-    document.querySelectorAll('.mx-vu-fill').forEach(function(el){ el.style.height='0%'; });
-    var btn=document.getElementById('mx-play-btn');
-    if(btn){ btn.textContent='▶'; btn.classList.remove('tocando'); }
-  }
-
-  // ── Abrir ritmo — compatibilidade com sistema existente ──
-  var _origAbrirRitmo = window.abrirRitmo;
-  window.abrirRitmo = function(id){
-    if(typeof _origAbrirRitmo==='function') _origAbrirRitmo(id);
-    mxStop();
-    setTimeout(function(){ mxBuild(id); }, 30);
-  };
-
-  // ── fecharRitmo ──
-  var _origFecharRitmo = window.fecharRitmo;
-  window.fecharRitmo = function(){
-    mxStop();
-    if(typeof _origFecharRitmo==='function') _origFecharRitmo();
-  };
-
-  // ── Parar ao trocar de aba ──
+  // Parar demo ao trocar de aba
   var _swRitmo = window.switchTab;
-  window.switchTab = function(tab){
-    if(tab!=='ritmos') mxStop();
-    if(_swRitmo) _swRitmo(tab);
-  };
-
+  window.switchTab = function(tab) { if (tab !== 'ritmos') demoParar(); if (_swRitmo) _swRitmo(tab); };
 })();
 
 // ══ AFINADOR — MODO CROMÁTICO AUTOMÁTICO ══
