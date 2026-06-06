@@ -36,9 +36,9 @@
     appId: "1:144171388952:web:54f59fa3dd9a149ab0f36d"
   };
 
-  const app  = initializeApp(firebaseConfig);
-  const db   = getFirestore(app);
-  const auth = getAuth(app);
+  const app     = initializeApp(firebaseConfig);
+  const db      = getFirestore(app);
+  const auth    = getAuth(app);
   const storage = getStorage(app);
   const col  = collection(db, "escalas");
 
@@ -1024,7 +1024,7 @@
     { id:'hino',     label:'Hinos',     icon:'🎼' },
     { id:'infantil', label:'Infantil',  icon:'🧒' },
     { id:'especial', label:'Especial',  icon:'🌹' },
-    { id:'outro',    label:'Arquivos',  icon:'🎧' },
+    { id:'outro',    label:'Outro',     icon:'🎵' },
   ];
 
   window.iniciarListenerGsp = function iniciarListenerGsp() {
@@ -1038,7 +1038,7 @@
   };
 
   // Links diretos por categoria — salvos no Firestore
-  let gspLinks = {};
+  let gspLinks = {}; // { adoracao: [{id, label, url}], louvor: [...], ... }
   let unsubGspLinks = null;
 
   window.iniciarListenerGspLinks = function iniciarListenerGspLinks() {
@@ -1057,6 +1057,7 @@
   };
 
   window.renderGospelteca = function renderGospelteca() {
+    // Monta abas de categoria (sem "Todas")
     const tabs = document.getElementById('gsp-subtabs'); if (!tabs) return;
     tabs.innerHTML = GSP_CATS.map(c =>
       `<button class="gsp-subtab${gspCategAtiva===c.id?' ativo':''}" onclick="gspSetCateg('${c.id}')">${c.icon} ${esc(c.label)}</button>`
@@ -1065,12 +1066,11 @@
     const lista = document.getElementById('gsp-lista'); if (!lista) return;
     const lider = isLider();
     const btnMusica = document.getElementById('btn-nova-musica');
-    if (btnMusica) btnMusica.style.display = 'none';
+    if (btnMusica) btnMusica.style.display = 'none'; // removido do header, integrado na página
 
     const cat = GSP_CATS.find(c => c.id === gspCategAtiva);
     if (!cat) return;
 
-    const isOutro = gspCategAtiva === 'outro';
     const musicas = musicasGsp.filter(m => m.categoria === gspCategAtiva);
     const links   = gspLinks[gspCategAtiva] || [];
     const total   = musicas.length + links.length;
@@ -1080,160 +1080,67 @@
         <div class="gsp-pagina-icone">${cat.icon}</div>
         <div>
           <div class="gsp-pagina-titulo">${esc(cat.label)}</div>
-          <div class="gsp-pagina-count">${total} ${total===1?'item':'itens'}${isOutro?' • MP3 / MP4':''}</div>
+          <div class="gsp-pagina-count">${total} ${total===1?'item':'itens'}</div>
         </div>
       </div>`;
 
-    if (isOutro) {
-      // ══ CATEGORIA OUTRO: foco em arquivos de mídia ══
-
-      // Seção de arquivos enviados (MP3/MP4)
-      html += `<div class="gsp-sec-titulo">🎧 Arquivos de Música</div>`;
-      const arquivos = musicas.filter(m => m.fileUrl);
-      const semArquivo = musicas.filter(m => !m.fileUrl && m.link);
-
-      if (arquivos.length === 0 && semArquivo.length === 0) {
-        html += `<div class="gsp-vazio-links">${lider ? 'Nenhum arquivo ainda. Envie um MP3 ou MP4 abaixo.' : 'Nenhum arquivo de música ainda.'}</div>`;
-      }
-
-      // Arquivos com player embutido
-      arquivos.forEach(m => {
-        const isVideo = m.fileType === 'video' || (m.fileName||'').match(/\.mp4$/i);
-        const icoArq = isVideo ? '🎬' : '🎵';
-        html += `<div class="gsp-arquivo-card" id="arq-card-${m.id}">
-          <div class="gsp-arquivo-header">
-            <span class="gsp-arquivo-ico">${icoArq}</span>
-            <div class="gsp-arquivo-info">
-              <div class="gsp-arquivo-nome">${esc(m.titulo||m.fileName||'Sem nome')}</div>
-              <div class="gsp-arquivo-meta">${esc(m.artista||'')}${m.obs?' • '+esc(m.obs):''}</div>
-            </div>
-            ${lider ? `<button class="gsp-btn-del-link" onclick="gspDeletarArquivo('${m.id}','${esc(m.storagePath||'')}')">×</button>` : ''}
+    // ── Seção de Links Diretos ──
+    html += `<div class="gsp-sec-titulo">🔗 Links e Pastas</div>`;
+    if (links.length === 0) {
+      html += `<div class="gsp-vazio-links">${lider ? 'Adicione links de YouTube, Spotify ou Google Drive abaixo.' : 'Nenhum link cadastrado ainda.'}</div>`;
+    } else {
+      links.forEach((lk, idx) => {
+        const dominio = (() => { try { return new URL(lk.url).hostname.replace('www.',''); } catch(e){ return lk.url; } })();
+        const icoDom = lk.url.includes('youtube') || lk.url.includes('youtu.be') ? '▶' :
+                       lk.url.includes('spotify') ? '🎧' :
+                       lk.url.includes('drive.google') ? '📁' :
+                       lk.url.includes('soundcloud') ? '☁' : '🔗';
+        html += `<div class="gsp-link-row">
+          <div class="gsp-link-row-ico">${icoDom}</div>
+          <div class="gsp-link-row-info">
+            <div class="gsp-link-row-titulo">${esc(lk.label || dominio)}</div>
+            <div class="gsp-link-row-url">${esc(dominio)}</div>
           </div>
-          ${isVideo
-            ? `<video class="gsp-player-video" controls preload="none" src="${esc(m.fileUrl)}">Seu navegador não suporta vídeo.</video>`
-            : `<audio class="gsp-player-audio" controls preload="none" src="${esc(m.fileUrl)}">Seu navegador não suporta áudio.</audio>`
-          }
+          <a href="${esc(lk.url)}" target="_blank" rel="noopener noreferrer" class="gsp-btn-abrir">Abrir ↗</a>
+          ${lider ? `<button class="gsp-btn-del-link" onclick="gspDeletarLink('${lk.id}')">×</button>` : ''}
         </div>`;
       });
+    }
 
-      // Músicas com link externo (sem arquivo enviado)
-      semArquivo.forEach(m => {
+    // ── Formulário de adicionar link (sempre visível para líder) ──
+    if (lider) {
+      html += `<div class="gsp-form-link-inline">
+        <div class="gsp-form-link-titulo">+ Adicionar link</div>
+        <input type="text" id="gsp-novo-label" class="gsp-input-link" placeholder="Nome do link (ex: Playlist Adoração)">
+        <input type="url"  id="gsp-novo-url"   class="gsp-input-link" placeholder="https://youtube.com/... ou drive.google.com/...">
+        <button class="gsp-btn-salvar-link" onclick="gspSalvarLink()">Salvar Link</button>
+      </div>`;
+    }
+
+    // ── Seção de Músicas cadastradas ──
+    html += `<div class="gsp-sec-titulo" style="margin-top:20px;">🎵 Músicas Cadastradas</div>`;
+    if (musicas.length === 0) {
+      html += `<div class="gsp-vazio-links">${lider ? 'Nenhuma música. Use "+ Música" para cadastrar.' : 'Nenhuma música nesta categoria.'}</div>`;
+    } else {
+      musicas.forEach(m => {
         html += `<div class="gsp-link-row">
-          <div class="gsp-link-row-ico">🔗</div>
+          <div class="gsp-link-row-ico">🎵</div>
           <div class="gsp-link-row-info">
             <div class="gsp-link-row-titulo">${esc(m.titulo||'Sem título')}</div>
-            <div class="gsp-link-row-url">${esc(m.artista||'')}${m.obs?' • '+esc(m.obs):''}</div>
+            <div class="gsp-link-row-url">${esc(m.artista||'')}${m.obs ? ' • ' + esc(m.obs) : ''}</div>
           </div>
-          <a href="${esc(m.link)}" target="_blank" rel="noopener noreferrer" class="gsp-btn-abrir">Abrir ↗</a>
+          ${m.link ? `<a href="${esc(m.link)}" target="_blank" rel="noopener noreferrer" class="gsp-btn-abrir">Ouvir ↗</a>` : ''}
           ${lider ? `<button class="gsp-btn-del-link" onclick="deletarMusica('${m.id}')">×</button>` : ''}
         </div>`;
       });
-
-      // Formulário de upload de arquivo (líder)
-      if (lider) {
-        html += `<div class="gsp-form-upload" id="gsp-upload-area">
-          <div class="gsp-form-link-titulo">+ Enviar arquivo MP3 / MP4</div>
-          <input type="text" id="gsp-upload-titulo" class="gsp-input-link" placeholder="Nome da música (obrigatório)">
-          <input type="text" id="gsp-upload-artista" class="gsp-input-link" placeholder="Artista / Ministério (opcional)">
-          <input type="text" id="gsp-upload-obs" class="gsp-input-link" placeholder="Observações: tom, andamento... (opcional)">
-          <label class="gsp-file-label" for="gsp-file-input">
-            <span id="gsp-file-label-txt">📂 Escolher arquivo MP3 ou MP4</span>
-          </label>
-          <input type="file" id="gsp-file-input" accept="audio/mpeg,audio/mp3,video/mp4,audio/*,video/*" style="display:none" onchange="gspFileEscolhido(this)">
-          <div id="gsp-upload-progress" class="gsp-upload-progress" style="display:none;">
-            <div class="gsp-upload-bar-wrap"><div class="gsp-upload-bar" id="gsp-upload-bar"></div></div>
-            <span id="gsp-upload-pct">0%</span>
-          </div>
-          <button class="gsp-btn-salvar-link" id="btn-gsp-upload" onclick="gspEnviarArquivo()">Enviar Arquivo</button>
-        </div>`;
-      }
-
-      // Links externos (seção separada)
-      html += `<div class="gsp-sec-titulo" style="margin-top:20px;">🔗 Links Externos</div>`;
-      if (links.length === 0) {
-        html += `<div class="gsp-vazio-links">${lider ? 'Adicione links de YouTube, Drive etc. abaixo.' : 'Nenhum link externo cadastrado.'}</div>`;
-      } else {
-        links.forEach(lk => {
-          const dominio = (() => { try { return new URL(lk.url).hostname.replace('www.',''); } catch(e){ return lk.url; } })();
-          const icoDom = lk.url.includes('youtube')||lk.url.includes('youtu.be') ? '▶' :
-                         lk.url.includes('spotify') ? '🎧' :
-                         lk.url.includes('drive.google') ? '📁' :
-                         lk.url.includes('soundcloud') ? '☁' : '🔗';
-          html += `<div class="gsp-link-row">
-            <div class="gsp-link-row-ico">${icoDom}</div>
-            <div class="gsp-link-row-info">
-              <div class="gsp-link-row-titulo">${esc(lk.label||dominio)}</div>
-              <div class="gsp-link-row-url">${esc(dominio)}</div>
-            </div>
-            <a href="${esc(lk.url)}" target="_blank" rel="noopener noreferrer" class="gsp-btn-abrir">Abrir ↗</a>
-            ${lider ? `<button class="gsp-btn-del-link" onclick="gspDeletarLink('${lk.id}')">×</button>` : ''}
-          </div>`;
-        });
-      }
-      if (lider) {
-        html += `<div class="gsp-form-link-inline">
-          <div class="gsp-form-link-titulo">+ Adicionar link externo</div>
-          <input type="text" id="gsp-novo-label" class="gsp-input-link" placeholder="Nome do link (ex: Playlist Adoração)">
-          <input type="url"  id="gsp-novo-url"   class="gsp-input-link" placeholder="https://youtube.com/...">
-          <button class="gsp-btn-salvar-link" onclick="gspSalvarLink()">Salvar Link</button>
-        </div>`;
-      }
-
-    } else {
-      // ══ OUTRAS CATEGORIAS: comportamento original ══
-
-      html += `<div class="gsp-sec-titulo">🔗 Links e Pastas</div>`;
-      if (links.length === 0) {
-        html += `<div class="gsp-vazio-links">${lider ? 'Adicione links de YouTube, Spotify ou Google Drive abaixo.' : 'Nenhum link cadastrado ainda.'}</div>`;
-      } else {
-        links.forEach(lk => {
-          const dominio = (() => { try { return new URL(lk.url).hostname.replace('www.',''); } catch(e){ return lk.url; } })();
-          const icoDom = lk.url.includes('youtube')||lk.url.includes('youtu.be') ? '▶' :
-                         lk.url.includes('spotify') ? '🎧' :
-                         lk.url.includes('drive.google') ? '📁' :
-                         lk.url.includes('soundcloud') ? '☁' : '🔗';
-          html += `<div class="gsp-link-row">
-            <div class="gsp-link-row-ico">${icoDom}</div>
-            <div class="gsp-link-row-info">
-              <div class="gsp-link-row-titulo">${esc(lk.label||dominio)}</div>
-              <div class="gsp-link-row-url">${esc(dominio)}</div>
-            </div>
-            <a href="${esc(lk.url)}" target="_blank" rel="noopener noreferrer" class="gsp-btn-abrir">Abrir ↗</a>
-            ${lider ? `<button class="gsp-btn-del-link" onclick="gspDeletarLink('${lk.id}')">×</button>` : ''}
-          </div>`;
-        });
-      }
-      if (lider) {
-        html += `<div class="gsp-form-link-inline">
-          <div class="gsp-form-link-titulo">+ Adicionar link</div>
-          <input type="text" id="gsp-novo-label" class="gsp-input-link" placeholder="Nome do link (ex: Playlist Adoração)">
-          <input type="url"  id="gsp-novo-url"   class="gsp-input-link" placeholder="https://youtube.com/... ou drive.google.com/...">
-          <button class="gsp-btn-salvar-link" onclick="gspSalvarLink()">Salvar Link</button>
-        </div>`;
-      }
-
-      html += `<div class="gsp-sec-titulo" style="margin-top:20px;">🎵 Músicas Cadastradas</div>`;
-      if (musicas.length === 0) {
-        html += `<div class="gsp-vazio-links">${lider ? 'Nenhuma música. Use "+ Música" para cadastrar.' : 'Nenhuma música nesta categoria.'}</div>`;
-      } else {
-        musicas.forEach(m => {
-          html += `<div class="gsp-link-row">
-            <div class="gsp-link-row-ico">🎵</div>
-            <div class="gsp-link-row-info">
-              <div class="gsp-link-row-titulo">${esc(m.titulo||'Sem título')}</div>
-              <div class="gsp-link-row-url">${esc(m.artista||'')}${m.obs?' • '+esc(m.obs):''}</div>
-            </div>
-            ${m.link ? `<a href="${esc(m.link)}" target="_blank" rel="noopener noreferrer" class="gsp-btn-abrir">Ouvir ↗</a>` : ''}
-            ${lider ? `<button class="gsp-btn-del-link" onclick="deletarMusica('${m.id}')">×</button>` : ''}
-          </div>`;
-        });
-      }
-      if (lider) {
-        html += `<button class="gsp-btn-nova-musica" onclick="abrirFormMusica()">+ Cadastrar Música</button>`;
-      }
     }
 
-    html += `</div>`;
+    // ── Botão cadastrar música ──
+    if (lider) {
+      html += `<button class="gsp-btn-nova-musica" onclick="abrirFormMusica()">+ Cadastrar Música</button>`;
+    }
+
+    html += `</div>`; // fecha gsp-pagina
     lista.innerHTML = html;
   };
 
@@ -1242,128 +1149,20 @@
     renderGospelteca();
   };
 
-  // ── Arquivo escolhido no input ──
-  window.gspFileEscolhido = function(input) {
-    const file = input.files[0];
-    const label = document.getElementById('gsp-file-label-txt');
-    if (label) label.textContent = file ? `✅ ${file.name}` : '📂 Escolher arquivo MP3 ou MP4';
-  };
-
-  // ── Enviar arquivo MP3/MP4 para Firebase Storage ──
-  window.gspEnviarArquivo = async function() {
-    if (!isLider()) { showToast('Apenas o líder pode enviar arquivos','danger'); return; }
-    const titulo  = (document.getElementById('gsp-upload-titulo')?.value || '').trim();
-    const artista = (document.getElementById('gsp-upload-artista')?.value || '').trim();
-    const obs     = (document.getElementById('gsp-upload-obs')?.value || '').trim();
-    const input   = document.getElementById('gsp-file-input');
-    const file    = input?.files[0];
-
-    if (!titulo) { showToast('Informe o nome da música','danger'); return; }
-    if (!file)   { showToast('Escolha um arquivo MP3 ou MP4','danger'); return; }
-
-    // Validação de tipo
-    const isAudio = file.type.startsWith('audio/') || file.name.match(/\.mp3$/i);
-    const isVideo = file.type.startsWith('video/') || file.name.match(/\.mp4$/i);
-    if (!isAudio && !isVideo) { showToast('Apenas MP3 ou MP4 são aceitos','danger'); return; }
-
-    // Limite de 50 MB
-    if (file.size > 50 * 1024 * 1024) { showToast('Arquivo muito grande. Máximo 50 MB.','danger'); return; }
-
-    const btn = document.getElementById('btn-gsp-upload');
-    const progressDiv = document.getElementById('gsp-upload-progress');
-    const bar = document.getElementById('gsp-upload-bar');
-    const pct = document.getElementById('gsp-upload-pct');
-    if (btn) { btn.disabled = true; btn.textContent = 'Enviando...'; }
-    if (progressDiv) progressDiv.style.display = 'flex';
-
-    try {
-      // Caminho: gospelteca/{igrejaId}/{timestamp}_{nomeArquivo}
-      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-      const path = `gospelteca/${igrejaId}/${Date.now()}_${safeName}`;
-      const fileRef = storageRef(storage, path);
-      const uploadTask = uploadBytesResumable(fileRef, file);
-
-      await new Promise((resolve, reject) => {
-        uploadTask.on('state_changed',
-          snapshot => {
-            const progress = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
-            if (bar) bar.style.width = progress + '%';
-            if (pct) pct.textContent = progress + '%';
-          },
-          reject,
-          resolve
-        );
-      });
-
-      const downloadURL = await getDownloadURL(fileRef);
-
-      // Salva no Firestore
-      await addDoc(collection(db,'gospelteca'), {
-        titulo, artista, obs,
-        categoria: 'outro',
-        fileUrl: downloadURL,
-        storagePath: path,
-        fileName: file.name,
-        fileType: isVideo ? 'video' : 'audio',
-        fileSize: file.size,
-        igrejaId,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      });
-
-      showToast('Arquivo enviado com sucesso! 🎉','success');
-
-      // Limpa formulário
-      if (input) { input.value = ''; }
-      const lbl = document.getElementById('gsp-file-label-txt');
-      if (lbl) lbl.textContent = '📂 Escolher arquivo MP3 ou MP4';
-      ['gsp-upload-titulo','gsp-upload-artista','gsp-upload-obs'].forEach(id => {
-        const el = document.getElementById(id); if (el) el.value = '';
-      });
-
-    } catch(err) {
-      console.error('Erro no upload:', err);
-      const msg = err.code === 'storage/unauthorized'
-        ? 'Sem permissão no Storage. Verifique as regras do Firebase Storage.'
-        : err.message || 'Erro ao enviar arquivo';
-      showToast(msg, 'danger');
-    } finally {
-      if (btn) { btn.disabled = false; btn.textContent = 'Enviar Arquivo'; }
-      if (progressDiv) progressDiv.style.display = 'none';
-      if (bar) bar.style.width = '0%';
-    }
-  };
-
-  // ── Deletar arquivo (Storage + Firestore) ──
-  window.gspDeletarArquivo = async function(docId, path) {
-    if (!isLider()) return;
-    if (!confirm('Remover este arquivo de música?')) return;
-    try {
-      // Remove do Storage se tiver path
-      if (path) {
-        try { await deleteObject(storageRef(storage, path)); } catch(e) { /* ignora se já não existir */ }
-      }
-      await deleteDoc(doc(db,'gospelteca',docId));
-      showToast('Arquivo removido','danger');
-    } catch(err) { showToast('Erro ao remover','danger'); console.error(err); }
-  };
-
   // ── Salvar link no Firestore ──
   window.gspSalvarLink = async function() {
+    // Captura ANTES de qualquer await (evita perda com re-render do listener)
     const urlEl = document.getElementById('gsp-novo-url');
     const labEl = document.getElementById('gsp-novo-label');
     const url   = (urlEl?.value || '').trim();
     const label = (labEl?.value || '').trim();
-
     if (!url) { showToast('Cole o link antes de salvar', 'danger'); return; }
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
       showToast('Link inválido — deve começar com http:// ou https://', 'danger'); return;
     }
     if (!label) { showToast('Informe o nome do link', 'danger'); return; }
-
-    const btnSalvar = document.querySelector('.gsp-btn-salvar-link');
-    if (btnSalvar) { btnSalvar.disabled = true; btnSalvar.textContent = 'Salvando...'; }
-
+    const btn = document.querySelector('.gsp-btn-salvar-link');
+    if (btn) { btn.disabled = true; btn.textContent = 'Salvando...'; }
     try {
       if (!igrejaId) throw new Error('Sessão inválida — faça login novamente.');
       await addDoc(collection(db,'gospelteca_links'), {
@@ -1371,7 +1170,7 @@
       });
       if (urlEl) urlEl.value = '';
       if (labEl) labEl.value = '';
-      showToast('Link salvo!', 'success');
+      showToast('Link salvo! ✅', 'success');
     } catch(err) {
       console.error('Erro ao salvar link:', err);
       const msg = err.code === 'permission-denied'
@@ -1379,7 +1178,7 @@
         : err.message || 'Erro ao salvar link';
       showToast(msg, 'danger');
     } finally {
-      if (btnSalvar) { btnSalvar.disabled = false; btnSalvar.textContent = 'Salvar Link'; }
+      if (btn) { btn.disabled = false; btn.textContent = 'Salvar Link'; }
     }
   };
 
@@ -1420,18 +1219,18 @@
     if (link && !link.startsWith('http://') && !link.startsWith('https://')) {
       showToast('Link inválido — deve começar com http:// ou https://','danger'); return;
     }
-    const btnSalvarM = document.getElementById('btn-salvar-musica');
-    if (btnSalvarM) { btnSalvarM.disabled = true; btnSalvarM.textContent = 'Salvando...'; }
+    const btnM = document.getElementById('btn-salvar-musica');
+    if (btnM) { btnM.disabled = true; btnM.textContent = 'Salvando...'; }
     const obj = { titulo, artista, categoria, link, obs, igrejaId, updatedAt: serverTimestamp() };
     try {
       if (!igrejaId) throw new Error('Sessão inválida — faça login novamente.');
       if (gspEditId) {
         await updateDoc(doc(db,'gospelteca',gspEditId), obj);
-        showToast('Música atualizada!','success');
+        showToast('Música atualizada! ✅','success');
       } else {
         obj.createdAt = serverTimestamp();
         await addDoc(collection(db,'gospelteca'), obj);
-        showToast('Música adicionada!','success');
+        showToast('Música adicionada! ✅','success');
       }
       fecharFormMusica();
     } catch(err) {
@@ -1441,7 +1240,7 @@
         : err.message || 'Erro ao salvar';
       showToast(msg, 'danger');
     } finally {
-      if (btnSalvarM) { btnSalvarM.disabled = false; btnSalvarM.textContent = 'Salvar Música'; }
+      if (btnM) { btnM.disabled = false; btnM.textContent = 'Salvar Música'; }
     }
   };
 
@@ -1454,6 +1253,171 @@
 
   function isLider(){ return !!usuarioLogado; }
   function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+  // ══════════════════════════════════════════════════════
+  // CHAT — listener e envio de mensagens
+  // ══════════════════════════════════════════════════════
+  let unsubMensagens = null;
+
+  window.iniciarListenerMensagens = function() {
+    if (!igrejaId) return;
+    if (unsubMensagens) unsubMensagens();
+    const q = query(collection(db,'mensagens'), where('igrejaId','==',igrejaId), orderBy('criadoEm','asc'));
+    unsubMensagens = onSnapshot(q, snap => {
+      const lista = document.getElementById('msg-lista'); if (!lista) return;
+      const msgs  = snap.docs.map(d => ({id:d.id,...d.data()}));
+      const eu    = membroNome || (usuarioLogado && usuarioLogado.displayName) || '';
+      lista.innerHTML = msgs.length === 0
+        ? '<div style="text-align:center;color:#4a6080;padding:40px 0;font-size:13px;">Nenhuma mensagem ainda.<br>Seja o primeiro a escrever! 👋</div>'
+        : msgs.map(m => {
+            const autor   = m.autor || 'Desconhecido';
+            const proprio = autor === eu;
+            const sistema = m.sistema;
+            const hora    = m.criadoEm?.toDate
+              ? m.criadoEm.toDate().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})
+              : '';
+            const podeDel = isLider() || proprio;
+            return `<div class="msg-item ${sistema?'msg-sistema':proprio?'proprio':'outro'}">
+              ${!proprio && !sistema ? `<div class="msg-autor">${esc(autor)}</div>` : ''}
+              <div class="msg-balao">${esc(m.texto||'')}</div>
+              <div class="msg-hora">${hora}</div>
+              ${podeDel ? `<button class="msg-del-btn" onclick="deletarMensagem('${m.id}')">🗑 Apagar</button>` : ''}
+            </div>`;
+          }).join('');
+      setTimeout(() => { const l=document.getElementById('msg-lista'); if(l) l.scrollTop=l.scrollHeight; }, 60);
+      // badge na aba
+      const panelAtivo = document.getElementById('panel-mensagens');
+      if (panelAtivo && !panelAtivo.classList.contains('active')) {
+        const b  = document.getElementById('badge-msg');
+        const hb = document.getElementById('hbadge-msg');
+        if (b)  { b.textContent  = msgs.length; b.style.display  = 'inline'; }
+        if (hb) { hb.textContent = msgs.length; hb.style.display = 'flex';   }
+      }
+    }, err => console.error('Chat listener erro:', err));
+  };
+
+  window.enviarMensagem = async function() {
+    const inp  = document.getElementById('msg-input'); if (!inp) return;
+    const text = inp.value.trim(); if (!text) return;
+    if (!igrejaId) { showToast('Entre no app primeiro','danger'); return; }
+    const autor = membroNome || (usuarioLogado && usuarioLogado.displayName) || 'Anônimo';
+    inp.value = '';
+    inp.focus();
+    try {
+      await addDoc(collection(db,'mensagens'), {
+        texto: text, autor, igrejaId, criadoEm: serverTimestamp()
+      });
+    } catch(e) {
+      console.error('Erro ao enviar mensagem:', e);
+      showToast(e.code === 'permission-denied' ? 'Sem permissão no Firestore.' : 'Erro ao enviar','danger');
+      inp.value = text; // restaura o texto se falhou
+    }
+  };
+
+  window.deletarMensagem = async function(id) {
+    try { await deleteDoc(doc(db,'mensagens',id)); }
+    catch(e) { showToast('Erro ao apagar','danger'); }
+  };
+
+  window.limparChat = async function() {
+    if (!igrejaId) return;
+    if (!confirm('Apagar TODAS as mensagens do chat?')) return;
+    try {
+      const snap = await getDocs(query(collection(db,'mensagens'), where('igrejaId','==',igrejaId)));
+      for (const d of snap.docs) await deleteDoc(doc(db,'mensagens',d.id));
+      showToast('Chat limpo','success');
+    } catch(e) { showToast('Erro ao limpar','danger'); }
+  };
+
+  // ══════════════════════════════════════════════════════
+  // EVENTOS — listener e CRUD
+  // ══════════════════════════════════════════════════════
+  let unsubEventos  = null;
+  let editEventoId  = null;
+
+  window.iniciarListenerEventos = function() {
+    if (!igrejaId) return;
+    if (unsubEventos) unsubEventos();
+    const q = query(collection(db,'eventos'), where('igrejaId','==',igrejaId), orderBy('data','asc'));
+    unsubEventos = onSnapshot(q, snap => {
+      const lista = document.getElementById('eventos-lista'); if (!lista) return;
+      const itens = snap.docs.map(d => ({id:d.id,...d.data()}));
+      const lider = isLider();
+      const btnNovo = document.getElementById('btn-novo-evento');
+      if (btnNovo) btnNovo.style.display = lider ? 'block' : 'none';
+      if (itens.length === 0) {
+        lista.innerHTML = '<p style="color:#64748b;text-align:center;padding:30px 0;">Nenhum evento cadastrado.</p>';
+        return;
+      }
+      lista.innerHTML = itens.map(ev => {
+        const d = ev.data ? new Date(ev.data + 'T12:00') : null;
+        const dataStr = d ? d.toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'short'}) : '';
+        return `<div class="evento-card">
+          <div class="evento-titulo">${esc(ev.titulo||'')}</div>
+          <div class="evento-data">${dataStr}${ev.hora ? ' — '+ev.hora : ''}</div>
+          ${ev.descricao ? `<div class="evento-desc">${esc(ev.descricao)}</div>` : ''}
+          ${lider ? `<button class="evento-del" onclick="deletarEvento('${ev.id}')">🗑 Remover</button>` : ''}
+        </div>`;
+      }).join('');
+    }, err => console.error('Eventos listener erro:', err));
+  };
+
+  window.abrirNovoEvento = function() {
+    editEventoId = null;
+    const f = document.getElementById('evento-form'); if (f) f.style.display = 'flex';
+    ['ev-titulo','ev-data','ev-hora','ev-desc'].forEach(id => {
+      const el = document.getElementById(id); if (el) el.value = '';
+    });
+  };
+  window.fecharEvento = function() {
+    const f = document.getElementById('evento-form'); if (f) f.style.display = 'none';
+  };
+  window.salvarEvento = async function() {
+    const titulo = document.getElementById('ev-titulo')?.value.trim();
+    const data   = document.getElementById('ev-data')?.value;
+    if (!titulo || !data) { showToast('Preencha título e data','danger'); return; }
+    const hora = document.getElementById('ev-hora')?.value || '';
+    const desc = document.getElementById('ev-desc')?.value.trim() || '';
+    try {
+      await addDoc(collection(db,'eventos'), {
+        titulo, data, hora, descricao: desc, igrejaId, criadoEm: serverTimestamp()
+      });
+      window.fecharEvento();
+      showToast('Evento salvo!','success');
+    } catch(e) { showToast('Erro ao salvar evento','danger'); }
+  };
+  window.deletarEvento = async function(id) {
+    try { await deleteDoc(doc(db,'eventos',id)); showToast('Evento removido','danger'); }
+    catch(e) { showToast('Erro ao remover evento','danger'); }
+  };
+
+  // ══════════════════════════════════════════════════════
+  // HOME — saudação e utilitários
+  // ══════════════════════════════════════════════════════
+  window.atualizarSaudacaoHome = function() {
+    const nome  = membroNome || (usuarioLogado && usuarioLogado.displayName) || 'Bem-vindo';
+    const ig    = nomeIgrejaAtual || 'Ministério de Música';
+    const h     = new Date().getHours();
+    const s     = h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite';
+    const nEl   = document.getElementById('home-nome');   if (nEl)  nEl.textContent  = s + ', ' + nome + '!';
+    const iEl   = document.getElementById('home-igreja'); if (iEl)  iEl.textContent  = ig;
+    const lider = isLider();
+    const eEl   = document.getElementById('hcard-equipe'); if (eEl)  eEl.style.display  = lider ? 'flex' : 'none';
+    const nEl2  = document.getElementById('hcard-nova');   if (nEl2) nEl2.style.display  = lider ? 'flex' : 'none';
+    const bcEl  = document.getElementById('btn-limpar-chat'); if (bcEl) bcEl.style.display = lider ? 'block' : 'none';
+  };
+  window.metroHomeAbrir = function(sub) {
+    window.switchTab('metro');
+    if (typeof window.metroSubTab === 'function') window.metroSubTab(sub);
+  };
+
+  // Exibe UID da igreja para o líder
+  onAuthStateChanged(auth, user => {
+    const el = document.getElementById('panel-id-igreja');
+    if (el) el.style.display = user ? 'block' : 'none';
+    const tel = document.getElementById('txt-id-igreja');
+    if (tel && user) tel.textContent = user.uid;
+  });
 </script>
 
 <style>
@@ -1895,7 +1859,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
 .hbadge{position:absolute;top:12px;right:12px;background:#ef4444;color:#fff;font-size:11px;font-weight:700;min-width:20px;height:20px;border-radius:10px;display:flex;align-items:center;justify-content:center;padding:0 5px;}
 
 /* ══ CHAT ══ */
-.chat-wrap{display:flex;flex-direction:column;height:calc(100vh - 130px);}
+.chat-wrap{display:flex;flex-direction:column;height:calc(100dvh - 130px);min-height:300px;}
+@supports not (height: 100dvh){
+  .chat-wrap{height:calc(100vh - 130px);}
+}
 .chat-header-bar{display:flex;align-items:center;justify-content:space-between;padding:12px 0 10px;font-size:14px;font-weight:700;color:#fff;border-bottom:1px solid rgba(255,255,255,0.08);margin-bottom:8px;flex-shrink:0;}
 .btn-limpar-chat{background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:#f87171;font-size:11px;font-weight:700;padding:6px 12px;border-radius:8px;cursor:pointer;}
 .msg-lista{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding-bottom:8px;}
@@ -2062,28 +2029,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
 .gsp-empty-icon{font-size:38px;margin-bottom:10px;font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
 .gsp-form-card{background:var(--bg-card);border:1px solid rgba(0,229,255,0.25);border-radius:var(--radius);padding:20px;margin-top:16px;box-shadow:var(--shadow-neon);}
 .gsp-form-titulo{font-family:'Playfair Display',serif;font-size:17px;font-weight:700;color:var(--accent);margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid rgba(0,229,255,0.15);}
-
-/* ── ARQUIVOS MP3/MP4 ── */
-.gsp-arquivo-card{background:var(--bg-card);border:1px solid rgba(0,229,255,0.2);border-radius:var(--radius);padding:14px;margin-bottom:12px;box-shadow:var(--shadow-sm);}
-.gsp-arquivo-header{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
-.gsp-arquivo-ico{font-size:26px;flex-shrink:0;font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
-.gsp-arquivo-info{flex:1;min-width:0;}
-.gsp-arquivo-nome{font-size:14px;font-weight:700;color:var(--text-main);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.gsp-arquivo-meta{font-size:11px;color:var(--text-muted);margin-top:2px;}
-/* Player de áudio customizado */
-.gsp-player-audio{width:100%;height:40px;border-radius:20px;outline:none;accent-color:var(--accent);background:rgba(0,0,0,0.3);}
-.gsp-player-audio::-webkit-media-controls-panel{background:rgba(0,229,255,0.08);border-radius:20px;}
-/* Player de vídeo */
-.gsp-player-video{width:100%;max-height:220px;border-radius:var(--radius-sm);background:#000;outline:none;}
-/* Formulário de upload */
-.gsp-form-upload{background:rgba(0,229,255,0.03);border:1px dashed rgba(0,229,255,0.25);border-radius:var(--radius-sm);padding:16px;margin-top:14px;}
-.gsp-file-label{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:13px;border:1px dashed rgba(0,229,255,0.35);border-radius:var(--radius-sm);background:rgba(0,229,255,0.04);color:var(--accent);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:10px;transition:all .15s;box-sizing:border-box;}
-.gsp-file-label:active,.gsp-file-label:hover{background:rgba(0,229,255,0.09);border-color:rgba(0,229,255,0.6);}
-/* Barra de progresso do upload */
-.gsp-upload-progress{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
-.gsp-upload-bar-wrap{flex:1;height:8px;background:rgba(0,229,255,0.1);border-radius:4px;overflow:hidden;}
-.gsp-upload-bar{height:100%;background:linear-gradient(90deg,#00e5ff,#7c3aed);border-radius:4px;width:0%;transition:width .15s linear;}
-#gsp-upload-pct{font-family:'Share Tech Mono',monospace;font-size:13px;color:var(--accent);min-width:36px;text-align:right;}
 
 </style>
 </head>
@@ -2811,7 +2756,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
               <option value="hino">Hinos Clássicos</option>
               <option value="infantil">Infantil</option>
               <option value="especial">Especial / Ofertório</option>
-              <option value="outro">Arquivos (MP3/MP4)</option>
+              <option value="outro">Outro</option>
             </select>
           </div>
           <div class="field-group"><label>Link (YouTube, Spotify, etc.)</label><input type="url" id="gsp-link" class="input-neon" placeholder="https://youtube.com/watch?v=..."></div>
@@ -2943,156 +2888,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
 window.cifraRapida = function(nome) {
   document.getElementById('cifra-busca').value = nome;
   buscarCifra();
-};
-</script>
-
-<script type="module">
-  import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
-  import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
-  const _auth = getAuth(getApps()[0]);
-  onAuthStateChanged(_auth, user => {
-    document.getElementById('panel-id-igreja').style.display = user ? 'block' : 'none';
-    if(user) document.getElementById('txt-id-igreja').textContent = user.uid;
-  });
-</script>
-
-
-<script type="module">
-import {
-  getFirestore, collection, addDoc, deleteDoc, doc,
-  onSnapshot, query, where, orderBy, serverTimestamp, getDocs
-} from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
-import { getApps, initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
-
-const _db = getFirestore(getApps()[0]);
-let unsubMensagens = null;
-let unsubEventos   = null;
-
-// ── CHAT ──
-window.iniciarListenerMensagens = function() {
-  if (!window.igrejaId) return;
-  if (unsubMensagens) unsubMensagens();
-  const q = query(collection(_db,'mensagens'), where('igrejaId','==',window.igrejaId), orderBy('criadoEm','asc'));
-  unsubMensagens = onSnapshot(q, snap => {
-    const lista = document.getElementById('msg-lista'); if (!lista) return;
-    const msgs  = snap.docs.map(d => ({id:d.id,...d.data()}));
-    const eu    = window.membroNome || (window.usuarioLogado && window.usuarioLogado.displayName) || '';
-    lista.innerHTML = msgs.map(m => {
-      const autor   = m.autor || 'Desconhecido';
-      const proprio = autor === eu;
-      const sistema = m.sistema;
-      const hora    = m.criadoEm?.toDate ? m.criadoEm.toDate().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}) : '';
-      return `<div class="msg-item ${sistema?'msg-sistema':proprio?'proprio':'outro'}">
-        ${!proprio && !sistema ? `<div class="msg-autor">${autor}</div>` : ''}
-        <div class="msg-balao">${m.texto||''}</div>
-        <div class="msg-hora">${hora}</div>
-        <button class="msg-del-btn" onclick="deletarMensagem('${m.id}')">🗑 Apagar mensagem</button>
-      </div>`;
-    }).join('');
-    setTimeout(() => lista.scrollTop = lista.scrollHeight, 50);
-    // badge
-    const panelAtivo = document.getElementById('panel-mensagens');
-    if (panelAtivo && !panelAtivo.classList.contains('active')) {
-      const b = document.getElementById('badge-msg');
-      const hb = document.getElementById('hbadge-msg');
-      if (b) { b.textContent = msgs.length; b.style.display='inline'; }
-      if (hb){ hb.textContent = msgs.length; hb.style.display='flex'; }
-    }
-  });
-};
-
-window.enviarMensagem = async function() {
-  const inp  = document.getElementById('msg-input'); if (!inp) return;
-  const text = inp.value.trim(); if (!text) return;
-  if (!window.igrejaId) { window.showToast && window.showToast('Entre no app primeiro','danger'); return; }
-  const autor = window.membroNome || (window.usuarioLogado && window.usuarioLogado.displayName) || 'Anônimo';
-  inp.value = '';
-  try {
-    await addDoc(collection(_db,'mensagens'), { texto:text, autor, igrejaId:window.igrejaId, criadoEm:serverTimestamp() });
-  } catch(e) { window.showToast && window.showToast('Erro ao enviar','danger'); }
-};
-
-window.deletarMensagem = async function(id) {
-  try { await deleteDoc(doc(_db,'mensagens',id)); }
-  catch(e) { window.showToast && window.showToast('Erro ao apagar','danger'); }
-};
-
-window.limparChat = async function() {
-  if (!window.igrejaId) return;
-  if (!confirm('Apagar TODAS as mensagens do chat?')) return;
-  const snap = await getDocs(query(collection(_db,'mensagens'), where('igrejaId','==',window.igrejaId)));
-  for (const d of snap.docs) await deleteDoc(doc(_db,'mensagens',d.id));
-  window.showToast && window.showToast('Chat limpo','success');
-};
-
-// ── EVENTOS ──
-let editEventoId = null;
-window.iniciarListenerEventos = function() {
-  if (!window.igrejaId) return;
-  if (unsubEventos) unsubEventos();
-  const q = query(collection(_db,'eventos'), where('igrejaId','==',window.igrejaId), orderBy('data','asc'));
-  unsubEventos = onSnapshot(q, snap => {
-    const lista = document.getElementById('eventos-lista'); if (!lista) return;
-    const itens = snap.docs.map(d => ({id:d.id,...d.data()}));
-    const lider = typeof window.isLider === 'function' && window.isLider();
-    const btnNovo = document.getElementById('btn-novo-evento');
-    if (btnNovo) btnNovo.style.display = lider ? 'block' : 'none';
-    if (itens.length === 0) { lista.innerHTML = '<p style="color:#64748b;text-align:center;padding:30px 0;">Nenhum evento cadastrado.</p>'; return; }
-    lista.innerHTML = itens.map(ev => {
-      const d = ev.data ? new Date(ev.data + 'T12:00') : null;
-      const dataStr = d ? d.toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'short'}) : '';
-      return `<div class="evento-card">
-        <div class="evento-titulo">${ev.titulo||''}</div>
-        <div class="evento-data">${dataStr}${ev.hora ? ' — '+ev.hora : ''}</div>
-        ${ev.descricao ? `<div class="evento-desc">${ev.descricao}</div>` : ''}
-        ${lider ? `<button class="evento-del" onclick="deletarEvento('${ev.id}')">🗑 Remover</button>` : ''}
-      </div>`;
-    }).join('');
-  });
-};
-
-window.abrirNovoEvento = function() {
-  editEventoId = null;
-  const f = document.getElementById('evento-form'); if (f) f.style.display = 'flex';
-  ['ev-titulo','ev-data','ev-hora','ev-desc'].forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
-};
-window.fecharEvento = function() {
-  const f = document.getElementById('evento-form'); if (f) f.style.display = 'none';
-};
-window.salvarEvento = async function() {
-  const titulo = document.getElementById('ev-titulo')?.value.trim();
-  const data   = document.getElementById('ev-data')?.value;
-  if (!titulo || !data) { window.showToast && window.showToast('Preencha título e data','danger'); return; }
-  const hora = document.getElementById('ev-hora')?.value || '';
-  const desc = document.getElementById('ev-desc')?.value.trim() || '';
-  const payload = { titulo, data, hora, descricao:desc, igrejaId:window.igrejaId, criadoEm:serverTimestamp() };
-  try {
-    await addDoc(collection(_db,'eventos'), payload);
-    window.fecharEvento();
-    window.showToast && window.showToast('Evento salvo!','success');
-  } catch(e) { window.showToast && window.showToast('Erro ao salvar','danger'); }
-};
-window.deletarEvento = async function(id) {
-  try { await deleteDoc(doc(_db,'eventos',id)); window.showToast && window.showToast('Evento removido','danger'); }
-  catch(e) {}
-};
-
-// ── HOME: saudação ──
-window.atualizarSaudacaoHome = function() {
-  const nome = window.membroNome || (window.usuarioLogado && window.usuarioLogado.displayName) || 'Bem-vindo';
-  const ig   = window.nomeIgrejaAtual || 'Ministério de Música';
-  const h    = new Date().getHours();
-  const s    = h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite';
-  const nEl  = document.getElementById('home-nome');   if (nEl) nEl.textContent = s + ', ' + nome + '!';
-  const iEl  = document.getElementById('home-igreja'); if (iEl) iEl.textContent = ig;
-  const lider = typeof window.isLider === 'function' && window.isLider();
-  const eEl  = document.getElementById('hcard-equipe'); if (eEl) eEl.style.display = lider ? 'flex' : 'none';
-  const nEl2 = document.getElementById('hcard-nova');   if (nEl2) nEl2.style.display = lider ? 'flex' : 'none';
-  const bcEl = document.getElementById('btn-limpar-chat'); if(bcEl) bcEl.style.display = lider ? 'block' : 'none';
-};
-window.metroHomeAbrir = function(sub) {
-  window.switchTab('metro');
-  if (typeof window.metroSubTab === 'function') window.metroSubTab(sub);
 };
 </script>
 
