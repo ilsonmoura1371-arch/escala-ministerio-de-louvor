@@ -857,20 +857,19 @@
     );
   }
 
-  // ── Busca externa BananaCifra ──
-  window.buscarCifra = function() {
+  // ── Busca externa Cifra.com ──
+ window.buscarCifra = function() {
     const q = document.getElementById('cifra-busca').value.trim();
     if (!q) { showToast('Digite o nome do hino','danger'); return; }
-    const url = `https://www.bananacifras.com/cifra/busca?q=${encodeURIComponent(q)}`;
+    const url = `https://www.cifras.com.br/busca?q=${encodeURIComponent(q)}`;
     document.getElementById('cifra-resultado').innerHTML = `<div class="cifra-abrindo">
       <div class="cifra-abrindo-icone">&#127928;</div>
-      <div class="cifra-abrindo-titulo">Abrindo BananaCifra...</div>
+      <div class="cifra-abrindo-titulo">Abrindo Cifras.com...</div>
       <div class="cifra-abrindo-desc">Buscando: <strong>${esc(q)}</strong></div>
-      <a href="${url}" target="_blank" rel="noopener noreferrer" class="btn-ir-bananacifra">Abrir BananaCifra</a>
+      <a href="${url}" target="_blank" rel="noopener noreferrer" class="btn-ir-bananacifra">Abrir Cifras.com</a>
     </div>`;
     window.open(url,'_blank');
-  };
-  window.buscarCifraKeydown = function(e){ if(e.key==='Enter') buscarCifra(); };
+  };  window.buscarCifraKeydown = function(e){ if(e.key==='Enter') buscarCifra(); };
 
   // ── Alternar sub-abas de cifras ──
   window.cifraSubTab = function(aba) {
