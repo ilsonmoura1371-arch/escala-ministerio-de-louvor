@@ -2951,6 +2951,44 @@ window.cifraRapida = function(nome) {
   //   nome, icone, steps[16] (1=tocar forte, 0.5=tocar suave, 0=silêncio),
   //   tipo de som: 'kick'|'snare'|'hihat'|'perc'|'bass'|'chord'|'triangle'|'shaker'
   // ═══════════════════════════════════════════════════
+  // ══ SAMPLES REAIS DO FIREBASE STORAGE ══
+  var SAMPLES = {
+    violao:   'https://firebasestorage.googleapis.com/v0/b/louvor-escala-5d26f.firebasestorage.app/o/samples%2Fabsolutesound-acoustic-guitar-chill-516783.mp3?alt=media&token=560a6cb6-533c-43fa-8330-4751edacc351',
+    guitarra: 'https://firebasestorage.googleapis.com/v0/b/louvor-escala-5d26f.firebasestorage.app/o/samples%2Fmondamusic-guitar-guitar-music-529564%20(1).mp3?alt=media&token=816a5eb4-5ea3-4d8e-957d-8a411a540eae',
+    teclado:  'https://firebasestorage.googleapis.com/v0/b/louvor-escala-5d26f.firebasestorage.app/o/samples%2Frobloxeur-the-clavier-203029.mp3?alt=media&token=1a9b34a2-0691-4e1e-a6fb-4d3c8ea187cd',
+    bateria:  'https://firebasestorage.googleapis.com/v0/b/louvor-escala-5d26f.firebasestorage.app/o/samples%2Fwatermello-drum-amp-bass-dnb-music-dampb-drum-and-bass-488391.mp3?alt=media&token=c270105f-5db3-4591-951b-ac9f554aba63'
+  };
+  var audioBuffers = {};
+  var samplesCarregados = false;
+
+  function carregarSamples() {
+    if (samplesCarregados) return Promise.resolve();
+    return initAudio().then(function() {
+      var promises = Object.keys(SAMPLES).map(function(nome) {
+        return fetch(SAMPLES[nome])
+          .then(function(r) { return r.arrayBuffer(); })
+          .then(function(ab) { return actx.decodeAudioData(ab); })
+          .then(function(buf) { audioBuffers[nome] = buf; });
+      });
+      return Promise.all(promises).then(function() {
+        samplesCarregados = true;
+      });
+    });
+  }
+
+  function tocarSample(nome, volume, duracaoMax) {
+    if (!actx || !audioBuffers[nome]) return;
+    var src = actx.createBufferSource();
+    src.buffer = audioBuffers[nome];
+    var g = actx.createGain();
+    g.gain.value = Math.min(1, volume || 1);
+    src.connect(g);
+    g.connect(masterGain);
+    var t = actx.currentTime;
+    src.start(t);
+    src.stop(t + (duracaoMax || 1.0));
+  }
+
   var RITMOS_DATA = {
 
     baiao: { nome:'Baião', icone:'🎸', bpm:'80–120 BPM', bpmDemo:100,
@@ -3198,110 +3236,65 @@ window.cifraRapida = function(nome) {
   // Sons sintetizados por instrumento
   function tocarSom(tipo, volume) {
     if (!actx || volume <= 0) return;
-    var t = actx.currentTime;
     var v = Math.min(1, volume);
 
+    // ── Usa samples reais se carregados ──
+    if (tipo === 'kick' || tipo === 'snare' || tipo === 'hihat' || tipo === 'perc' || tipo === 'shaker') {
+      if (audioBuffers['bateria']) { tocarSample('bateria', v * (tipo==='kick'?0.95:tipo==='snare'?0.75:0.45), 0.9); return; }
+    }
+    if (tipo === 'chord') {
+      if (audioBuffers['violao']) { tocarSample('violao', v * 0.75, 1.2); return; }
+    }
+    if (tipo === 'bass') {
+      if (audioBuffers['guitarra']) { tocarSample('guitarra', v * 0.8, 1.0); return; }
+    }
+    if (tipo === 'triangle') {
+      if (audioBuffers['teclado']) { tocarSample('teclado', v * 0.5, 0.8); return; }
+    }
+
+    // ── Fallback síntese (caso samples ainda não carregados) ──
+    var t = actx.currentTime;
     if (tipo === 'kick') {
       var osc = actx.createOscillator(), g = actx.createGain();
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(v > 0.7 ? 160 : 120, t);
-      osc.frequency.exponentialRampToValueAtTime(35, t + 0.15);
-      g.gain.setValueAtTime(v * 1.1, t);
-      g.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
-      osc.connect(g); g.connect(masterGain);
-      osc.start(t); osc.stop(t + 0.25);
-      // Sub click
-      var cl = actx.createOscillator(), gcl = actx.createGain();
-      cl.type = 'triangle'; cl.frequency.value = 2500;
-      gcl.gain.setValueAtTime(v * 0.3, t); gcl.gain.exponentialRampToValueAtTime(0.001, t+0.01);
-      cl.connect(gcl); gcl.connect(masterGain); cl.start(t); cl.stop(t+0.015);
-
+      osc.frequency.setValueAtTime(160, t);
+      osc.frequency.exponentialRampToValueAtTime(35, t+0.15);
+      g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(0.001, t+0.22);
+      osc.connect(g); g.connect(masterGain); osc.start(t); osc.stop(t+0.25);
     } else if (tipo === 'snare') {
-      // Ruído
-      var len = Math.floor(actx.sampleRate * 0.18);
-      var buf = actx.createBuffer(1, len, actx.sampleRate);
-      var d = buf.getChannelData(0);
-      for (var i=0; i<len; i++) d[i] = (Math.random()*2-1) * (1 - i/len);
-      var src = actx.createBufferSource();
-      src.buffer = buf;
-      var bpf = actx.createBiquadFilter(); bpf.type='bandpass'; bpf.frequency.value= v>0.5?1800:1200; bpf.Q.value=0.7;
-      var gs = actx.createGain(); gs.gain.setValueAtTime(v*0.9, t); gs.gain.exponentialRampToValueAtTime(0.001, t+0.16);
+      var len = Math.floor(actx.sampleRate*0.18), buf = actx.createBuffer(1,len,actx.sampleRate), d = buf.getChannelData(0);
+      for(var i=0;i<len;i++) d[i]=(Math.random()*2-1)*(1-i/len);
+      var src = actx.createBufferSource(); src.buffer=buf;
+      var bpf = actx.createBiquadFilter(); bpf.type='bandpass'; bpf.frequency.value=1500;
+      var gs = actx.createGain(); gs.gain.setValueAtTime(v*0.9,t); gs.gain.exponentialRampToValueAtTime(0.001,t+0.16);
       src.connect(bpf); bpf.connect(gs); gs.connect(masterGain); src.start(t);
-      // Corpo (oscilador)
-      if (v > 0.5) {
-        var o2 = actx.createOscillator(), go2 = actx.createGain();
-        o2.type='triangle'; o2.frequency.value=180;
-        go2.gain.setValueAtTime(v*0.25, t); go2.gain.exponentialRampToValueAtTime(0.001, t+0.06);
-        o2.connect(go2); go2.connect(masterGain); o2.start(t); o2.stop(t+0.07);
-      }
-
     } else if (tipo === 'hihat') {
-      var len2 = Math.floor(actx.sampleRate * (v>0.5 ? 0.08 : 0.05));
-      var buf2 = actx.createBuffer(1, len2, actx.sampleRate);
-      var d2 = buf2.getChannelData(0);
-      for (var j=0; j<len2; j++) d2[j] = (Math.random()*2-1) * (1 - j/len2);
-      var src2 = actx.createBufferSource(); src2.buffer = buf2;
-      var hpf = actx.createBiquadFilter(); hpf.type='highpass'; hpf.frequency.value=7500;
-      var gh = actx.createGain(); gh.gain.setValueAtTime(v*0.35, t); gh.gain.exponentialRampToValueAtTime(0.001, t+0.07);
+      var len2=Math.floor(actx.sampleRate*0.06), buf2=actx.createBuffer(1,len2,actx.sampleRate), d2=buf2.getChannelData(0);
+      for(var j=0;j<len2;j++) d2[j]=(Math.random()*2-1)*(1-j/len2);
+      var src2=actx.createBufferSource(); src2.buffer=buf2;
+      var hpf=actx.createBiquadFilter(); hpf.type='highpass'; hpf.frequency.value=7500;
+      var gh=actx.createGain(); gh.gain.setValueAtTime(v*0.3,t); gh.gain.exponentialRampToValueAtTime(0.001,t+0.06);
       src2.connect(hpf); hpf.connect(gh); gh.connect(masterGain); src2.start(t);
-
-    } else if (tipo === 'perc') {
-      // Tamborim / percussão aguda
-      var buf3 = actx.createBuffer(1, Math.floor(actx.sampleRate*0.06), actx.sampleRate);
-      var d3 = buf3.getChannelData(0);
-      for (var k=0; k<d3.length; k++) d3[k] = (Math.random()*2-1) * (1-k/d3.length);
-      var src3 = actx.createBufferSource(); src3.buffer = buf3;
-      var bpf3 = actx.createBiquadFilter(); bpf3.type='bandpass'; bpf3.frequency.value=3000; bpf3.Q.value=1.5;
-      var gp = actx.createGain(); gp.gain.setValueAtTime(v*0.6, t); gp.gain.exponentialRampToValueAtTime(0.001, t+0.055);
-      src3.connect(bpf3); bpf3.connect(gp); gp.connect(masterGain); src3.start(t);
-
-    } else if (tipo === 'triangle') {
-      // Triângulo metálico
-      var freqs = [4000, 6000, 8500];
-      freqs.forEach(function(fr) {
-        var o = actx.createOscillator(), g = actx.createGain();
-        o.type = 'sine'; o.frequency.value = fr;
-        g.gain.setValueAtTime(v * 0.15, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
-        o.connect(g); g.connect(masterGain); o.start(t); o.stop(t + 0.38);
-      });
-
-    } else if (tipo === 'shaker') {
-      var slen = Math.floor(actx.sampleRate * 0.04);
-      var sbuf = actx.createBuffer(1, slen, actx.sampleRate);
-      var sd = sbuf.getChannelData(0);
-      for (var si=0; si<slen; si++) sd[si] = (Math.random()*2-1) * (1-si/slen);
-      var ssrc = actx.createBufferSource(); ssrc.buffer = sbuf;
-      var shpf = actx.createBiquadFilter(); shpf.type='bandpass'; shpf.frequency.value=8000; shpf.Q.value=2;
-      var sg = actx.createGain(); sg.gain.setValueAtTime(v*0.2, t); sg.gain.exponentialRampToValueAtTime(0.001, t+0.04);
-      ssrc.connect(shpf); shpf.connect(sg); sg.connect(masterGain); ssrc.start(t);
-
     } else if (tipo === 'bass') {
-      // Baixo elétrico sintético
-      var bo = actx.createOscillator(), bg = actx.createGain();
-      var bo2 = actx.createOscillator(), bg2 = actx.createGain();
-      bo.type = 'sawtooth'; bo.frequency.value = 80 + (v > 0.8 ? 8 : 0);
-      bo2.type = 'square'; bo2.frequency.value = 80 + (v > 0.8 ? 8 : 0);
-      var lpf = actx.createBiquadFilter(); lpf.type = 'lowpass'; lpf.frequency.value = 400; lpf.Q.value = 2;
-      bg.gain.setValueAtTime(v*0.55, t); bg.gain.setValueAtTime(v*0.55, t+0.005); bg.gain.exponentialRampToValueAtTime(v*0.25, t+0.12); bg.gain.exponentialRampToValueAtTime(0.001, t+0.35);
-      bg2.gain.setValueAtTime(v*0.12, t); bg2.gain.exponentialRampToValueAtTime(0.001, t+0.2);
-      bo.connect(bg); bg.connect(lpf);
-      bo2.connect(bg2); bg2.connect(lpf);
-      lpf.connect(masterGain);
-      bo.start(t); bo.stop(t+0.38);
-      bo2.start(t); bo2.stop(t+0.38);
-
+      var bo=actx.createOscillator(), bg=actx.createGain();
+      bo.type='sawtooth'; bo.frequency.value=80;
+      var lpf=actx.createBiquadFilter(); lpf.type='lowpass'; lpf.frequency.value=400;
+      bg.gain.setValueAtTime(v*0.5,t); bg.gain.exponentialRampToValueAtTime(0.001,t+0.35);
+      bo.connect(bg); bg.connect(lpf); lpf.connect(masterGain); bo.start(t); bo.stop(t+0.38);
     } else if (tipo === 'chord') {
-      // Acorde/harmonia sintética — toca uma tríade
-      var notas = [261.63, 329.63, 392.00]; // C-E-G (dó maior)
-      notas.forEach(function(freq, ni) {
-        var co = actx.createOscillator(), cg = actx.createGain();
-        co.type = ni === 0 ? 'sawtooth' : 'triangle';
-        co.frequency.value = freq * (ni===0 ? 0.5 : 1);
-        var chLpf = actx.createBiquadFilter(); chLpf.type='lowpass'; chLpf.frequency.value=1800;
-        cg.gain.setValueAtTime(v*0.18, t); cg.gain.setValueAtTime(v*0.18, t+0.01);
-        cg.gain.exponentialRampToValueAtTime(v*0.08, t+0.18); cg.gain.exponentialRampToValueAtTime(0.001, t+0.28);
-        co.connect(chLpf); chLpf.connect(cg); cg.connect(masterGain);
-        co.start(t); co.stop(t+0.3);
+      var notas=[261.63,329.63,392.00];
+      notas.forEach(function(freq,ni){
+        var co=actx.createOscillator(), cg=actx.createGain();
+        co.type=ni===0?'sawtooth':'triangle'; co.frequency.value=freq*(ni===0?0.5:1);
+        cg.gain.setValueAtTime(v*0.15,t); cg.gain.exponentialRampToValueAtTime(0.001,t+0.28);
+        co.connect(cg); cg.connect(masterGain); co.start(t); co.stop(t+0.3);
+      });
+    } else if (tipo === 'triangle' || tipo === 'perc' || tipo === 'shaker') {
+      var freqs=[4000,6000]; freqs.forEach(function(fr){
+        var o=actx.createOscillator(), g=actx.createGain();
+        o.type='sine'; o.frequency.value=fr;
+        g.gain.setValueAtTime(v*0.12,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.3);
+        o.connect(g); g.connect(masterGain); o.start(t); o.stop(t+0.32);
       });
     }
   }
@@ -3377,9 +3370,21 @@ window.cifraRapida = function(nome) {
 
   function iniciarPlayer() {
     initAudio().then(function() {
-      playing = true; stepAtual = 0;
-      atualizarBotaoPlay(true);
-      tick();
+      var btn = document.getElementById('btn-ritmo-play');
+      var labelEl = document.getElementById('ritmo-play-label');
+      if (btn) btn.disabled = true;
+      if (labelEl) labelEl.textContent = 'Carregando sons...';
+      carregarSamples().then(function() {
+        if (btn) btn.disabled = false;
+        playing = true; stepAtual = 0;
+        atualizarBotaoPlay(true);
+        tick();
+      }).catch(function() {
+        if (btn) btn.disabled = false;
+        playing = true; stepAtual = 0;
+        atualizarBotaoPlay(true);
+        tick();
+      });
     });
   }
 
