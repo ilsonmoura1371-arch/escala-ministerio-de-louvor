@@ -647,7 +647,7 @@
       const dia = anivData?.dia || 0;
       const isHoje=dia===diaAtual;
       html+=`<div class="aniv-item${isHoje?' hoje':''}">
-        <span class="aniv-icon">${isHoje?'festa':'bolo'}</span>
+        <span class="aniv-icon">${isHoje?'🎉':'🎂'}</span>
         <span class="aniv-nome">${esc(m.nome)}</span>
         <span class="aniv-dia">dia ${dia}</span>
         ${isHoje?'<span class="aniv-tag">Hoje!</span>':''}
@@ -656,6 +656,9 @@
     html+='</div>';
     banner.innerHTML=html;
     banner.style.display='block';
+    // Atualizar também o banner da home
+    const bannerHome=document.getElementById('banner-aniversarios-home');
+    if(bannerHome){ bannerHome.innerHTML=html; bannerHome.style.display='block'; }
   }
 
   function atualizarBadge() {
@@ -2146,6 +2149,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
             <div class="home-igreja" id="home-igreja">Ministério de Música</div>
           </div>
         </div>
+        <div id="banner-aniversarios-home" class="banner-aniversarios" style="margin-bottom:12px;"></div>
         <div class="home-grid">
           <button class="hcard hcard-blue" onclick="switchTab('escala-atual')">
             <div class="hcard-icon">&#128197;</div>
