@@ -23,6 +23,9 @@
     getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword,
     signOut, onAuthStateChanged, updateProfile, sendPasswordResetEmail
   } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
+  import {
+    getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject
+  } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-storage.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyABNJEfKqvbTawlgQGPoIXMvYWRmH9kCZY",
@@ -33,9 +36,10 @@
     appId: "1:144171388952:web:54f59fa3dd9a149ab0f36d"
   };
 
-  const app  = initializeApp(firebaseConfig);
-  const db   = getFirestore(app);
-  const auth = getAuth(app);
+  const app     = initializeApp(firebaseConfig);
+  const db      = getFirestore(app);
+  const auth    = getAuth(app);
+  const storage = getStorage(app);
   const col  = collection(db, "escalas");
 
   let escalas         = [];
@@ -130,7 +134,6 @@
     iniciarListeners();
     switchTab('home');
     setTimeout(atualizarSaudacaoHome, 400);
-    if (typeof window.iniciarVerificacaoPremium === 'function') window.iniciarVerificacaoPremium();
   }
 
   /* ── LOGIN LÍDER ── */
@@ -644,7 +647,7 @@
       const dia = anivData?.dia || 0;
       const isHoje=dia===diaAtual;
       html+=`<div class="aniv-item${isHoje?' hoje':''}">
-        <span class="aniv-icon">${isHoje?'festa':'bolo'}</span>
+        <span class="aniv-icon">${isHoje?'🎉':'🎂'}</span>
         <span class="aniv-nome">${esc(m.nome)}</span>
         <span class="aniv-dia">dia ${dia}</span>
         ${isHoje?'<span class="aniv-tag">Hoje!</span>':''}
@@ -653,6 +656,9 @@
     html+='</div>';
     banner.innerHTML=html;
     banner.style.display='block';
+    // Atualizar também o banner da home
+    const bannerHome=document.getElementById('banner-aniversarios-home');
+    if(bannerHome){ bannerHome.innerHTML=html; bannerHome.style.display='block'; }
   }
 
   function atualizarBadge() {
@@ -854,20 +860,19 @@
     );
   }
 
-  // ── Busca externa BananaCifra ──
-  window.buscarCifra = function() {
+  // ── Busca externa Cifra.com ──
+ window.buscarCifra = function() {
     const q = document.getElementById('cifra-busca').value.trim();
     if (!q) { showToast('Digite o nome do hino','danger'); return; }
-    const url = `https://www.bananacifras.com/cifra/busca?q=${encodeURIComponent(q)}`;
+    const url = `https://www.cifras.com.br/busca?q=${encodeURIComponent(q)}`;
     document.getElementById('cifra-resultado').innerHTML = `<div class="cifra-abrindo">
       <div class="cifra-abrindo-icone">&#127928;</div>
-      <div class="cifra-abrindo-titulo">Abrindo BananaCifra...</div>
+      <div class="cifra-abrindo-titulo">Abrindo Cifras.com...</div>
       <div class="cifra-abrindo-desc">Buscando: <strong>${esc(q)}</strong></div>
-      <a href="${url}" target="_blank" rel="noopener noreferrer" class="btn-ir-bananacifra">Abrir BananaCifra</a>
+      <a href="${url}" target="_blank" rel="noopener noreferrer" class="btn-ir-bananacifra">Abrir Cifras.com</a>
     </div>`;
     window.open(url,'_blank');
-  };
-  window.buscarCifraKeydown = function(e){ if(e.key==='Enter') buscarCifra(); };
+  };  window.buscarCifraKeydown = function(e){ if(e.key==='Enter') buscarCifra(); };
 
   // ── Alternar sub-abas de cifras ──
   window.cifraSubTab = function(aba) {
@@ -1029,27 +1034,28 @@
     if (unsubGsp) unsubGsp();
     const qG = query(collection(db,'gospelteca'), where('igrejaId','==',igrejaId), orderBy('titulo','asc'));
     unsubGsp = onSnapshot(qG,
-      snap => {
-        const todos = snap.docs.map(d=>({id:d.id,...d.data()}));
-        musicasGsp = todos; // guarda tudo — renderGospelteca separa por tipo
-        // Reconstrói gspLinks a partir dos itens tipo:'link'
-        gspLinks = {};
-        todos.filter(d => d.tipo === 'link').forEach(d => {
-          if (!gspLinks[d.categoria]) gspLinks[d.categoria] = [];
-          gspLinks[d.categoria].push({ id: d.id, label: d.label || d.titulo || d.url, url: d.url || '' });
-        });
-        renderGospelteca();
-      },
-      err => console.error('Erro listener gospelteca:', err)
+      snap => { musicasGsp = snap.docs.map(d=>({id:d.id,...d.data()})); renderGospelteca(); },
+      err  => console.error(err)
     );
   };
 
-  // Links diretos por categoria — gerenciados pelo listener principal acima
-  let gspLinks = {};
+  // Links diretos por categoria — salvos no Firestore
+  let gspLinks = {}; // { adoracao: [{id, label, url}], louvor: [...], ... }
   let unsubGspLinks = null;
 
   window.iniciarListenerGspLinks = function iniciarListenerGspLinks() {
-    // Não precisa de listener separado — o iniciarListenerGsp já cuida de tudo
+    if (!igrejaId) return;
+    if (unsubGspLinks) unsubGspLinks();
+    const qL = query(collection(db,'gospelteca_links'), where('igrejaId','==',igrejaId));
+    unsubGspLinks = onSnapshot(qL, snap => {
+      gspLinks = {};
+      snap.docs.forEach(d => {
+        const data = d.data();
+        if (!gspLinks[data.categoria]) gspLinks[data.categoria] = [];
+        gspLinks[data.categoria].push({ id: d.id, label: data.label||'', url: data.url||'' });
+      });
+      renderGospelteca();
+    }, err => console.error(err));
   };
 
   window.renderGospelteca = function renderGospelteca() {
@@ -1067,8 +1073,7 @@
     const cat = GSP_CATS.find(c => c.id === gspCategAtiva);
     if (!cat) return;
 
-    // Filtra só músicas reais (exclui tipo:'link')
-    const musicas = musicasGsp.filter(m => m.categoria === gspCategAtiva && m.tipo !== 'link');
+    const musicas = musicasGsp.filter(m => m.categoria === gspCategAtiva);
     const links   = gspLinks[gspCategAtiva] || [];
     const total   = musicas.length + links.length;
 
@@ -1148,43 +1153,42 @@
 
   // ── Salvar link no Firestore ──
   window.gspSalvarLink = async function() {
-    const urlEl  = document.getElementById('gsp-novo-url');
-    const labEl  = document.getElementById('gsp-novo-label');
-    let url   = (urlEl?.value || '').trim();
+    // Captura ANTES de qualquer await (evita perda com re-render do listener)
+    const urlEl = document.getElementById('gsp-novo-url');
+    const labEl = document.getElementById('gsp-novo-label');
+    const url   = (urlEl?.value || '').trim();
     const label = (labEl?.value || '').trim();
     if (!url) { showToast('Cole o link antes de salvar', 'danger'); return; }
-    if (!url.startsWith('http://') && !url.startsWith('https://')) url = 'https://' + url;
-    if (!igrejaId) { showToast('Faça login antes de salvar', 'danger'); return; }
-    const btnSalvar = document.querySelector('.gsp-btn-salvar-link');
-    if (btnSalvar) { btnSalvar.textContent = 'Salvando…'; btnSalvar.disabled = true; }
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      showToast('Link inválido — deve começar com http:// ou https://', 'danger'); return;
+    }
+    if (!label) { showToast('Informe o nome do link', 'danger'); return; }
+    const btn = document.querySelector('.gsp-btn-salvar-link');
+    if (btn) { btn.disabled = true; btn.textContent = 'Salvando...'; }
     try {
-      // Salva na mesma coleção 'gospelteca' com tipo:'link' — não precisa de novas regras
-      await addDoc(collection(db,'gospelteca'), {
-        tipo: 'link',
-        titulo: label || url,
-        label: label || url,
-        url,
-        categoria: gspCategAtiva,
-        igrejaId,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
+      if (!igrejaId) throw new Error('Sessão inválida — faça login novamente.');
+      await addDoc(collection(db,'gospelteca_links'), {
+        url, label, categoria: gspCategAtiva, igrejaId, criadoEm: serverTimestamp()
       });
       if (urlEl) urlEl.value = '';
       if (labEl) labEl.value = '';
-      showToast('Link salvo! ✓', 'success');
+      showToast('Link salvo! ✅', 'success');
     } catch(err) {
       console.error('Erro ao salvar link:', err);
-      showToast('Erro: ' + (err.code || err.message || 'verifique conexão'), 'danger');
+      const msg = err.code === 'permission-denied'
+        ? 'Sem permissão. Verifique as regras do Firestore.'
+        : err.message || 'Erro ao salvar link';
+      showToast(msg, 'danger');
     } finally {
-      if (btnSalvar) { btnSalvar.textContent = 'Salvar Link'; btnSalvar.disabled = false; }
+      if (btn) { btn.disabled = false; btn.textContent = 'Salvar Link'; }
     }
   };
 
   window.gspDeletarLink = async function(id) {
     if (!isLider()) return;
     if (!confirm('Remover este link?')) return;
-    try { await deleteDoc(doc(db,'gospelteca',id)); showToast('Link removido','danger'); }
-    catch(e) { console.error(e); showToast('Erro ao remover','danger'); }
+    try { await deleteDoc(doc(db,'gospelteca_links',id)); showToast('Link removido','danger'); }
+    catch(e) { showToast('Erro ao remover','danger'); }
   };
 
   window.abrirFormMusica = function(id) {
@@ -1214,25 +1218,31 @@
     const link      = document.getElementById('gsp-link').value.trim();
     const obs       = document.getElementById('gsp-obs').value.trim();
     if (!titulo) { showToast('Informe o título da música','danger'); return; }
-    if (!igrejaId) { showToast('Sessão expirada — faça login novamente','danger'); return; }
-    const btnSalvar = document.querySelector('#gsp-form .btn-primary');
-    if (btnSalvar) { btnSalvar.textContent = 'Salvando…'; btnSalvar.disabled = true; }
+    if (link && !link.startsWith('http://') && !link.startsWith('https://')) {
+      showToast('Link inválido — deve começar com http:// ou https://','danger'); return;
+    }
+    const btnM = document.getElementById('btn-salvar-musica');
+    if (btnM) { btnM.disabled = true; btnM.textContent = 'Salvando...'; }
     const obj = { titulo, artista, categoria, link, obs, igrejaId, updatedAt: serverTimestamp() };
     try {
+      if (!igrejaId) throw new Error('Sessão inválida — faça login novamente.');
       if (gspEditId) {
         await updateDoc(doc(db,'gospelteca',gspEditId), obj);
-        showToast('Música atualizada! ✓','success');
+        showToast('Música atualizada! ✅','success');
       } else {
         obj.createdAt = serverTimestamp();
         await addDoc(collection(db,'gospelteca'), obj);
-        showToast('Música adicionada! ✓','success');
+        showToast('Música adicionada! ✅','success');
       }
       fecharFormMusica();
     } catch(err) {
       console.error('Erro ao salvar música:', err);
-      showToast('Erro: ' + (err.code || err.message || 'verifique as regras do Firebase'), 'danger');
+      const msg = err.code === 'permission-denied'
+        ? 'Sem permissão. Verifique as regras do Firestore.'
+        : err.message || 'Erro ao salvar';
+      showToast(msg, 'danger');
     } finally {
-      if (btnSalvar) { btnSalvar.textContent = 'Salvar'; btnSalvar.disabled = false; }
+      if (btnM) { btnM.disabled = false; btnM.textContent = 'Salvar Música'; }
     }
   };
 
@@ -1245,6 +1255,171 @@
 
   function isLider(){ return !!usuarioLogado; }
   function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+  // ══════════════════════════════════════════════════════
+  // CHAT — listener e envio de mensagens
+  // ══════════════════════════════════════════════════════
+  let unsubMensagens = null;
+
+  window.iniciarListenerMensagens = function() {
+    if (!igrejaId) return;
+    if (unsubMensagens) unsubMensagens();
+    const q = query(collection(db,'mensagens'), where('igrejaId','==',igrejaId), orderBy('criadoEm','asc'));
+    unsubMensagens = onSnapshot(q, snap => {
+      const lista = document.getElementById('msg-lista'); if (!lista) return;
+      const msgs  = snap.docs.map(d => ({id:d.id,...d.data()}));
+      const eu    = membroNome || (usuarioLogado && usuarioLogado.displayName) || '';
+      lista.innerHTML = msgs.length === 0
+        ? '<div style="text-align:center;color:#4a6080;padding:40px 0;font-size:13px;">Nenhuma mensagem ainda.<br>Seja o primeiro a escrever! 👋</div>'
+        : msgs.map(m => {
+            const autor   = m.autor || 'Desconhecido';
+            const proprio = autor === eu;
+            const sistema = m.sistema;
+            const hora    = m.criadoEm?.toDate
+              ? m.criadoEm.toDate().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})
+              : '';
+            const podeDel = isLider() || proprio;
+            return `<div class="msg-item ${sistema?'msg-sistema':proprio?'proprio':'outro'}">
+              ${!proprio && !sistema ? `<div class="msg-autor">${esc(autor)}</div>` : ''}
+              <div class="msg-balao">${esc(m.texto||'')}</div>
+              <div class="msg-hora">${hora}</div>
+              ${podeDel ? `<button class="msg-del-btn" onclick="deletarMensagem('${m.id}')">🗑 Apagar</button>` : ''}
+            </div>`;
+          }).join('');
+      setTimeout(() => { const l=document.getElementById('msg-lista'); if(l) l.scrollTop=l.scrollHeight; }, 60);
+      // badge na aba
+      const panelAtivo = document.getElementById('panel-mensagens');
+      if (panelAtivo && !panelAtivo.classList.contains('active')) {
+        const b  = document.getElementById('badge-msg');
+        const hb = document.getElementById('hbadge-msg');
+        if (b)  { b.textContent  = msgs.length; b.style.display  = 'inline'; }
+        if (hb) { hb.textContent = msgs.length; hb.style.display = 'flex';   }
+      }
+    }, err => console.error('Chat listener erro:', err));
+  };
+
+  window.enviarMensagem = async function() {
+    const inp  = document.getElementById('msg-input'); if (!inp) return;
+    const text = inp.value.trim(); if (!text) return;
+    if (!igrejaId) { showToast('Entre no app primeiro','danger'); return; }
+    const autor = membroNome || (usuarioLogado && usuarioLogado.displayName) || 'Anônimo';
+    inp.value = '';
+    inp.focus();
+    try {
+      await addDoc(collection(db,'mensagens'), {
+        texto: text, autor, igrejaId, criadoEm: serverTimestamp()
+      });
+    } catch(e) {
+      console.error('Erro ao enviar mensagem:', e);
+      showToast(e.code === 'permission-denied' ? 'Sem permissão no Firestore.' : 'Erro ao enviar','danger');
+      inp.value = text; // restaura o texto se falhou
+    }
+  };
+
+  window.deletarMensagem = async function(id) {
+    try { await deleteDoc(doc(db,'mensagens',id)); }
+    catch(e) { showToast('Erro ao apagar','danger'); }
+  };
+
+  window.limparChat = async function() {
+    if (!igrejaId) return;
+    if (!confirm('Apagar TODAS as mensagens do chat?')) return;
+    try {
+      const snap = await getDocs(query(collection(db,'mensagens'), where('igrejaId','==',igrejaId)));
+      for (const d of snap.docs) await deleteDoc(doc(db,'mensagens',d.id));
+      showToast('Chat limpo','success');
+    } catch(e) { showToast('Erro ao limpar','danger'); }
+  };
+
+  // ══════════════════════════════════════════════════════
+  // EVENTOS — listener e CRUD
+  // ══════════════════════════════════════════════════════
+  let unsubEventos  = null;
+  let editEventoId  = null;
+
+  window.iniciarListenerEventos = function() {
+    if (!igrejaId) return;
+    if (unsubEventos) unsubEventos();
+    const q = query(collection(db,'eventos'), where('igrejaId','==',igrejaId), orderBy('data','asc'));
+    unsubEventos = onSnapshot(q, snap => {
+      const lista = document.getElementById('eventos-lista'); if (!lista) return;
+      const itens = snap.docs.map(d => ({id:d.id,...d.data()}));
+      const lider = isLider();
+      const btnNovo = document.getElementById('btn-novo-evento');
+      if (btnNovo) btnNovo.style.display = lider ? 'block' : 'none';
+      if (itens.length === 0) {
+        lista.innerHTML = '<p style="color:#64748b;text-align:center;padding:30px 0;">Nenhum evento cadastrado.</p>';
+        return;
+      }
+      lista.innerHTML = itens.map(ev => {
+        const d = ev.data ? new Date(ev.data + 'T12:00') : null;
+        const dataStr = d ? d.toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'short'}) : '';
+        return `<div class="evento-card">
+          <div class="evento-titulo">${esc(ev.titulo||'')}</div>
+          <div class="evento-data">${dataStr}${ev.hora ? ' — '+ev.hora : ''}</div>
+          ${ev.descricao ? `<div class="evento-desc">${esc(ev.descricao)}</div>` : ''}
+          ${lider ? `<button class="evento-del" onclick="deletarEvento('${ev.id}')">🗑 Remover</button>` : ''}
+        </div>`;
+      }).join('');
+    }, err => console.error('Eventos listener erro:', err));
+  };
+
+  window.abrirNovoEvento = function() {
+    editEventoId = null;
+    const f = document.getElementById('evento-form'); if (f) f.style.display = 'flex';
+    ['ev-titulo','ev-data','ev-hora','ev-desc'].forEach(id => {
+      const el = document.getElementById(id); if (el) el.value = '';
+    });
+  };
+  window.fecharEvento = function() {
+    const f = document.getElementById('evento-form'); if (f) f.style.display = 'none';
+  };
+  window.salvarEvento = async function() {
+    const titulo = document.getElementById('ev-titulo')?.value.trim();
+    const data   = document.getElementById('ev-data')?.value;
+    if (!titulo || !data) { showToast('Preencha título e data','danger'); return; }
+    const hora = document.getElementById('ev-hora')?.value || '';
+    const desc = document.getElementById('ev-desc')?.value.trim() || '';
+    try {
+      await addDoc(collection(db,'eventos'), {
+        titulo, data, hora, descricao: desc, igrejaId, criadoEm: serverTimestamp()
+      });
+      window.fecharEvento();
+      showToast('Evento salvo!','success');
+    } catch(e) { showToast('Erro ao salvar evento','danger'); }
+  };
+  window.deletarEvento = async function(id) {
+    try { await deleteDoc(doc(db,'eventos',id)); showToast('Evento removido','danger'); }
+    catch(e) { showToast('Erro ao remover evento','danger'); }
+  };
+
+  // ══════════════════════════════════════════════════════
+  // HOME — saudação e utilitários
+  // ══════════════════════════════════════════════════════
+  window.atualizarSaudacaoHome = function() {
+    const nome  = membroNome || (usuarioLogado && usuarioLogado.displayName) || 'Bem-vindo';
+    const ig    = nomeIgrejaAtual || 'Ministério de Música';
+    const h     = new Date().getHours();
+    const s     = h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite';
+    const nEl   = document.getElementById('home-nome');   if (nEl)  nEl.textContent  = s + ', ' + nome + '!';
+    const iEl   = document.getElementById('home-igreja'); if (iEl)  iEl.textContent  = ig;
+    const lider = isLider();
+    const eEl   = document.getElementById('hcard-equipe'); if (eEl)  eEl.style.display  = lider ? 'flex' : 'none';
+    const nEl2  = document.getElementById('hcard-nova');   if (nEl2) nEl2.style.display  = lider ? 'flex' : 'none';
+    const bcEl  = document.getElementById('btn-limpar-chat'); if (bcEl) bcEl.style.display = lider ? 'block' : 'none';
+  };
+  window.metroHomeAbrir = function(sub) {
+    window.switchTab('metro');
+    if (typeof window.metroSubTab === 'function') window.metroSubTab(sub);
+  };
+
+  // Exibe UID da igreja para o líder
+  onAuthStateChanged(auth, user => {
+    const el = document.getElementById('panel-id-igreja');
+    if (el) el.style.display = user ? 'block' : 'none';
+    const tel = document.getElementById('txt-id-igreja');
+    if (tel && user) tel.textContent = user.uid;
+  });
 </script>
 
 <style>
@@ -1408,33 +1583,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
 #status-text{font-size:11px;font-weight:700;color:var(--text-main);}
 .btn-sair{background:transparent;border:1px solid rgba(239,68,68,0.4);color:#f87171;font-size:12px;font-weight:700;cursor:pointer;padding:5px 12px;border-radius:20px;}
 .btn-fechar-header{background:transparent;border:1px solid rgba(239,68,68,0.4);color:#f87171;font-size:12px;font-weight:700;cursor:pointer;padding:5px 12px;border-radius:20px;}
-
-/* ══ BOTÃO PREMIUM (HEADER) ══ */
-.btn-premium{display:flex;align-items:center;gap:5px;background:linear-gradient(135deg,#fbbf24,#d97706);border:none;color:#1a1206;font-size:12px;font-weight:800;cursor:pointer;padding:6px 13px;border-radius:20px;box-shadow:0 2px 10px rgba(251,191,36,0.35);}
-.btn-premium:active{transform:scale(0.95);}
-
-/* ══ MODAL DE ASSINATURA ══ */
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:500;display:flex;align-items:flex-end;justify-content:center;backdrop-filter:blur(3px);}
-.modal-premium-card{position:relative;width:100%;max-width:480px;background:var(--bg-card);border:1px solid rgba(251,191,36,0.25);border-radius:24px 24px 0 0;padding:32px 24px 28px;box-shadow:0 -10px 40px rgba(0,0,0,0.5);max-height:88vh;overflow-y:auto;animation:slideUpModal .25s ease;}
-@keyframes slideUpModal{from{transform:translateY(40px);opacity:0;}to{transform:translateY(0);opacity:1;}}
-.modal-premium-fechar{position:absolute;top:14px;right:18px;background:rgba(255,255,255,0.06);border:none;color:var(--text-muted);font-size:20px;width:32px;height:32px;border-radius:50%;cursor:pointer;line-height:1;}
-.premium-estado{text-align:center;}
-.premium-icone{font-size:44px;margin-bottom:12px;font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
-.premium-estado h2{font-family:'Playfair Display',serif;font-size:21px;color:var(--text-main);margin-bottom:8px;}
-.premium-estado p{font-size:13px;color:var(--text-muted);line-height:1.6;margin-bottom:6px;}
-.premium-sub{color:#fbbf24 !important;font-weight:700;margin-bottom:18px !important;}
-.premium-spinner{width:36px;height:36px;border:3px solid rgba(0,229,255,0.15);border-top-color:var(--accent);border-radius:50%;margin:0 auto 16px;animation:spinPremium .8s linear infinite;}
-@keyframes spinPremium{to{transform:rotate(360deg);}}
-.premium-lista-beneficios{list-style:none;text-align:left;margin:18px 0;padding:0;display:flex;flex-direction:column;gap:10px;}
-.premium-lista-beneficios li{font-size:13.5px;color:var(--text-main);background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:10px 14px;}
-.premium-preco-box{background:rgba(251,191,36,0.06);border:1px solid rgba(251,191,36,0.25);border-radius:14px;padding:16px;margin:16px 0;}
-#premium-preco-valor{font-family:'Playfair Display',serif;font-size:26px;font-weight:700;color:#fbbf24;}
-.premium-preco-detalhe{font-size:12px;color:var(--text-muted);margin-top:4px;}
-.btn-premium-assinar{width:100%;padding:15px;border:none;border-radius:50px;background:linear-gradient(135deg,#fbbf24,#d97706);color:#1a1206;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:800;cursor:pointer;box-shadow:0 6px 22px rgba(251,191,36,0.35);}
-.btn-premium-assinar:active{transform:scale(0.97);}
-.btn-premium-assinar:disabled{opacity:0.5;cursor:not-allowed;}
-.btn-premium-gerenciar{margin-top:14px;padding:12px 22px;border:1px solid rgba(0,229,255,0.3);border-radius:50px;background:rgba(0,229,255,0.06);color:var(--accent);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;}
-.premium-aviso-legal{font-size:11px !important;color:#5a6b8a !important;margin-top:12px !important;line-height:1.5 !important;}
 .badge-lider{background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;box-shadow:0 0 10px rgba(168,85,247,0.4);}
 
 /* ══ TABS ══ */
@@ -1713,7 +1861,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
 .hbadge{position:absolute;top:12px;right:12px;background:#ef4444;color:#fff;font-size:11px;font-weight:700;min-width:20px;height:20px;border-radius:10px;display:flex;align-items:center;justify-content:center;padding:0 5px;}
 
 /* ══ CHAT ══ */
-.chat-wrap{display:flex;flex-direction:column;height:calc(100vh - 130px);}
+.chat-wrap{display:flex;flex-direction:column;height:calc(100dvh - 130px);min-height:300px;}
+@supports not (height: 100dvh){
+  .chat-wrap{height:calc(100vh - 130px);}
+}
 .chat-header-bar{display:flex;align-items:center;justify-content:space-between;padding:12px 0 10px;font-size:14px;font-weight:700;color:#fff;border-bottom:1px solid rgba(255,255,255,0.08);margin-bottom:8px;flex-shrink:0;}
 .btn-limpar-chat{background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:#f87171;font-size:11px;font-weight:700;padding:6px 12px;border-radius:8px;cursor:pointer;}
 .msg-lista{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding-bottom:8px;}
@@ -1965,72 +2116,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
           <div id="status-dot" class="status-dot offline"></div>
           <span id="status-text">Conectando...</span>
         </div>
-        <button id="btn-premium" class="btn-premium" onclick="abrirTelaPremium()" style="display:none;" title="Assinatura">
-          <span id="btn-premium-icon">✨</span>
-          <span id="btn-premium-label">Assinar</span>
-        </button>
         <button id="btn-sair" class="btn-sair" onclick="sair()">Sair</button>
         <button class="btn-fechar-header" onclick="fecharApp()" title="Fechar aplicativo">X</button>
       </div>
     </div>
   </header>
-
-  <!-- ══ MODAL DE ASSINATURA / PREMIUM ══ -->
-  <div id="modal-premium" class="modal-overlay" style="display:none;">
-    <div class="modal-premium-card">
-      <button class="modal-premium-fechar" onclick="fecharTelaPremium()">×</button>
-
-      <div id="premium-estado-loading" class="premium-estado">
-        <div class="premium-spinner"></div>
-        <p>Verificando sua assinatura…</p>
-      </div>
-
-      <div id="premium-estado-indisponivel" class="premium-estado" style="display:none;">
-        <div class="premium-icone">📱</div>
-        <h2>Disponível só no app</h2>
-        <p>Para assinar, abra o <strong>Escala Ministério de Louvor</strong> instalado pela Google Play — o pagamento é feito direto pelo Play Store.</p>
-      </div>
-
-      <div id="premium-estado-ativo" class="premium-estado" style="display:none;">
-        <div class="premium-icone">✅</div>
-        <h2>Você já é assinante!</h2>
-        <p>Todos os recursos premium do ministério estão liberados. Obrigado por apoiar o app 🙏</p>
-        <button class="btn-premium-gerenciar" onclick="abrirGerenciarAssinaturaPlay()">Gerenciar assinatura</button>
-      </div>
-
-      <div id="premium-estado-oferta" class="premium-estado" style="display:none;">
-        <div class="premium-icone">✨</div>
-        <h2>Desbloqueie o Premium</h2>
-        <p class="premium-sub">Organize seu ministério sem limites</p>
-
-        <ul class="premium-lista-beneficios">
-          <li>🎵 Gospelteca com links e pastas ilimitadas</li>
-          <li>🥁 Player multi-instrumental de todos os ritmos</li>
-          <li>📅 Escalas e eventos sem limite de membros</li>
-          <li>💬 Histórico completo de mensagens</li>
-        </ul>
-
-        <div class="premium-preco-box">
-          <div id="premium-preco-valor">—</div>
-          <div id="premium-preco-detalhe" class="premium-preco-detalhe">carregando oferta…</div>
-        </div>
-
-        <button class="btn-premium-assinar" id="btn-premium-assinar" onclick="iniciarCompraPremium()">
-          Começar teste grátis
-        </button>
-        <p class="premium-aviso-legal">Cobrança automática após o período de teste. Cancele quando quiser pela Google Play.</p>
-      </div>
-
-      <div id="premium-estado-erro" class="premium-estado" style="display:none;">
-        <div class="premium-icone">⚠️</div>
-        <h2>Não foi possível carregar</h2>
-        <p id="premium-erro-msg">Verifique sua conexão e tente novamente.</p>
-        <button class="btn-premium-gerenciar" onclick="abrirTelaPremium()">Tentar de novo</button>
-      </div>
-    </div>
-  </div>
-
-
 
   <nav class="nav-tabs" id="nav-tabs-bar" style="display:none;">
     <button id="tab-escala-atual"   class="nav-tab active"          onclick="switchTab('escala-atual')">
@@ -2059,6 +2149,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
             <div class="home-igreja" id="home-igreja">Ministério de Música</div>
           </div>
         </div>
+        <div id="banner-aniversarios-home" class="banner-aniversarios" style="margin-bottom:12px;"></div>
         <div class="home-grid">
           <button class="hcard hcard-blue" onclick="switchTab('escala-atual')">
             <div class="hcard-icon">&#128197;</div>
@@ -2537,71 +2628,56 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
     <!-- PANEL: RITMOS -->
     <div id="panel-ritmos" class="panel">
       <div class="ritmos-wrap">
-        <h2 class="ritmos-titulo">&#127941; Ritmos para Músicos</h2>
-        <p class="ritmos-sub">Clique em um ritmo para ver o guia de execução</p>
-
-        <div class="ritmos-grid" id="ritmos-grid">
-
-          <div class="ritmo-card" onclick="abrirRitmo('baiao')">
-            <div class="ritmo-icone">&#127928;</div>
-            <div class="ritmo-nome">Baião</div>
-            <div class="ritmo-bpm">80–120 BPM</div>
+        <h2 class="ritmos-titulo">&#127941; Banco de Ritmos Gospel</h2>
+        <p class="ritmos-sub">Estilos essenciais para o ministerio — selecione um ritmo para tocar</p>
+        <div id="ritmos-cats" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;overflow-x:auto;padding-bottom:4px;"></div>
+        <div class="ritmos-grid" id="ritmos-grid"></div>
+        <div id="ritmo-player" style="display:none;background:var(--bg-card);border:1px solid var(--border-neon);border-radius:var(--radius);padding:18px;margin-top:12px;">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:14px;">
+            <div>
+              <div id="rp-nome" style="font-family:'Playfair Display',serif;font-size:18px;font-weight:700;color:#fff;"></div>
+              <div id="rp-desc" style="font-size:12px;color:var(--text-muted);margin-top:3px;"></div>
+            </div>
+            <button id="rp-tap" onclick="rpTap()" style="padding:8px 14px;background:rgba(124,58,237,0.15);border:1px solid rgba(124,58,237,0.4);color:#c4b5fd;border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">TAP</button>
           </div>
-          <div class="ritmo-card" onclick="abrirRitmo('samba')">
-            <div class="ritmo-icone">&#129345;</div>
-            <div class="ritmo-nome">Samba</div>
-            <div class="ritmo-bpm">80–100 BPM</div>
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:6px;">Compasso</div>
+          <div style="display:flex;gap:6px;margin-bottom:14px;" id="rp-comp-row">
+            <button class="rp-comp-btn" onclick="rpSetComp(4,4,this)" style="flex:1;padding:8px;border-radius:var(--radius-sm);border:1px solid rgba(0,229,255,0.25);background:rgba(0,229,255,0.1);color:var(--accent);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">4/4</button>
+            <button class="rp-comp-btn" onclick="rpSetComp(3,4,this)" style="flex:1;padding:8px;border-radius:var(--radius-sm);border:1px solid rgba(0,229,255,0.1);background:transparent;color:var(--text-muted);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">3/4</button>
+            <button class="rp-comp-btn" onclick="rpSetComp(6,8,this)" style="flex:1;padding:8px;border-radius:var(--radius-sm);border:1px solid rgba(0,229,255,0.1);background:transparent;color:var(--text-muted);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">6/8</button>
           </div>
-          <div class="ritmo-card" onclick="abrirRitmo('bolero')">
-            <div class="ritmo-icone">&#127927;</div>
-            <div class="ritmo-nome">Bolero Gospel</div>
-            <div class="ritmo-bpm">60–80 BPM</div>
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:6px;">BPM</div>
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+            <input type="range" id="rp-bpm-sl" min="50" max="220" step="1" value="100" oninput="rpSetBpm(+this.value)" style="flex:1;">
+            <span id="rp-bpm-val" style="font-family:'Share Tech Mono',monospace;font-size:16px;color:var(--accent);min-width:60px;">100 bpm</span>
           </div>
-          <div class="ritmo-card" onclick="abrirRitmo('marcha')">
-            <div class="ritmo-icone">&#129333;</div>
-            <div class="ritmo-nome">Marcha Evangelical</div>
-            <div class="ritmo-bpm">100–130 BPM</div>
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:6px;">Dinamica</div>
+          <div style="display:flex;gap:6px;margin-bottom:14px;" id="rp-din-row">
+            <button class="rp-din-btn" onclick="rpSetDin('fraco',this)" style="flex:1;padding:8px;border-radius:var(--radius-sm);border:1px solid rgba(0,229,255,0.1);background:transparent;color:var(--text-muted);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Fraco</button>
+            <button class="rp-din-btn active-din" onclick="rpSetDin('medio',this)" style="flex:1;padding:8px;border-radius:var(--radius-sm);border:1px solid rgba(0,229,255,0.25);background:rgba(0,229,255,0.1);color:var(--accent);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Medio</button>
+            <button class="rp-din-btn" onclick="rpSetDin('forte',this)" style="flex:1;padding:8px;border-radius:var(--radius-sm);border:1px solid rgba(0,229,255,0.1);background:transparent;color:var(--text-muted);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Forte</button>
           </div>
-          <div class="ritmo-card" onclick="abrirRitmo('pop')">
-            <div class="ritmo-icone">&#127925;</div>
-            <div class="ritmo-nome">Pop Gospel</div>
-            <div class="ritmo-bpm">90–120 BPM</div>
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:6px;">Beats</div>
+          <div id="rp-beats" style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:14px;min-height:28px;"></div>
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:6px;">Viradas</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;">
+            <button onclick="rpFill(1)" style="padding:8px 14px;border-radius:var(--radius-sm);border:1px solid rgba(251,191,36,0.3);background:rgba(251,191,36,0.07);color:#fbbf24;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Fill 1 compasso</button>
+            <button onclick="rpFill(2)" style="padding:8px 14px;border-radius:var(--radius-sm);border:1px solid rgba(251,191,36,0.3);background:rgba(251,191,36,0.07);color:#fbbf24;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Fill 2 compassos</button>
+            <button onclick="rpFill('crash')" style="padding:8px 14px;border-radius:var(--radius-sm);border:1px solid rgba(239,68,68,0.3);background:rgba(239,68,68,0.07);color:#f87171;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Crash!</button>
           </div>
-          <div class="ritmo-card" onclick="abrirRitmo('ballad')">
-            <div class="ritmo-icone">&#127926;</div>
-            <div class="ritmo-nome">Balada de Adoração</div>
-            <div class="ritmo-bpm">60–80 BPM</div>
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:6px;">Guias de Voz</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;">
+            <button onclick="rpCue('1, 2, 3, vai!')" style="padding:8px 14px;border-radius:var(--radius-sm);border:1px solid rgba(34,197,94,0.3);background:rgba(34,197,94,0.07);color:#22c55e;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">1,2,3 Vai!</button>
+            <button onclick="rpCue('estrofe')" style="padding:8px 14px;border-radius:var(--radius-sm);border:1px solid rgba(0,229,255,0.2);background:transparent;color:var(--accent);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Estrofe</button>
+            <button onclick="rpCue('refrão')" style="padding:8px 14px;border-radius:var(--radius-sm);border:1px solid rgba(0,229,255,0.2);background:transparent;color:var(--accent);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Refrao</button>
+            <button onclick="rpCue('ponte')" style="padding:8px 14px;border-radius:var(--radius-sm);border:1px solid rgba(0,229,255,0.2);background:transparent;color:var(--accent);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Ponte</button>
           </div>
-          <div class="ritmo-card" onclick="abrirRitmo('funk')">
-            <div class="ritmo-icone">&#127932;</div>
-            <div class="ritmo-nome">Funk Gospel</div>
-            <div class="ritmo-bpm">90–110 BPM</div>
-          </div>
-          <div class="ritmo-card" onclick="abrirRitmo('reggae')">
-            <div class="ritmo-icone">&#127808;</div>
-            <div class="ritmo-nome">Reggae Gospel</div>
-            <div class="ritmo-bpm">70–90 BPM</div>
-          </div>
-          <div class="ritmo-card" onclick="abrirRitmo('hino')">
-            <div class="ritmo-icone">&#9835;</div>
-            <div class="ritmo-nome">Hino Clássico</div>
-            <div class="ritmo-bpm">70–100 BPM</div>
-          </div>
-          <div class="ritmo-card" onclick="abrirRitmo('worship')">
-            <div class="ritmo-icone">&#10024;</div>
-            <div class="ritmo-nome">Worship Moderno</div>
-            <div class="ritmo-bpm">68–76 BPM</div>
-          </div>
-          <div class="ritmo-card" onclick="abrirRitmo('xote')">
-            <div class="ritmo-icone">&#127930;</div>
-            <div class="ritmo-nome">Xote / Forró</div>
-            <div class="ritmo-bpm">100–130 BPM</div>
-          </div>
-          <div class="ritmo-card" onclick="abrirRitmo('valsa')">
-            <div class="ritmo-icone">&#128131;</div>
-            <div class="ritmo-nome">Valsa Sacra</div>
-            <div class="ritmo-bpm">120–160 BPM</div>
-          </div>
+          <button id="rp-play-btn" onclick="rpTogglePlay()" style="display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:15px;border:none;border-radius:var(--radius-sm);background:linear-gradient(135deg,#00acc1,#006064);color:#fff;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:700;cursor:pointer;">
+            &#9654; Iniciar
+          </button>
+        </div>
+      </div>
+    </div>
 
         </div>
 
@@ -2803,156 +2879,6 @@ window.cifraRapida = function(nome) {
 };
 </script>
 
-<script type="module">
-  import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
-  import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
-  const _auth = getAuth(getApps()[0]);
-  onAuthStateChanged(_auth, user => {
-    document.getElementById('panel-id-igreja').style.display = user ? 'block' : 'none';
-    if(user) document.getElementById('txt-id-igreja').textContent = user.uid;
-  });
-</script>
-
-
-<script type="module">
-import {
-  getFirestore, collection, addDoc, deleteDoc, doc,
-  onSnapshot, query, where, orderBy, serverTimestamp, getDocs
-} from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
-import { getApps, initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
-
-const _db = getFirestore(getApps()[0]);
-let unsubMensagens = null;
-let unsubEventos   = null;
-
-// ── CHAT ──
-window.iniciarListenerMensagens = function() {
-  if (!window.igrejaId) return;
-  if (unsubMensagens) unsubMensagens();
-  const q = query(collection(_db,'mensagens'), where('igrejaId','==',window.igrejaId), orderBy('criadoEm','asc'));
-  unsubMensagens = onSnapshot(q, snap => {
-    const lista = document.getElementById('msg-lista'); if (!lista) return;
-    const msgs  = snap.docs.map(d => ({id:d.id,...d.data()}));
-    const eu    = window.membroNome || (window.usuarioLogado && window.usuarioLogado.displayName) || '';
-    lista.innerHTML = msgs.map(m => {
-      const autor   = m.autor || 'Desconhecido';
-      const proprio = autor === eu;
-      const sistema = m.sistema;
-      const hora    = m.criadoEm?.toDate ? m.criadoEm.toDate().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}) : '';
-      return `<div class="msg-item ${sistema?'msg-sistema':proprio?'proprio':'outro'}">
-        ${!proprio && !sistema ? `<div class="msg-autor">${autor}</div>` : ''}
-        <div class="msg-balao">${m.texto||''}</div>
-        <div class="msg-hora">${hora}</div>
-        <button class="msg-del-btn" onclick="deletarMensagem('${m.id}')">🗑 Apagar mensagem</button>
-      </div>`;
-    }).join('');
-    setTimeout(() => lista.scrollTop = lista.scrollHeight, 50);
-    // badge
-    const panelAtivo = document.getElementById('panel-mensagens');
-    if (panelAtivo && !panelAtivo.classList.contains('active')) {
-      const b = document.getElementById('badge-msg');
-      const hb = document.getElementById('hbadge-msg');
-      if (b) { b.textContent = msgs.length; b.style.display='inline'; }
-      if (hb){ hb.textContent = msgs.length; hb.style.display='flex'; }
-    }
-  });
-};
-
-window.enviarMensagem = async function() {
-  const inp  = document.getElementById('msg-input'); if (!inp) return;
-  const text = inp.value.trim(); if (!text) return;
-  if (!window.igrejaId) { window.showToast && window.showToast('Entre no app primeiro','danger'); return; }
-  const autor = window.membroNome || (window.usuarioLogado && window.usuarioLogado.displayName) || 'Anônimo';
-  inp.value = '';
-  try {
-    await addDoc(collection(_db,'mensagens'), { texto:text, autor, igrejaId:window.igrejaId, criadoEm:serverTimestamp() });
-  } catch(e) { window.showToast && window.showToast('Erro ao enviar','danger'); }
-};
-
-window.deletarMensagem = async function(id) {
-  try { await deleteDoc(doc(_db,'mensagens',id)); }
-  catch(e) { window.showToast && window.showToast('Erro ao apagar','danger'); }
-};
-
-window.limparChat = async function() {
-  if (!window.igrejaId) return;
-  if (!confirm('Apagar TODAS as mensagens do chat?')) return;
-  const snap = await getDocs(query(collection(_db,'mensagens'), where('igrejaId','==',window.igrejaId)));
-  for (const d of snap.docs) await deleteDoc(doc(_db,'mensagens',d.id));
-  window.showToast && window.showToast('Chat limpo','success');
-};
-
-// ── EVENTOS ──
-let editEventoId = null;
-window.iniciarListenerEventos = function() {
-  if (!window.igrejaId) return;
-  if (unsubEventos) unsubEventos();
-  const q = query(collection(_db,'eventos'), where('igrejaId','==',window.igrejaId), orderBy('data','asc'));
-  unsubEventos = onSnapshot(q, snap => {
-    const lista = document.getElementById('eventos-lista'); if (!lista) return;
-    const itens = snap.docs.map(d => ({id:d.id,...d.data()}));
-    const lider = typeof window.isLider === 'function' && window.isLider();
-    const btnNovo = document.getElementById('btn-novo-evento');
-    if (btnNovo) btnNovo.style.display = lider ? 'block' : 'none';
-    if (itens.length === 0) { lista.innerHTML = '<p style="color:#64748b;text-align:center;padding:30px 0;">Nenhum evento cadastrado.</p>'; return; }
-    lista.innerHTML = itens.map(ev => {
-      const d = ev.data ? new Date(ev.data + 'T12:00') : null;
-      const dataStr = d ? d.toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'short'}) : '';
-      return `<div class="evento-card">
-        <div class="evento-titulo">${ev.titulo||''}</div>
-        <div class="evento-data">${dataStr}${ev.hora ? ' — '+ev.hora : ''}</div>
-        ${ev.descricao ? `<div class="evento-desc">${ev.descricao}</div>` : ''}
-        ${lider ? `<button class="evento-del" onclick="deletarEvento('${ev.id}')">🗑 Remover</button>` : ''}
-      </div>`;
-    }).join('');
-  });
-};
-
-window.abrirNovoEvento = function() {
-  editEventoId = null;
-  const f = document.getElementById('evento-form'); if (f) f.style.display = 'flex';
-  ['ev-titulo','ev-data','ev-hora','ev-desc'].forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
-};
-window.fecharEvento = function() {
-  const f = document.getElementById('evento-form'); if (f) f.style.display = 'none';
-};
-window.salvarEvento = async function() {
-  const titulo = document.getElementById('ev-titulo')?.value.trim();
-  const data   = document.getElementById('ev-data')?.value;
-  if (!titulo || !data) { window.showToast && window.showToast('Preencha título e data','danger'); return; }
-  const hora = document.getElementById('ev-hora')?.value || '';
-  const desc = document.getElementById('ev-desc')?.value.trim() || '';
-  const payload = { titulo, data, hora, descricao:desc, igrejaId:window.igrejaId, criadoEm:serverTimestamp() };
-  try {
-    await addDoc(collection(_db,'eventos'), payload);
-    window.fecharEvento();
-    window.showToast && window.showToast('Evento salvo!','success');
-  } catch(e) { window.showToast && window.showToast('Erro ao salvar','danger'); }
-};
-window.deletarEvento = async function(id) {
-  try { await deleteDoc(doc(_db,'eventos',id)); window.showToast && window.showToast('Evento removido','danger'); }
-  catch(e) {}
-};
-
-// ── HOME: saudação ──
-window.atualizarSaudacaoHome = function() {
-  const nome = window.membroNome || (window.usuarioLogado && window.usuarioLogado.displayName) || 'Bem-vindo';
-  const ig   = window.nomeIgrejaAtual || 'Ministério de Música';
-  const h    = new Date().getHours();
-  const s    = h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite';
-  const nEl  = document.getElementById('home-nome');   if (nEl) nEl.textContent = s + ', ' + nome + '!';
-  const iEl  = document.getElementById('home-igreja'); if (iEl) iEl.textContent = ig;
-  const lider = typeof window.isLider === 'function' && window.isLider();
-  const eEl  = document.getElementById('hcard-equipe'); if (eEl) eEl.style.display = lider ? 'flex' : 'none';
-  const nEl2 = document.getElementById('hcard-nova');   if (nEl2) nEl2.style.display = lider ? 'flex' : 'none';
-  const bcEl = document.getElementById('btn-limpar-chat'); if(bcEl) bcEl.style.display = lider ? 'block' : 'none';
-};
-window.metroHomeAbrir = function(sub) {
-  window.switchTab('metro');
-  if (typeof window.metroSubTab === 'function') window.metroSubTab(sub);
-};
-</script>
-
 <script>
 // ══ METRÔNOMO (não-module, Web Audio scheduling preciso) ══
 (function(){
@@ -3004,610 +2930,250 @@ window.metroHomeAbrir = function(sub) {
 })();
 
 /* ══════════════════════════════════════
-   RITMOS + PLAYER MULTI-INSTRUMENTAL
+   BANCO DE RITMOS GOSPEL — NOVO PLAYER
 ══════════════════════════════════════ */
 (function(){
+  var RP_CATS = ['Todos','Worship','Gospel Black','Congregacional','Nordestino','Celebracao'];
+  var RP_RITMOS = [
+    {id:'wpop',    nome:'Pop Worship',          cat:'Worship',        bpm:72,  desc:'Cresce do verso ao refrao, bumbo reto, hi-hat aberto no refrao',
+     steps:[1,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0]},
+    {id:'wbuild',  nome:'Worship Build',         cat:'Worship',        bpm:68,  desc:'Dinamica crescente — use Fraco no verso, Forte no refrao',
+     steps:[1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0]},
+    {id:'ballad68',nome:'Balada 6/8',            cat:'Worship',        bpm:66,  desc:'Subivisao ternaria suave, adoracao contemplativa',
+     comp:'68', steps:[1,0,0,0.5,0,0,1,0,0,0.5,0,0]},
+    {id:'neosoul', nome:'Neo-Soul Gospel',       cat:'Gospel Black',   bpm:88,  desc:'Muita sincopa, notas fantasma na caixa, chimbal variado',
+     steps:[1,0,0.3,0,0,1,0,0.3,1,0,0.3,0,0,1,0,0.3]},
+    {id:'gblack',  nome:'Gospel Black',          cat:'Gospel Black',   bpm:95,  desc:'Groove pesado, sincopa e drive no bumbo',
+     steps:[1,0,0,0.5,0,0,1,0,1,0,0,0.5,0,0.5,0,0]},
+    {id:'hymn',    nome:'Hino Congregacional',   cat:'Congregacional', bpm:88,  desc:'Ritmo reto e firme, ideal para corinhos e hinos da Harpa',
+     steps:[1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0]},
+    {id:'rock',    nome:'Rock Gospel',           cat:'Congregacional', bpm:120, desc:'Pop/Rock direto, caixa no 2 e 4, chimbal constante',
+     steps:[1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0]},
+    {id:'valsa',   nome:'Valsa Sacra',           cat:'Congregacional', bpm:138, desc:'Compasso 3/4, majestuoso, hinos solenes',
+     comp:'34', steps:[1,0,0,0.5,0,0,1,0,0,0.5,0,0]},
+    {id:'forro',   nome:'Forro Piseiro',         cat:'Nordestino',     bpm:115, desc:'Zabumba forte no 1 e 3, triangulo constante, swing nordestino',
+     steps:[1,0,0.5,0,1,0,0.5,0,1,0,0.5,0,1,0,0.5,0]},
+    {id:'retete',  nome:'Retete',                cat:'Nordestino',     bpm:140, desc:'Marcha pentecostal rapida, bateria muito viva e animada',
+     steps:[1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0]},
+    {id:'xote',    nome:'Xote Gospel',           cat:'Nordestino',     bpm:108, desc:'Levada nordestina suave para louvores regionais',
+     steps:[1,0,0,1,0,0,1,0,1,0,0,1,0,0,1,0]},
+    {id:'funk',    nome:'Funk Gospel',           cat:'Celebracao',     bpm:98,  desc:'Groove animado, linhas de baixo marcantes, jubilo total',
+     steps:[1,0,0,0.7,0,0.5,1,0,0,0.7,0,0,1,0,0.5,0]},
+    {id:'samba',   nome:'Samba Gospel',          cat:'Celebracao',     bpm:90,  desc:'Levada brasileira festiva para musicas de celebracao',
+     steps:[1,0,0.5,0,1,0,0.5,0,1,0,0.5,0,1,0,0.5,0]},
+  ];
 
-  // ═══════════════════════════════════════════════════
-  // BANCO DE DADOS DOS RITMOS
-  // Cada instrumento tem:
-  //   nome, icone, steps[16] (1=tocar forte, 0.5=tocar suave, 0=silêncio),
-  //   tipo de som: 'kick'|'snare'|'hihat'|'perc'|'bass'|'chord'|'triangle'|'shaker'
-  // ═══════════════════════════════════════════════════
-  var RITMOS_DATA = {
+  var rpCatAtiva='Todos', rpRitmoAtual=null, rpPlaying=false;
+  var rpBpm=100, rpComp={n:4,d:4}, rpDin='medio';
+  var rpStepIdx=0, rpTimerId=null, rpTapTimes=[];
+  var rpFillAtivo=false, rpFillCount=0;
+  var rpACtx=null;
+  var rpDinVols={fraco:0.35,medio:0.7,forte:1.0};
 
-    baiao: { nome:'Baião', icone:'🎸', bpm:'80–120 BPM', bpmDemo:100,
-      descricao:'Ritmo nordestino presente em muitos hinos gospel brasileiros. Feel dançante e alegre.',
-      dica:'Mantenha o triângulo constante. A energia vem da interação entre o bombo no 1 e 3 com o contratempo dos outros instrumentos.',
-      instrumentos:[
-        { nome:'Zabumba (Bumbo)', icone:'🥁', padrao:'BOMBO: 1 . . . 3 . . .\nCAIXA: . . 2 . . . 4 .', tipo:'kick',
-          steps:[1,0,0,0, 0,0,0.5,0, 1,0,0,0, 0,0,0.5,0] },
-        { nome:'Caixa (Zabumba)', icone:'🪘', padrao:'Borda no contratempo 2 e 4', tipo:'snare',
-          steps:[0,0,0.7,0, 0,0,0,0, 0,0,0.7,0, 0,0,0,0] },
-        { nome:'Triângulo', icone:'🔺', padrao:'X . X . X . X . (constante)', tipo:'triangle',
-          steps:[1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0] },
-        { nome:'Violão / Guitarra', icone:'🎸', padrao:'Rasqueado descendente no 1 e 3\nContratempo no 2 e 4', tipo:'chord',
-          steps:[1,0,0,0.5, 0,0,1,0, 1,0,0,0.5, 0,0,1,0] },
-        { nome:'Baixo', icone:'🎵', padrao:'Notas longas no 1 e 3', tipo:'bass',
-          steps:[1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0] },
-      ]
-    },
-
-    samba: { nome:'Samba', icone:'🪘', bpm:'80–100 BPM', bpmDemo:90,
-      descricao:'O samba gospel une a alegria do ritmo brasileiro com a mensagem cristã.',
-      dica:'O "balanço" vem da sensação de levar o tempo entre o 1 e o 2. Não toque rígido — deixe fluir!',
-      instrumentos:[
-        { nome:'Surdo (Bumbo)', icone:'🥁', padrao:'Batida forte no 2', tipo:'kick',
-          steps:[0.6,0,0,0, 1,0,0,0, 0.6,0,0,0, 1,0,0,0] },
-        { nome:'Pandeiro', icone:'🥁', padrao:'X . x . X . x . (colcheias com acentos)', tipo:'snare',
-          steps:[1,0,0.5,0, 1,0,0.5,0, 1,0,0.5,0, 1,0,0.5,0] },
-        { nome:'Tamborim', icone:'🔔', padrao:'Síncope característica do samba', tipo:'perc',
-          steps:[1,0,0,1, 0,1,0,0, 1,0,0,1, 0,1,0,0] },
-        { nome:'Violão', icone:'🎸', padrao:'Rasqueado típico: ↓ . ↑ ↓ . ↑ ↓ .', tipo:'chord',
-          steps:[1,0,0.5,1, 0,0.5,1,0, 1,0,0.5,1, 0,0.5,1,0] },
-        { nome:'Baixo', icone:'🎵', padrao:'Segue o surdo + caminhadas cromáticas', tipo:'bass',
-          steps:[0.8,0,0,0, 1,0,0.5,0, 0.8,0,0,0, 1,0,0.5,0] },
-      ]
-    },
-
-    bolero: { nome:'Bolero Gospel', icone:'🎷', bpm:'60–80 BPM', bpmDemo:68,
-      descricao:'Ritmo romântico e suave, ótimo para músicas de intimidade com Deus e adoração contemplativa.',
-      dica:'Seja minimalista. O silêncio é tão importante quanto as notas. Bolero exige sensibilidade.',
-      instrumentos:[
-        { nome:'Bumbo (suave)', icone:'🥁', padrao:'Tempos 1 e 3 muito suaves', tipo:'kick',
-          steps:[0.6,0,0,0, 0,0,0.4,0, 0.6,0,0,0, 0,0,0.4,0] },
-        { nome:'Caixa (vassoura)', icone:'🪘', padrao:'Vassoura delicada nos contratempos', tipo:'snare',
-          steps:[0,0,0.4,0, 0,0,0,0, 0,0,0.4,0, 0,0,0,0] },
-        { nome:'Hi-Hat (fechado)', icone:'🎵', padrao:'Colcheias suaves e constantes', tipo:'hihat',
-          steps:[0.4,0,0.4,0, 0.4,0,0.4,0, 0.4,0,0.4,0, 0.4,0,0.4,0] },
-        { nome:'Piano/Teclado', icone:'🎹', padrao:'Arpejos lentos, acordes sustentados', tipo:'chord',
-          steps:[1,0,0,0, 0.5,0,0,0, 1,0,0,0, 0.5,0,0,0] },
-        { nome:'Baixo (lento)', icone:'🎵', padrao:'Notas longas, caminhos suaves', tipo:'bass',
-          steps:[1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0] },
-      ]
-    },
-
-    marcha: { nome:'Marcha Evangelical', icone:'🥁', bpm:'100–130 BPM', bpmDemo:115,
-      descricao:'Ritmo firme e militante. Muito usado em hinos de avivamento e missão.',
-      dica:'A caixa nos contratempos dá o feel de marcha. Mantenha o grupo unido e forte!',
-      instrumentos:[
-        { nome:'Bumbo', icone:'🥁', padrao:'BOMBO: 1 . . 2+ . . 4 .', tipo:'kick',
-          steps:[1,0,0,0, 1,0,0,0, 1,0,1,0, 1,0,0,0] },
-        { nome:'Caixa', icone:'🪘', padrao:'CAIXA nos contratempos 2 e 4', tipo:'snare',
-          steps:[0,0,1,0, 0,0,0,0, 0,0,1,0, 0,0,0,0] },
-        { nome:'Hi-Hat (fechado)', icone:'🎵', padrao:'Colcheias constantes fechadas', tipo:'hihat',
-          steps:[1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0] },
-        { nome:'Guitarra/Violão', icone:'🎸', padrao:'Acordes em colcheias ou power chords', tipo:'chord',
-          steps:[1,0,1,0, 0,0,1,0, 1,0,1,0, 0,0,1,0] },
-        { nome:'Baixo', icone:'🎵', padrao:'Em uníssono com o bombo', tipo:'bass',
-          steps:[1,0,0,0, 1,0,0,0, 1,0,1,0, 1,0,0,0] },
-      ]
-    },
-
-    pop: { nome:'Pop Gospel', icone:'🎵', bpm:'90–120 BPM', bpmDemo:105,
-      descricao:'Estilo contemporâneo presente nas músicas de Hillsong, Bethel, Elevation.',
-      dica:'O diferencial do pop gospel é a dinâmica: suave no verso, explosivo no refrão. Construa a emoção!',
-      instrumentos:[
-        { nome:'Bumbo', icone:'🥁', padrao:'BOMBO: 1 . . . 3 . . .', tipo:'kick',
-          steps:[1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,1,0] },
-        { nome:'Caixa', icone:'🪘', padrao:'CAIXA: . . 2 . . . 4 .', tipo:'snare',
-          steps:[0,0,1,0, 0,0,0,0, 0,0,1,0, 0,0,0,0] },
-        { nome:'Hi-Hat', icone:'🎵', padrao:'Colcheias constantes', tipo:'hihat',
-          steps:[1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1] },
-        { nome:'Guitarra', icone:'🎸', padrao:'Arpejos no verso, acordes no refrão', tipo:'chord',
-          steps:[1,0,0,0.5, 0,0.5,0,0, 1,0,0,0.5, 0,0.5,0,0] },
-        { nome:'Teclado (pad)', icone:'🎹', padrao:'Pad sustentado no verso', tipo:'chord',
-          steps:[1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0] },
-        { nome:'Baixo', icone:'🎵', padrao:'Segue o bombo, notas longas', tipo:'bass',
-          steps:[1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0.5,0] },
-      ]
-    },
-
-    ballad: { nome:'Balada de Adoração', icone:'🎹', bpm:'60–80 BPM', bpmDemo:66,
-      descricao:'Para músicas contemplativas e de intimidade. Exige sensibilidade e espaço para o vocal brilhar.',
-      dica:'Menos é mais. Deixe os silêncios respirarem. O espaço dado ao vocal é o maior presente nesse ritmo.',
-      instrumentos:[
-        { nome:'Bumbo (muito suave)', icone:'🥁', padrao:'Apenas no 1 e 3, muito discreto', tipo:'kick',
-          steps:[0.5,0,0,0, 0,0,0,0, 0.5,0,0,0, 0,0,0,0] },
-        { nome:'Caixa (vassoura)', icone:'🪘', padrao:'Somente no 2 e 4, quase inaudível', tipo:'snare',
-          steps:[0,0,0.35,0, 0,0,0,0, 0,0,0.35,0, 0,0,0,0] },
-        { nome:'Ride / Prato', icone:'🎵', padrao:'Ride suave em semínimas', tipo:'hihat',
-          steps:[0.3,0,0,0, 0.3,0,0,0, 0.3,0,0,0, 0.3,0,0,0] },
-        { nome:'Piano/Teclado', icone:'🎹', padrao:'Arpejos lentos p-i-m-a', tipo:'chord',
-          steps:[1,0,0.5,0, 0,0.5,0,0, 1,0,0.5,0, 0,0.5,0,0] },
-        { nome:'Baixo (minimalista)', icone:'🎵', padrao:'Notas muito longas', tipo:'bass',
-          steps:[0.7,0,0,0, 0,0,0,0, 0.7,0,0,0, 0,0,0,0] },
-      ]
-    },
-
-    funk: { nome:'Funk Gospel', icone:'🎸', bpm:'90–110 BPM', bpmDemo:100,
-      descricao:'Groove pesado e dançante. Presente em louvor moderno afro-gospel e urbano.',
-      dica:'O groove do funk vive nas pausas. Cada silêncio é intencional — não toque notas desnecessárias!',
-      instrumentos:[
-        { nome:'Bumbo (sincopado)', icone:'🥁', padrao:'BOMBO sincopado característico', tipo:'kick',
-          steps:[1,0,0,0.5, 0,0,0.7,0, 1,0,0,0, 0.5,0,0,0] },
-        { nome:'Caixa', icone:'🪘', padrao:'CAIXA no 2 e 4 com ghost notes', tipo:'snare',
-          steps:[0,0,1,0, 0.3,0,0,0.3, 0,0,1,0, 0.3,0,0,0.3] },
-        { nome:'Hi-Hat (síncopes)', icone:'🎵', padrao:'x . x x . x x . (síncopes)', tipo:'hihat',
-          steps:[1,0,1,1, 0,1,1,0, 1,0,1,1, 0,1,1,0] },
-        { nome:'Guitarra (muted)', icone:'🎸', padrao:'Muted chords em síncopes\nRiff de terças no agudo', tipo:'chord',
-          steps:[1,0,0,0.6, 0,0.6,0,1, 0,0,0.6,0, 1,0,0.6,0] },
-        { nome:'Baixo (slap)', icone:'🎵', padrao:'Slap — notas curtas e ataques', tipo:'bass',
-          steps:[1,0,0,0.7, 0,0,1,0, 0.7,0,0,0, 1,0,0,0.7] },
-        { nome:'Teclado (Rhodes)', icone:'🎹', padrao:'Rhodes/Clavinet em síncopes', tipo:'chord',
-          steps:[0,0.6,0,0, 0.6,0,0,0.6, 0,0,0.6,0, 0,0.6,0,0] },
-      ]
-    },
-
-    reggae: { nome:'Reggae Gospel', icone:'🌿', bpm:'70–90 BPM', bpmDemo:80,
-      descricao:'Feel caribenho e relaxado. Muito usado em músicas que falam de paz, liberdade e graça.',
-      dica:'O skank (pancada no contratempo) é o coração do reggae. Sem ele o ritmo perde identidade!',
-      instrumentos:[
-        { nome:'Bumbo', icone:'🥁', padrao:'Notas longas no 1 e 3', tipo:'kick',
-          steps:[1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0] },
-        { nome:'Caixa', icone:'🪘', padrao:'Caixa rim-shot no 3', tipo:'snare',
-          steps:[0,0,0,0, 0,0,0.8,0, 0,0,0,0, 0,0,0.8,0] },
-        { nome:'Hi-Hat (contratempo)', icone:'🎵', padrao:'HI-HAT nos contratempos (e)', tipo:'hihat',
-          steps:[0,1,0,1, 0,1,0,1, 0,1,0,1, 0,1,0,1] },
-        { nome:'Guitarra/Teclado (Skank)', icone:'🎸', padrao:'. X . X . X . X\n(X = contratempo — essencial!)', tipo:'chord',
-          steps:[0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0] },
-        { nome:'Baixo (melodia grave)', icone:'🎵', padrao:'Notas longas no 1 e 3\nVariações no "e" do 2', tipo:'bass',
-          steps:[1,0,0.5,0, 0,0,0,0.4, 1,0,0.5,0, 0,0,0,0.4] },
-        { nome:'Shaker/Percussão', icone:'🔔', padrao:'Colcheias constantes suaves', tipo:'shaker',
-          steps:[0.5,0.3,0.5,0.3, 0.5,0.3,0.5,0.3, 0.5,0.3,0.5,0.3, 0.5,0.3,0.5,0.3] },
-      ]
-    },
-
-    hino: { nome:'Hino Clássico', icone:'♪', bpm:'70–100 BPM', bpmDemo:88,
-      descricao:'Estilo dos grandes hinários: Cantor Cristão, Corinhos de Ouro. Solene e nobre.',
-      dica:'Respeite a letra e a métrica do hino. O arranjo deve realçar a mensagem, não competir com ela.',
-      instrumentos:[
-        { nome:'Bumbo (discreto)', icone:'🥁', padrao:'Apenas no 1 e 3', tipo:'kick',
-          steps:[0.7,0,0,0, 0,0,0,0, 0.7,0,0,0, 0,0,0,0] },
-        { nome:'Caixa (suave)', icone:'🪘', padrao:'Somente no 2 e 4', tipo:'snare',
-          steps:[0,0,0.5,0, 0,0,0,0, 0,0,0.5,0, 0,0,0,0] },
-        { nome:'Órgão/Teclado', icone:'🎹', padrao:'Acordes plenos em semínimas\n1 . 2 . 3 . 4 .', tipo:'chord',
-          steps:[1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0] },
-        { nome:'Piano', icone:'🎹', padrao:'Alberti bass ou acordes simples', tipo:'chord',
-          steps:[1,0,0.5,0, 1,0,0.5,0, 1,0,0.5,0, 1,0,0.5,0] },
-        { nome:'Baixo', icone:'🎵', padrao:'Semínimas seguindo a harmonia', tipo:'bass',
-          steps:[1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0] },
-      ]
-    },
-
-    worship: { nome:'Worship Moderno', icone:'✨', bpm:'68–76 BPM', bpmDemo:72,
-      descricao:'Estilo Hillsong/Bethel/Elevation. Atmosférico, construção gradual, altamente emocional.',
-      dica:'Dinâmica é tudo no worship. A "subida" para o refrão deve ser sentida pela congregação!',
-      instrumentos:[
-        { nome:'Bumbo', icone:'🥁', padrao:'Kick no 1 e 3, leve no refrão', tipo:'kick',
-          steps:[1,0,0,0, 0,0,0,0, 1,0,0.5,0, 0,0,0,0] },
-        { nome:'Caixa', icone:'🪘', padrao:'Snare no 2 e 4 com ghost notes', tipo:'snare',
-          steps:[0,0,1,0, 0,0,0,0.2, 0,0,1,0, 0,0,0,0.2] },
-        { nome:'Hi-Hat / Ride', icone:'🎵', padrao:'Ride aberto atmosférico', tipo:'hihat',
-          steps:[1,0,0.5,0, 0.5,0,1,0, 1,0,0.5,0, 0.5,0,1,0] },
-        { nome:'Guitarra (delay)', icone:'🎸', padrao:'Arpejo com delay/reverb expressivo\nPower chords no refrão', tipo:'chord',
-          steps:[1,0,0,0.5, 0,0,0.5,0, 1,0,0,0.5, 0,0,0.5,0] },
-        { nome:'Keys (pad)', icone:'🎹', padrao:'PAD sustentado durante toda a música', tipo:'chord',
-          steps:[1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0] },
-        { nome:'Baixo', icone:'🎵', padrao:'Segue o bombo no refrão\nLiberdade melódica na ponte', tipo:'bass',
-          steps:[1,0,0,0, 0,0,0,0, 1,0,0,0.5, 0,0,0,0] },
-      ]
-    },
-
-    xote: { nome:'Xote / Forró', icone:'🎺', bpm:'100–130 BPM', bpmDemo:115,
-      descricao:'Ritmo nordestino animado, presente em louvores brasileiros mais festivos.',
-      dica:'O swing do forró é diferente do straight — as colcheias têm um "quicar" característico!',
-      instrumentos:[
-        { nome:'Zabumba (forte)', icone:'🥁', padrao:'FORTE no 1 e 3\nARO no 2 e 4', tipo:'kick',
-          steps:[1,0,0.5,0, 1,0,0.5,0, 1,0,0.5,0, 1,0,0.5,0] },
-        { nome:'Triângulo', icone:'🔺', padrao:'X . X . X . X . (constante)', tipo:'triangle',
-          steps:[1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0] },
-        { nome:'Sanfona/Teclado', icone:'🎹', padrao:'Acordes em colcheias com swing', tipo:'chord',
-          steps:[1,0.5,0,0.5, 1,0.5,0,0.5, 1,0.5,0,0.5, 1,0.5,0,0.5] },
-        { nome:'Baixo', icone:'🎵', padrao:'Seguindo o bumbo com caminhadas', tipo:'bass',
-          steps:[1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0.5,0] },
-      ]
-    },
-
-    valsa: { nome:'Valsa Sacra', icone:'💃', bpm:'120–160 BPM', bpmDemo:140,
-      descricao:'Compasso ternário (3/4). Elegante e majestoso, usado em hinos solenes de adoração.',
-      dica:'A valsa tem balanço único: o 1 é forte, o 2 e 3 são "levantamento". Sinta o movimento!',
-      // Valsa tem 12 steps (3 batidas × 4 subdivisões)
-      instrumentos:[
-        { nome:'Bumbo', icone:'🥁', padrao:'BUMBO apenas no tempo 1', tipo:'kick',
-          steps:[1,0,0, 0,0,0, 1,0,0, 0,0,0] },
-        { nome:'Hi-Hat / Prato', icone:'🎵', padrao:'Hi-hat nos tempos 2 e 3 suave', tipo:'hihat',
-          steps:[0,0,0, 0.4,0,0, 0,0,0, 0.4,0,0] },
-        { nome:'Piano/Teclado', icone:'🎹', padrao:'ACORDE no 1 (baixo)\nHarmonia no 2 e 3', tipo:'chord',
-          steps:[1,0,0, 0.6,0,0, 0.6,0,0, 0,0,0] },
-        { nome:'Violão', icone:'🎸', padrao:'BAIXO no 1\nRASQUEADO no 2 e 3', tipo:'chord',
-          steps:[1,0,0, 0.7,0,0.4, 1,0,0, 0.7,0,0.4] },
-        { nome:'Baixo', icone:'🎵', padrao:'Nota longa apenas no tempo 1', tipo:'bass',
-          steps:[1,0,0, 0,0,0, 1,0,0, 0,0,0] },
-      ]
-    },
-  };
-
-  // ═══════════════════════════════════════════════════
-  // MOTOR DE ÁUDIO — Web Audio API
-  // ═══════════════════════════════════════════════════
-  var actx = null;
-  var masterGain = null;
-
-  function initAudio() {
-    if (actx && actx.state !== 'closed') return Promise.resolve();
-    actx = new (window.AudioContext || window.webkitAudioContext)();
-    masterGain = actx.createGain();
-    masterGain.gain.value = 0.85;
-    masterGain.connect(actx.destination);
-    return actx.state === 'suspended' ? actx.resume() : Promise.resolve();
+  function rpInitAudio(){
+    if(!rpACtx) rpACtx=new(window.AudioContext||window.webkitAudioContext)();
+    if(rpACtx.state==='suspended') rpACtx.resume();
   }
 
-  // Gera nó de reverb simples (convolution simulada por impulso)
-  function makeReverb(wet) {
-    var conv = actx.createConvolver();
-    var len = actx.sampleRate * 1.2;
-    var buf = actx.createBuffer(2, len, actx.sampleRate);
-    for (var ch = 0; ch < 2; ch++) {
-      var d = buf.getChannelData(ch);
-      for (var i = 0; i < len; i++) d[i] = (Math.random()*2-1) * Math.pow(1 - i/len, 4);
+  function rpClick(forte,vol){
+    rpInitAudio();
+    var t=rpACtx.currentTime, v=vol*rpDinVols[rpDin];
+    var o=rpACtx.createOscillator(), g=rpACtx.createGain();
+    o.type='sine'; o.frequency.value=forte?1500:900;
+    g.gain.setValueAtTime(v,t); g.gain.exponentialRampToValueAtTime(0.001,t+(forte?0.07:0.05));
+    o.connect(g); g.connect(rpACtx.destination); o.start(t); o.stop(t+0.08);
+  }
+
+  function rpNoise(freq,dur,vol){
+    rpInitAudio();
+    var len=Math.floor(rpACtx.sampleRate*dur);
+    var buf=rpACtx.createBuffer(1,len,rpACtx.sampleRate);
+    var d=buf.getChannelData(0);
+    for(var i=0;i<len;i++) d[i]=(Math.random()*2-1)*(1-i/len);
+    var src=rpACtx.createBufferSource(); src.buffer=buf;
+    var f=rpACtx.createBiquadFilter(); f.type='bandpass'; f.frequency.value=freq;
+    var g=rpACtx.createGain(); g.gain.setValueAtTime(vol*rpDinVols[rpDin],rpACtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001,rpACtx.currentTime+dur);
+    src.connect(f); f.connect(g); g.connect(rpACtx.destination); src.start();
+  }
+
+  window.rpCue = function(txt){
+    if(!window.SpeechSynthesisUtterance) return;
+    var u=new SpeechSynthesisUtterance(txt);
+    u.lang='pt-BR'; u.rate=1.1;
+    window.speechSynthesis.speak(u);
+  };
+
+  window.rpFill = function(tipo){
+    if(!rpPlaying) return;
+    rpFillAtivo=true;
+    rpFillCount=tipo==='crash'?1:tipo===2?8:4;
+  };
+
+  function rpGetSteps(){
+    if(!rpRitmoAtual) return [];
+    return rpRitmoAtual.steps||[];
+  }
+
+  function rpTick(){
+    if(!rpPlaying) return;
+    var steps=rpGetSteps();
+    if(!steps.length){rpTimerId=setTimeout(rpTick,500);return;}
+    var s=rpStepIdx%steps.length;
+    var vol=steps[s]||0;
+    var isB1=s===0;
+    if(rpFillAtivo&&rpFillCount>0){
+      rpNoise(2000,0.08,0.8); rpFillCount--;
+      if(rpFillCount===0) rpFillAtivo=false;
+    } else if(vol>0){
+      if(isB1) rpClick(true,vol);
+      else rpClick(false,vol*0.7);
+      if(s%4!==0) rpNoise(8000,0.04,0.25);
     }
-    conv.buffer = buf;
-    var wg = actx.createGain(); wg.gain.value = wet;
-    var dg = actx.createGain(); dg.gain.value = 1 - wet;
-    return { conv, wg, dg };
+    rpUpdateBeats(s,isB1,vol>0);
+    rpStepIdx++;
+    var divisor=rpComp.d===8?2:4;
+    var ms=Math.round((60000/rpBpm)/divisor);
+    rpTimerId=setTimeout(rpTick,ms);
   }
 
-  // Sons sintetizados com alta fidelidade por instrumento
-  function tocarSom(tipo, volume) {
-    if (!actx || volume <= 0) return;
-    var t = actx.currentTime;
-    var v = Math.min(1, Math.max(0.05, volume));
-
-    // ── BUMBO / KICK ─────────────────────────────────
-    if (tipo === 'kick') {
-      var pitchStart = v > 0.7 ? 180 : 140;
-      var o1 = actx.createOscillator(), g1 = actx.createGain();
-      o1.type = 'sine';
-      o1.frequency.setValueAtTime(pitchStart, t);
-      o1.frequency.exponentialRampToValueAtTime(42, t + 0.08);
-      g1.gain.setValueAtTime(v * 1.2, t);
-      g1.gain.exponentialRampToValueAtTime(v * 0.6, t + 0.04);
-      g1.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
-      o1.connect(g1); g1.connect(masterGain);
-      o1.start(t); o1.stop(t + 0.38);
-      // Sub grave
-      var o1b = actx.createOscillator(), g1b = actx.createGain();
-      o1b.type = 'sine'; o1b.frequency.setValueAtTime(55, t); o1b.frequency.exponentialRampToValueAtTime(30, t + 0.12);
-      g1b.gain.setValueAtTime(v * 0.7, t); g1b.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
-      o1b.connect(g1b); g1b.connect(masterGain); o1b.start(t); o1b.stop(t + 0.3);
-      // Click transiente
-      var cBuf = actx.createBuffer(1, Math.floor(actx.sampleRate * 0.012), actx.sampleRate);
-      var cDat = cBuf.getChannelData(0);
-      for (var ci = 0; ci < cDat.length; ci++) cDat[ci] = (Math.random() * 2 - 1);
-      var cSrc = actx.createBufferSource(), cG = actx.createGain();
-      var cHp = actx.createBiquadFilter(); cHp.type = 'highpass'; cHp.frequency.value = 1200;
-      cG.gain.setValueAtTime(v * 0.5, t); cG.gain.exponentialRampToValueAtTime(0.001, t + 0.012);
-      cSrc.buffer = cBuf; cSrc.connect(cHp); cHp.connect(cG); cG.connect(masterGain); cSrc.start(t);
-
-    // ── CAIXA / SNARE ─────────────────────────────────
-    } else if (tipo === 'snare') {
-      var dur = v > 0.6 ? 0.22 : 0.15;
-      // Corpo
-      var so1 = actx.createOscillator(), sg1 = actx.createGain();
-      so1.type = 'triangle'; so1.frequency.setValueAtTime(v > 0.6 ? 220 : 185, t); so1.frequency.exponentialRampToValueAtTime(100, t + 0.06);
-      sg1.gain.setValueAtTime(v * 0.55, t); sg1.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
-      so1.connect(sg1); sg1.connect(masterGain); so1.start(t); so1.stop(t + 0.09);
-      // Esteira — ruído branco filtrado
-      var snLen = Math.floor(actx.sampleRate * dur);
-      var snBuf = actx.createBuffer(1, snLen, actx.sampleRate);
-      var snDat = snBuf.getChannelData(0);
-      for (var si2 = 0; si2 < snLen; si2++) snDat[si2] = (Math.random() * 2 - 1) * Math.pow(1 - si2 / snLen, 0.6);
-      var snSrc = actx.createBufferSource(); snSrc.buffer = snBuf;
-      var snBp = actx.createBiquadFilter(); snBp.type = 'bandpass'; snBp.frequency.value = v > 0.6 ? 3500 : 2800; snBp.Q.value = 0.6;
-      var snHp = actx.createBiquadFilter(); snHp.type = 'highpass'; snHp.frequency.value = 1000;
-      var snG = actx.createGain(); snG.gain.setValueAtTime(v * 1.0, t); snG.gain.exponentialRampToValueAtTime(0.001, t + dur);
-      snSrc.connect(snBp); snBp.connect(snHp); snHp.connect(snG); snG.connect(masterGain); snSrc.start(t);
-      // Clique inicial
-      var sBuf2 = actx.createBuffer(1, Math.floor(actx.sampleRate * 0.008), actx.sampleRate);
-      var sDat2 = sBuf2.getChannelData(0);
-      for (var si3 = 0; si3 < sDat2.length; si3++) sDat2[si3] = (Math.random() * 2 - 1);
-      var sSrc2 = actx.createBufferSource(), sG2 = actx.createGain();
-      sG2.gain.setValueAtTime(v * 0.8, t); sG2.gain.exponentialRampToValueAtTime(0.001, t + 0.008);
-      sSrc2.buffer = sBuf2; sSrc2.connect(sG2); sG2.connect(masterGain); sSrc2.start(t);
-
-    // ── HI-HAT (6 osciladores metálicos — técnica TR-808) ─
-    } else if (tipo === 'hihat') {
-      var hhFreqs = [205.3, 369.5, 523.3, 741.9, 1047, 1480];
-      var hhDur = v > 0.6 ? 0.12 : 0.065;
-      var hhHp = actx.createBiquadFilter(); hhHp.type = 'highpass'; hhHp.frequency.value = 7000;
-      var hhEnv = actx.createGain(); hhEnv.gain.setValueAtTime(v * 0.28, t); hhEnv.gain.exponentialRampToValueAtTime(0.001, t + hhDur);
-      hhHp.connect(hhEnv); hhEnv.connect(masterGain);
-      hhFreqs.forEach(function(fr) {
-        var ho = actx.createOscillator(); ho.type = 'square'; ho.frequency.value = fr;
-        ho.connect(hhHp); ho.start(t); ho.stop(t + hhDur + 0.01);
-      });
-
-    // ── PANDEIRO / PERCUSSÃO ───────────────────────────
-    } else if (tipo === 'perc') {
-      var pm = actx.createOscillator(), pgm = actx.createGain();
-      pm.type = 'sine'; pm.frequency.setValueAtTime(280, t); pm.frequency.exponentialRampToValueAtTime(140, t + 0.05);
-      pgm.gain.setValueAtTime(v * 0.5, t); pgm.gain.exponentialRampToValueAtTime(0.001, t + 0.07);
-      pm.connect(pgm); pgm.connect(masterGain); pm.start(t); pm.stop(t + 0.08);
-      [0, 0.008, 0.016].forEach(function(delay) {
-        var pb = actx.createBuffer(1, Math.floor(actx.sampleRate * 0.04), actx.sampleRate);
-        var pd = pb.getChannelData(0);
-        for (var pi = 0; pi < pd.length; pi++) pd[pi] = (Math.random()*2-1) * (1-pi/pd.length);
-        var pSrc = actx.createBufferSource(), pG = actx.createGain();
-        var pHp = actx.createBiquadFilter(); pHp.type = 'highpass'; pHp.frequency.value = 6000;
-        pG.gain.setValueAtTime(v * 0.22, t + delay); pG.gain.exponentialRampToValueAtTime(0.001, t + delay + 0.04);
-        pSrc.buffer = pb; pSrc.connect(pHp); pHp.connect(pG); pG.connect(masterGain); pSrc.start(t + delay);
-      });
-
-    // ── TRIÂNGULO (série harmônica ímpar, decay longo) ─
-    } else if (tipo === 'triangle') {
-      var triDecay = 0.8;
-      [3520, 7040, 10560, 14080].forEach(function(fr, fi) {
-        var to = actx.createOscillator(), tg = actx.createGain();
-        to.type = 'sine'; to.frequency.value = fr;
-        var amp = v * (0.22 / (fi + 1));
-        tg.gain.setValueAtTime(amp, t + 0.002); tg.gain.exponentialRampToValueAtTime(0.001, t + triDecay * (1 - fi * 0.15));
-        to.connect(tg); tg.connect(masterGain); to.start(t); to.stop(t + triDecay + 0.05);
-      });
-      var trCl = actx.createBuffer(1, Math.floor(actx.sampleRate * 0.006), actx.sampleRate);
-      var trClD = trCl.getChannelData(0);
-      for (var ti2 = 0; ti2 < trClD.length; ti2++) trClD[ti2] = (Math.random()*2-1);
-      var trClSrc = actx.createBufferSource(), trClG = actx.createGain();
-      var trClHp = actx.createBiquadFilter(); trClHp.type = 'highpass'; trClHp.frequency.value = 5000;
-      trClG.gain.setValueAtTime(v * 0.4, t); trClG.gain.exponentialRampToValueAtTime(0.001, t + 0.006);
-      trClSrc.buffer = trCl; trClSrc.connect(trClHp); trClHp.connect(trClG); trClG.connect(masterGain); trClSrc.start(t);
-
-    // ── SHAKER / GANZÁ ────────────────────────────────
-    } else if (tipo === 'shaker') {
-      var shDur = 0.055;
-      var shBuf = actx.createBuffer(1, Math.floor(actx.sampleRate * shDur), actx.sampleRate);
-      var shDat = shBuf.getChannelData(0);
-      for (var shi = 0; shi < shDat.length; shi++) shDat[shi] = (Math.random()*2-1) * Math.sin(Math.PI * shi / shDat.length);
-      var shSrc = actx.createBufferSource(); shSrc.buffer = shBuf;
-      var shBp = actx.createBiquadFilter(); shBp.type = 'bandpass'; shBp.frequency.value = 6500; shBp.Q.value = 1.8;
-      var shG = actx.createGain(); shG.gain.value = v * 0.32;
-      shSrc.connect(shBp); shBp.connect(shG); shG.connect(masterGain); shSrc.start(t);
-
-    // ── BAIXO ELÉTRICO (FM synthesis + sub) ───────────
-    } else if (tipo === 'bass') {
-      var baseFreq = v > 0.8 ? 82.4 : 73.4;
-      var bassDur = 0.45;
-      var bMod = actx.createOscillator(), bModG = actx.createGain();
-      bMod.type = 'sine'; bMod.frequency.value = baseFreq * 2;
-      bModG.gain.setValueAtTime(baseFreq * 3.5, t); bModG.gain.exponentialRampToValueAtTime(baseFreq * 0.5, t + 0.08);
-      bMod.connect(bModG);
-      var bCar = actx.createOscillator(), bCarG = actx.createGain();
-      bCar.type = 'sine'; bCar.frequency.value = baseFreq;
-      bModG.connect(bCar.frequency);
-      var bLpf = actx.createBiquadFilter(); bLpf.type = 'lowpass';
-      bLpf.frequency.setValueAtTime(900, t); bLpf.frequency.exponentialRampToValueAtTime(300, t + 0.15); bLpf.Q.value = 1.5;
-      bCarG.gain.setValueAtTime(v * 0.85, t); bCarG.gain.exponentialRampToValueAtTime(v * 0.6, t + 0.04);
-      bCarG.gain.exponentialRampToValueAtTime(v * 0.3, t + 0.18); bCarG.gain.exponentialRampToValueAtTime(0.001, t + bassDur);
-      bCar.connect(bCarG); bCarG.connect(bLpf); bLpf.connect(masterGain);
-      bMod.start(t); bMod.stop(t + bassDur); bCar.start(t); bCar.stop(t + bassDur);
-      var bSub = actx.createOscillator(), bSubG = actx.createGain();
-      bSub.type = 'sine'; bSub.frequency.value = baseFreq * 0.5;
-      bSubG.gain.setValueAtTime(v * 0.4, t); bSubG.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
-      bSub.connect(bSubG); bSubG.connect(masterGain); bSub.start(t); bSub.stop(t + 0.35);
-
-    // ── ACORDE / CHORD (violão / teclado com arpejo) ──
-    } else if (tipo === 'chord') {
-      var chordFreqs = [130.8, 164.8, 196.0, 261.6];
-      var chDur = 0.32;
-      var chLpf = actx.createBiquadFilter(); chLpf.type = 'lowpass'; chLpf.frequency.value = 2200; chLpf.Q.value = 0.8;
-      var chMix = actx.createGain(); chMix.gain.value = v * 0.22;
-      chLpf.connect(chMix); chMix.connect(masterGain);
-      chordFreqs.forEach(function(fr, fi) {
-        var co1 = actx.createOscillator(), cg1 = actx.createGain();
-        co1.type = 'sawtooth'; co1.frequency.value = fr;
-        cg1.gain.setValueAtTime(v * 0.28 / (fi * 0.4 + 1), t + fi * 0.004);
-        cg1.gain.exponentialRampToValueAtTime(v * 0.06 / (fi * 0.4 + 1), t + 0.15);
-        cg1.gain.exponentialRampToValueAtTime(0.001, t + chDur);
-        co1.connect(cg1); cg1.connect(chLpf); co1.start(t + fi * 0.004); co1.stop(t + chDur + 0.02);
-      });
-    }
-  }
-
-  // ═══════════════════════════════════════════════════
-  // ESTADO DO PLAYER
-  // ═══════════════════════════════════════════════════
-  var playing = false;
-  var stepAtual = 0;
-  var timerId = null;
-  var bpmAtual = 100;
-  var ritmoAtual = null;
-  // mutedInstruments: set com indices dos instrumentos silenciados
-  var mutedInst = {};
-  // soloInstrument: index ou null
-  var soloInst = null;
-
-  function pararTudo() {
-    playing = false;
-    if (timerId) { clearTimeout(timerId); timerId = null; }
-    stepAtual = 0;
-    atualizarBotaoPlay(false);
-    limparVisuais();
-  }
-
-  function atualizarBotaoPlay(on) {
-    var btn = document.getElementById('btn-ritmo-play');
-    if (!btn) return;
-    btn.classList.toggle('stop', on);
-    document.getElementById('ritmo-play-icon').textContent = on ? '⏹' : '▶';
-    document.getElementById('ritmo-play-label').textContent = on ? 'Parar Tudo' : 'Tocar Todos';
-  }
-
-  function limparVisuais() {
-    document.querySelectorAll('.ritmo-beat-dot').forEach(function(d){ d.classList.remove('on','forte-on'); });
-    document.querySelectorAll('.inst-beat-dot').forEach(function(d){ d.classList.remove('on'); });
-  }
-
-  function tick() {
-    if (!playing || !ritmoAtual) return;
-    var r = RITMOS_DATA[ritmoAtual];
-    var totalSteps = r.instrumentos[0].steps.length;
-    var step = stepAtual % totalSteps;
-
-    // Tocar cada instrumento
-    r.instrumentos.forEach(function(inst, ii) {
-      var vol = inst.steps[step] || 0;
-      var muted = mutedInst[ii];
-      var soloAtivo = soloInst !== null;
-      var deveTocar = !muted && (!soloAtivo || soloInst === ii);
-      if (deveTocar && vol > 0) tocarSom(inst.tipo, vol);
-
-      // Visual dos beats por instrumento
-      var dotId = 'ibeat-' + ii + '-' + step;
-      // Apaga dot anterior desta linha
-      var prevStep = (step - 1 + totalSteps) % totalSteps;
-      var prevDot = document.getElementById('ibeat-' + ii + '-' + prevStep);
-      if (prevDot) prevDot.classList.remove('on');
-      var curDot = document.getElementById(dotId);
-      if (curDot && vol > 0 && deveTocar) curDot.classList.add('on');
-    });
-
-    // Visual geral (barra de progresso dos beats)
-    document.querySelectorAll('.ritmo-beat-dot').forEach(function(d, i) {
-      d.classList.remove('on','forte-on');
-      if (i === step) { d.classList.add('on'); }
-    });
-
-    stepAtual++;
-    var stepMs = (60000 / bpmAtual) / 4;
-    timerId = setTimeout(tick, stepMs);
-  }
-
-  function iniciarPlayer() {
-    initAudio().then(function() {
-      playing = true; stepAtual = 0;
-      atualizarBotaoPlay(true);
-      tick();
-    });
-  }
-
-  // ═══════════════════════════════════════════════════
-  // INTERFACE — controles globais
-  // ═══════════════════════════════════════════════════
-  window.ritmoDemoToggle = function() {
-    if (playing) { pararTudo(); } else { iniciarPlayer(); }
-  };
-
-  window.ritmoDemoBpmAdj = function(d) {
-    bpmAtual = Math.max(40, Math.min(220, bpmAtual + d));
-    var el = document.getElementById('ritmo-demo-bpm-val'); if (el) el.textContent = bpmAtual;
-  };
-
-  // Liga/desliga instrumento individual
-  window.instToggleMute = function(ii) {
-    mutedInst[ii] = !mutedInst[ii];
-    var btn = document.getElementById('inst-btn-' + ii);
-    var card = document.getElementById('inst-card-' + ii);
-    if (btn) btn.classList.toggle('muted', !!mutedInst[ii]);
-    if (card) card.classList.toggle('inst-muted', !!mutedInst[ii]);
-  };
-
-  // Solo — ouvir só este instrumento
-  window.instSolo = function(ii) {
-    soloInst = (soloInst === ii) ? null : ii;
-    document.querySelectorAll('.inst-solo-btn').forEach(function(b, i) {
-      b.classList.toggle('solo-on', soloInst === i);
-    });
-  };
-
-  // ═══════════════════════════════════════════════════
-  // RENDER DA PÁGINA DE DETALHE DO RITMO
-  // ═══════════════════════════════════════════════════
-  function esc2(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/\n/g,'<br>'); }
-
-  function buildInstCard(inst, ii, totalSteps) {
-    var dots = '';
-    for (var s = 0; s < totalSteps; s++) {
-      var vol = inst.steps[s] || 0;
-      var cls = 'inst-beat-dot';
-      if (vol >= 0.8) cls += ' dot-forte';
-      else if (vol >= 0.4) cls += ' dot-medio';
-      else if (vol > 0) cls += ' dot-fraco';
-      // Marcadores de compasso (a cada 4)
-      if (s % 4 === 0) cls += ' dot-beat1';
-      dots += '<div class="' + cls + '" id="ibeat-' + ii + '-' + s + '"></div>';
-    }
-    return '<div class="inst-card" id="inst-card-' + ii + '">' +
-      '<div class="inst-card-top">' +
-        '<div class="inst-card-info">' +
-          '<span class="inst-icone">' + inst.icone + '</span>' +
-          '<div>' +
-            '<div class="inst-nome">' + esc2(inst.nome) + '</div>' +
-            '<div class="inst-padrao">' + esc2(inst.padrao) + '</div>' +
-          '</div>' +
-        '</div>' +
-        '<div class="inst-card-btns">' +
-          '<button class="inst-solo-btn" id="inst-solo-' + ii + '" onclick="instSolo(' + ii + ')" title="Solo">S</button>' +
-          '<button class="inst-mute-btn" id="inst-btn-' + ii + '" onclick="instToggleMute(' + ii + ')" title="Mute/Solo">▶</button>' +
-        '</div>' +
-      '</div>' +
-      '<div class="inst-beats-row">' + dots + '</div>' +
-    '</div>';
-  }
-
-  window.abrirRitmo = function(id) {
-    var r = RITMOS_DATA[id]; if (!r) return;
-    pararTudo();
-    ritmoAtual = id;
-    bpmAtual = r.bpmDemo || 100;
-    mutedInst = {}; soloInst = null;
-
-    document.getElementById('ritmo-detalhe').style.display = 'block';
-    document.getElementById('ritmos-grid').style.display   = 'none';
-    document.getElementById('rd-icone').textContent = r.icone;
-    document.getElementById('rd-nome').textContent  = r.nome;
-    document.getElementById('rd-bpm').textContent   = r.bpm;
-    var bpmEl = document.getElementById('ritmo-demo-bpm-val'); if (bpmEl) bpmEl.textContent = bpmAtual;
-    var descEl = document.getElementById('rd-demo-desc');
-    if (descEl) descEl.textContent = 'Toque ▶ para ouvir todos os instrumentos juntos, ou ligue/desligue individualmente';
-
-    // Beats visual (barra geral)
-    var visual = document.getElementById('ritmo-beats-visual');
-    if (visual) {
-      visual.innerHTML = '';
-      var totalSteps = r.instrumentos[0].steps.length;
-      for (var s = 0; s < totalSteps; s++) {
-        var d = document.createElement('div');
-        d.className = 'ritmo-beat-dot' + (s % 4 === 0 ? ' forte' : '');
-        visual.appendChild(d);
+  function rpUpdateBeats(s,b1,on){
+    var dots=document.querySelectorAll('.rp-beat-dot');
+    dots.forEach(function(d,i){
+      d.classList.remove('rp-on','rp-on1');
+      if(i===s){
+        if(b1) d.classList.add('rp-on1');
+        else if(on) d.classList.add('rp-on');
       }
-    }
-
-    // Cards dos instrumentos
-    var totalSteps2 = r.instrumentos[0].steps.length;
-    var instHtml = '<div class="inst-secao-titulo">🎼 Instrumentos — Toque individual</div>';
-    instHtml += '<div class="inst-cards-wrap">';
-    r.instrumentos.forEach(function(inst, ii) {
-      instHtml += buildInstCard(inst, ii, totalSteps2);
     });
-    instHtml += '</div>';
+  }
 
-    // Descrição e dica
-    var infoHtml = '<div class="ritmo-descricao-txt"><p>' + esc2(r.descricao) + '</p>';
-    if (r.dica) infoHtml += '<div class="ritmo-dica">💡 <strong>Dica:</strong> ' + esc2(r.dica) + '</div>';
-    infoHtml += '</div>';
+  function rpBuildBeats(){
+    var row=document.getElementById('rp-beats'); if(!row) return;
+    var steps=rpGetSteps(); row.innerHTML='';
+    steps.forEach(function(_,i){
+      var d=document.createElement('div');
+      d.className='rp-beat-dot';
+      d.style.cssText='width:22px;height:22px;border-radius:4px;border:1px solid rgba(0,229,255,0.2);background:rgba(0,229,255,0.05);display:inline-block;transition:all 0.08s;flex-shrink:0;';
+      row.appendChild(d);
+    });
+    // Adicionar estilos dinamicos
+    var style=document.getElementById('rp-beat-style');
+    if(!style){
+      style=document.createElement('style');
+      style.id='rp-beat-style';
+      style.textContent='.rp-on{background:#00e5ff!important;border-color:#00e5ff!important;transform:scale(1.2);}.rp-on1{background:#f87171!important;border-color:#ef4444!important;transform:scale(1.35);}';
+      document.head.appendChild(style);
+    }
+  }
 
-    document.getElementById('rd-corpo').innerHTML = instHtml + infoHtml;
-    document.getElementById('ritmo-detalhe').scrollIntoView({behavior:'smooth',block:'start'});
+  window.rpTogglePlay = function(){
+    rpPlaying=!rpPlaying;
+    var btn=document.getElementById('rp-play-btn');
+    if(rpPlaying){
+      rpInitAudio(); rpStepIdx=0;
+      if(btn){ btn.textContent=''; btn.innerHTML='&#9646;&#9646; Parar'; btn.style.background='linear-gradient(135deg,#dc2626,#991b1b)'; }
+      rpTick();
+    } else {
+      clearTimeout(rpTimerId);
+      if(btn){ btn.innerHTML='&#9654; Iniciar'; btn.style.background='linear-gradient(135deg,#00acc1,#006064)'; }
+      document.querySelectorAll('.rp-beat-dot').forEach(function(d){ d.classList.remove('rp-on','rp-on1'); });
+    }
   };
 
-  window.fecharRitmo = function() {
-    pararTudo();
-    document.getElementById('ritmo-detalhe').style.display = 'none';
-    document.getElementById('ritmos-grid').style.display   = 'grid';
+  window.rpSetBpm = function(v){
+    rpBpm=v;
+    var el=document.getElementById('rp-bpm-val'); if(el) el.textContent=v+' bpm';
   };
 
-  var _swRitmo = window.switchTab;
-  window.switchTab = function(tab) { if (tab !== 'ritmos') pararTudo(); if (_swRitmo) _swRitmo(tab); };
+  window.rpSetComp = function(n,d,el){
+    rpComp={n:n,d:d};
+    document.querySelectorAll('.rp-comp-btn').forEach(function(b){
+      b.style.background='transparent'; b.style.borderColor='rgba(0,229,255,0.1)'; b.style.color='var(--text-muted)';
+    });
+    el.style.background='rgba(0,229,255,0.1)'; el.style.borderColor='rgba(0,229,255,0.25)'; el.style.color='var(--accent)';
+    rpBuildBeats(); rpStepIdx=0;
+  };
+
+  window.rpSetDin = function(d,el){
+    rpDin=d;
+    document.querySelectorAll('.rp-din-btn').forEach(function(b){
+      b.style.background='transparent'; b.style.borderColor='rgba(0,229,255,0.1)'; b.style.color='var(--text-muted)';
+    });
+    el.style.background='rgba(0,229,255,0.1)'; el.style.borderColor='rgba(0,229,255,0.25)'; el.style.color='var(--accent)';
+  };
+
+  window.rpTap = function(){
+    var now=Date.now(), btn=document.getElementById('rp-tap');
+    if(btn){ btn.style.background='rgba(251,191,36,0.3)'; setTimeout(function(){ btn.style.background='rgba(124,58,237,0.15)'; },120); }
+    if(rpTapTimes.length&&now-rpTapTimes[rpTapTimes.length-1]>2500) rpTapTimes=[];
+    rpTapTimes.push(now);
+    if(rpTapTimes.length>=2){
+      var diffs=[]; for(var i=1;i<rpTapTimes.length;i++) diffs.push(rpTapTimes[i]-rpTapTimes[i-1]);
+      var avg=diffs.reduce(function(a,b){return a+b;},0)/diffs.length;
+      var newBpm=Math.max(50,Math.min(220,Math.round(60000/avg)));
+      rpBpm=newBpm;
+      var sl=document.getElementById('rp-bpm-sl'); if(sl) sl.value=newBpm;
+      var vl=document.getElementById('rp-bpm-val'); if(vl) vl.textContent=newBpm+' bpm';
+    }
+  };
+
+  function rpSelectRitmo(r){
+    if(rpPlaying) rpTogglePlay();
+    rpRitmoAtual=r;
+    document.querySelectorAll('.ritmo-card').forEach(function(c){ c.style.borderColor='var(--border-neon)'; c.style.background='var(--bg-card)'; });
+    var sel=document.getElementById('rpc-'+r.id);
+    if(sel){ sel.style.borderColor='rgba(0,229,255,0.6)'; sel.style.background='rgba(0,229,255,0.08)'; }
+    var nn=document.getElementById('rp-nome'); if(nn) nn.textContent=r.nome;
+    var nd=document.getElementById('rp-desc'); if(nd) nd.textContent=r.desc;
+    rpBpm=r.bpm;
+    var sl=document.getElementById('rp-bpm-sl'); if(sl) sl.value=r.bpm;
+    var vl=document.getElementById('rp-bpm-val'); if(vl) vl.textContent=r.bpm+' bpm';
+    // Compasso padrao do ritmo
+    var compBtns=document.querySelectorAll('.rp-comp-btn');
+    if(r.comp==='34') rpSetComp(3,4,compBtns[1]);
+    else if(r.comp==='68') rpSetComp(6,8,compBtns[2]);
+    else rpSetComp(4,4,compBtns[0]);
+    rpBuildBeats();
+    var pl=document.getElementById('ritmo-player'); if(pl) pl.style.display='block';
+    document.getElementById('ritmo-player').scrollIntoView({behavior:'smooth',block:'start'});
+  }
+
+  function rpRenderCats(){
+    var el=document.getElementById('ritmos-cats'); if(!el) return;
+    el.innerHTML='';
+    RP_CATS.forEach(function(c){
+      var b=document.createElement('button');
+      b.textContent=c;
+      var isAtivo=c===rpCatAtiva;
+      b.style.cssText='padding:6px 14px;border-radius:20px;border:1px solid '+(isAtivo?'rgba(0,229,255,0.4)':'rgba(0,229,255,0.15)')+';background:'+(isAtivo?'rgba(0,229,255,0.12)':'transparent')+';color:'+(isAtivo?'var(--accent)':'var(--text-muted)')+';font-family:DM Sans,sans-serif;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;';
+      b.onclick=function(){ rpCatAtiva=c; rpRenderCats(); rpRenderGrid(); };
+      el.appendChild(b);
+    });
+  }
+
+  function rpRenderGrid(){
+    var el=document.getElementById('ritmos-grid'); if(!el) return;
+    el.innerHTML='';
+    var lista=rpCatAtiva==='Todos'?RP_RITMOS:RP_RITMOS.filter(function(r){ return r.cat===rpCatAtiva; });
+    lista.forEach(function(r){
+      var c=document.createElement('div');
+      c.className='ritmo-card'; c.id='rpc-'+r.id;
+      c.innerHTML='<div class="ritmo-nome">'+r.nome+'</div><div class="ritmo-bpm">'+r.bpm+' BPM</div><div style="font-size:11px;color:var(--text-muted);margin-top:4px;">'+r.cat+'</div>';
+      c.onclick=function(){ rpSelectRitmo(r); };
+      el.appendChild(c);
+    });
+  }
+
+  // Inicializar quando o tab ritmos for aberto
+  var _swRP=window.switchTab;
+  window.switchTab=function(tab){
+    if(tab!=='ritmos'&&rpPlaying) rpTogglePlay();
+    if(_swRP) _swRP(tab);
+    if(tab==='ritmos'){ setTimeout(function(){ rpRenderCats(); rpRenderGrid(); },50); }
+  };
+  // Render inicial se ja estiver no tab
+  setTimeout(function(){ rpRenderCats(); rpRenderGrid(); },500);
 })();
 
 // ══ AFINADOR — MODO CROMÁTICO AUTOMÁTICO ══
@@ -3818,197 +3384,5 @@ window.metroHomeAbrir = function(sub) {
 })();
 </script>
 
-<!-- ══════════════════════════════════════════════════
-     MÓDULO DE ASSINATURA — Google Play Billing (TWA)
-     Usa Digital Goods API + Payment Request API
-═══════════════════════════════════════════════════ -->
-<script>
-(function(){
-  // ── CONFIGURAÇÃO ──
-  // Troque pelo ID exato do produto criado na Play Console (Monetizar → Produtos → Assinaturas)
-  var SKU_ASSINATURA = 'plano_mensal_ministerio';
-  var BILLING_METHOD = 'https://play.google.com/billing';
-
-  var digitalGoodsService = null;
-  var assinaturaAtiva = false;
-  var verificacaoConcluida = false;
-
-  // ── Detecta se está rodando dentro do TWA instalado ──
-  async function obterServicoBilling() {
-    if (digitalGoodsService) return digitalGoodsService;
-    if (!('getDigitalGoodsService' in window)) return null;
-    try {
-      digitalGoodsService = await window.getDigitalGoodsService(BILLING_METHOD);
-      return digitalGoodsService;
-    } catch (e) {
-      console.log('Play Billing indisponível (provavelmente fora do app instalado):', e);
-      return null;
-    }
-  }
-
-  // ── Verifica se o usuário já tem assinatura ativa ──
-  async function verificarAssinaturaAtiva() {
-    var service = await obterServicoBilling();
-    if (!service) { verificacaoConcluida = true; return false; }
-    try {
-      var compras = await service.listPurchases();
-      assinaturaAtiva = compras.some(function(p) {
-        return p.itemId === SKU_ASSINATURA;
-      });
-    } catch (e) {
-      console.error('Erro ao listar compras:', e);
-      assinaturaAtiva = false;
-    }
-    verificacaoConcluida = true;
-    return assinaturaAtiva;
-  }
-
-  // ── Atualiza UI (botão do header) conforme status ──
-  function atualizarBotaoHeader() {
-    var btn = document.getElementById('btn-premium');
-    if (!btn) return;
-    if (!verificacaoConcluida) { btn.style.display = 'none'; return; }
-    btn.style.display = 'flex';
-    if (assinaturaAtiva) {
-      document.getElementById('btn-premium-icon').textContent = '👑';
-      document.getElementById('btn-premium-label').textContent = 'Premium';
-    } else {
-      document.getElementById('btn-premium-icon').textContent = '✨';
-      document.getElementById('btn-premium-label').textContent = 'Assinar';
-    }
-  }
-
-  // Roda a verificação assim que o app inicia (chamado depois do login)
-  window.iniciarVerificacaoPremium = function() {
-    verificarAssinaturaAtiva().then(atualizarBotaoHeader);
-  };
-
-  // Permite outras partes do app perguntarem "o usuário é premium?"
-  window.usuarioEhPremium = function() { return assinaturaAtiva; };
-
-  // ── Helpers de troca de tela dentro do modal ──
-  function mostrarEstadoPremium(estado) {
-    ['loading','indisponivel','ativo','oferta','erro'].forEach(function(e) {
-      var el = document.getElementById('premium-estado-' + e);
-      if (el) el.style.display = (e === estado) ? 'block' : 'none';
-    });
-  }
-
-  // ── Abrir modal e decidir qual tela mostrar ──
-  window.abrirTelaPremium = async function() {
-    document.getElementById('modal-premium').style.display = 'flex';
-    mostrarEstadoPremium('loading');
-
-    var service = await obterServicoBilling();
-    if (!service) {
-      mostrarEstadoPremium('indisponivel');
-      return;
-    }
-
-    await verificarAssinaturaAtiva();
-    atualizarBotaoHeader();
-
-    if (assinaturaAtiva) {
-      mostrarEstadoPremium('ativo');
-      return;
-    }
-
-    // Busca detalhes (preço) do produto para exibir na oferta
-    try {
-      var detalhes = await service.getDetails([SKU_ASSINATURA]);
-      if (!detalhes || !detalhes.length) {
-        document.getElementById('premium-erro-msg').textContent = 'Produto não encontrado. Verifique se a assinatura está ativa na Play Console.';
-        mostrarEstadoPremium('erro');
-        return;
-      }
-      var item = detalhes[0];
-      var valorFormatado = (item.price && item.price.value && item.price.currency)
-        ? formatarMoeda(item.price.value, item.price.currency)
-        : '—';
-      document.getElementById('premium-preco-valor').textContent = valorFormatado + ' / mês';
-      document.getElementById('premium-preco-detalhe').textContent = 'após o período de teste grátis';
-      mostrarEstadoPremium('oferta');
-    } catch (e) {
-      console.error('Erro ao buscar detalhes do produto:', e);
-      document.getElementById('premium-erro-msg').textContent = 'Não foi possível carregar a oferta agora.';
-      mostrarEstadoPremium('erro');
-    }
-  };
-
-  window.fecharTelaPremium = function() {
-    document.getElementById('modal-premium').style.display = 'none';
-  };
-
-  function formatarMoeda(valor, moeda) {
-    try {
-      return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: moeda }).format(parseFloat(valor));
-    } catch (e) {
-      return moeda + ' ' + valor;
-    }
-  }
-
-  // ── Disparar a compra ──
-  window.iniciarCompraPremium = async function() {
-    var btn = document.getElementById('btn-premium-assinar');
-    if (btn) { btn.disabled = true; btn.textContent = 'Abrindo Google Play…'; }
-
-    try {
-      var paymentMethods = [{
-        supportedMethods: BILLING_METHOD,
-        data: { sku: SKU_ASSINATURA }
-      }];
-      var request = new PaymentRequest(paymentMethods, {
-        total: { label: 'Assinatura', amount: { currency: 'BRL', value: '0' } }
-      });
-
-      var response = await request.show();
-      var purchaseToken = response.details && response.details.purchaseToken;
-      await response.complete('success');
-
-      // Confirma a compra — obrigatório, senão é revertida automaticamente em poucos dias
-      var service = await obterServicoBilling();
-      if (service && purchaseToken) {
-        await service.acknowledge(purchaseToken, 'repeatable');
-      }
-
-      // TODO (recomendado): enviar purchaseToken para seu backend (Cloudflare Worker)
-      // validar contra a Google Play Developer API, e then salvar status no Firebase
-      // vinculado ao igrejaId, para que o status sobreviva a reinstalação do app.
-      //
-      // Exemplo de chamada (ajuste a URL do seu Worker):
-      // fetch('https://escala-ministerio-de-louvor.SEU-DOMINIO.workers.dev/api/validar-assinatura', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({ purchaseToken, igrejaId: window.igrejaId })
-      // });
-
-      assinaturaAtiva = true;
-      atualizarBotaoHeader();
-      mostrarEstadoPremium('ativo');
-      if (typeof showToast === 'function') showToast('Assinatura ativada! 🎉', 'success');
-
-    } catch (err) {
-      console.log('Compra cancelada ou falhou:', err);
-      if (btn) { btn.disabled = false; btn.textContent = 'Começar teste grátis'; }
-      if (err && err.name !== 'AbortError' && typeof showToast === 'function') {
-        showToast('Não foi possível concluir a assinatura', 'danger');
-      }
-    }
-  };
-
-  // ── Link para gerenciar/cancelar assinatura na Play Store ──
-  window.abrirGerenciarAssinaturaPlay = function() {
-    window.open('https://play.google.com/store/account/subscriptions', '_blank');
-  };
-
-  // Fecha modal clicando fora do card
-  document.addEventListener('click', function(e) {
-    var overlay = document.getElementById('modal-premium');
-    if (e.target === overlay) window.fecharTelaPremium();
-  });
-})();
-</script>
-
 </body>
 </html>
-
