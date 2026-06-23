@@ -134,6 +134,9 @@
     iniciarListeners();
     switchTab('home');
     setTimeout(atualizarSaudacaoHome, 400);
+
+    // Desbloqueia o AudioContext do som de chat aproveitando esta interação do usuário
+    if (typeof window.destravarSomChat === 'function') window.destravarSomChat();
   }
 
   /* ── LOGIN LÍDER ── */
@@ -1260,15 +1263,28 @@
   // CHAT — listener e envio de mensagens
   // ══════════════════════════════════════════════════════
   let unsubMensagens = null;
+  let ultimaQtdMsgs = null; // controla quando tocar o som (evita tocar no primeiro carregamento)
 
   window.iniciarListenerMensagens = function() {
     if (!igrejaId) return;
     if (unsubMensagens) unsubMensagens();
+    ultimaQtdMsgs = null; // reseta o controle ao entrar de novo no app
     const q = query(collection(db,'mensagens'), where('igrejaId','==',igrejaId), orderBy('criadoEm','asc'));
     unsubMensagens = onSnapshot(q, snap => {
       const lista = document.getElementById('msg-lista'); if (!lista) return;
       const msgs  = snap.docs.map(d => ({id:d.id,...d.data()}));
       const eu    = membroNome || (usuarioLogado && usuarioLogado.displayName) || '';
+
+      // ── Som de notificação (nota Dó) quando chega mensagem nova de outra pessoa ──
+      if (ultimaQtdMsgs !== null && msgs.length > ultimaQtdMsgs) {
+        const novas = msgs.slice(ultimaQtdMsgs);
+        const temMensagemDeOutro = novas.some(m => (m.autor || '') !== eu && !m.sistema);
+        if (temMensagemDeOutro && typeof tocarSomNotificacaoChat === 'function') {
+          tocarSomNotificacaoChat();
+        }
+      }
+      ultimaQtdMsgs = msgs.length;
+
       lista.innerHTML = msgs.length === 0
         ? '<div style="text-align:center;color:#4a6080;padding:40px 0;font-size:13px;">Nenhuma mensagem ainda.<br>Seja o primeiro a escrever! 👋</div>'
         : msgs.map(m => {
@@ -3381,6 +3397,75 @@ window.cifraRapida = function(nome) {
 
   var _sw2=window.switchTab;
   window.switchTab=function(tab){ if(tab!=='metro'&&ativo) afinToggle(); if(_sw2) _sw2(tab); };
+})();
+</script>
+
+<!-- ══════════════════════════════════════════════════
+     SOM DE NOTIFICAÇÃO DO CHAT — nota Dó (C5)
+     Toca quando chega mensagem nova de outra pessoa
+═══════════════════════════════════════════════════ -->
+<script>
+(function(){
+  var chatAudioCtx = null;
+
+  function obterCtxChat() {
+    if (!chatAudioCtx || chatAudioCtx.state === 'closed') {
+      chatAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    return chatAudioCtx;
+  }
+
+  // Chamado em qualquer interação inicial do usuário (login, clique, etc.)
+  // para "desbloquear" o áudio antes que uma mensagem chegue de verdade.
+  window.destravarSomChat = function() {
+    try {
+      var ctx = obterCtxChat();
+      if (ctx.state === 'suspended') ctx.resume();
+    } catch (e) { /* navegador sem suporte — ignora silenciosamente */ }
+  };
+
+  window.tocarSomNotificacaoChat = function() {
+    try {
+      var ctx = obterCtxChat();
+
+      function tocar() {
+        var t = ctx.currentTime;
+        // Nota Dó5 (C5 = 523.25 Hz) — som de "ding" suave e claro
+        var osc = ctx.createOscillator();
+        var g   = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(523.25, t); // Dó5
+
+        // Leve harmônico de oitava acima, para dar brilho ao "ding"
+        var osc2 = ctx.createOscillator();
+        var g2   = ctx.createGain();
+        osc2.type = 'sine';
+        osc2.frequency.setValueAtTime(1046.5, t); // Dó6
+
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(0.5, t + 0.012);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.55);
+
+        g2.gain.setValueAtTime(0.0001, t);
+        g2.gain.exponentialRampToValueAtTime(0.15, t + 0.012);
+        g2.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
+
+        osc.connect(g);   g.connect(ctx.destination);
+        osc2.connect(g2); g2.connect(ctx.destination);
+
+        osc.start(t);  osc.stop(t + 0.6);
+        osc2.start(t); osc2.stop(t + 0.4);
+      }
+
+      if (ctx.state === 'suspended') {
+        ctx.resume().then(tocar).catch(function(){});
+      } else {
+        tocar();
+      }
+    } catch (e) {
+      console.log('Som de notificação indisponível:', e);
+    }
+  };
 })();
 </script>
 
