@@ -1325,6 +1325,7 @@
       await addDoc(collection(db,'mensagens'), {
         texto: text, autor, igrejaId, criadoEm: serverTimestamp()
       });
+      if (typeof tocarSomEnvioChat === 'function') tocarSomEnvioChat();
     } catch(e) {
       console.error('Erro ao enviar mensagem:', e);
       showToast(e.code === 'permission-denied' ? 'Sem permissão no Firestore.' : 'Erro ao enviar','danger');
@@ -3465,6 +3466,31 @@ window.cifraRapida = function(nome) {
     } catch (e) {
       console.log('Som de notificação indisponível:', e);
     }
+  };
+
+  // Som de ENVIO — Mi5 com portamento suave (confirmação rápida)
+  window.tocarSomEnvioChat = function() {
+    try {
+      var ctx = obterCtxChat();
+      function tocar() {
+        var t = ctx.currentTime;
+        var osc = ctx.createOscillator();
+        var g   = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(659.25, t);
+        osc.frequency.exponentialRampToValueAtTime(880, t + 0.05);
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(0.35, t + 0.008);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
+        osc.connect(g); g.connect(ctx.destination);
+        osc.start(t);   osc.stop(t + 0.25);
+      }
+      if (ctx.state === 'suspended') {
+        ctx.resume().then(tocar).catch(function(){});
+      } else {
+        tocar();
+      }
+    } catch (e) { /* silencioso */ }
   };
 })();
 </script>
