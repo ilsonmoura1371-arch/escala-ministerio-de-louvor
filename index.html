@@ -424,16 +424,17 @@
      TABS
   ══════════════════════════════════════ */
   window.switchTab = function(tab) {
-    ['home','escala-atual','proxima-escala','nova','equipe','cifras','mensagens','eventos','metro','ritmos','gospelteca'].forEach(t=>{
+    ['home','escala-atual','proxima-escala','nova','equipe','cifras','mensagens','eventos','metro','ritmos','gospelteca','historico'].forEach(t=>{
       const p=document.getElementById('panel-'+t); if(p) p.classList.toggle('active',t===tab);
     });
-    ['escala-atual','proxima-escala','nova','equipe','cifras','mensagens','eventos','metro','ritmos','gospelteca'].forEach(t=>{
+    ['escala-atual','proxima-escala','nova','equipe','cifras','mensagens','eventos','metro','ritmos','gospelteca','historico'].forEach(t=>{
       const b=document.getElementById('tab-'+t); if(b) b.classList.toggle('active',t===tab);
     });
     if (tab==='escala-atual') { filtroMes=new Date().getMonth(); filtroAno=new Date().getFullYear(); renderLista(); }
     if (tab==='proxima-escala') renderProxima();
     if (tab==='mensagens') { setTimeout(()=>{ const c=document.getElementById('msg-lista'); if(c) c.scrollTop=c.scrollHeight; },100); }
     if (tab==='gospelteca') renderGospelteca();
+    if (tab==='historico') renderHistorico();
   };
 
   /* ══════════════════════════════════════
@@ -551,27 +552,65 @@
   /* ══════════════════════════════════════
      CRUD EQUIPE — ANIVERSÁRIO DIA/MES
   ══════════════════════════════════════ */
+  let membroEditId = null;
+
   window.salvarMembro = async function() {
     if(!isLider()){showToast('Apenas o lider pode cadastrar','danger');return;}
     const nome   = document.getElementById('musico-nome').value.trim();
     const funcao = document.getElementById('musico-funcao').value;
-    // FIX: pegar dia e mes separados
-    const dia  = document.getElementById('musico-aniv-dia').value;
-    const mes  = document.getElementById('musico-aniv-mes').value;
+    const dia    = document.getElementById('musico-aniv-dia').value;
+    const mes    = document.getElementById('musico-aniv-mes').value;
     if(!nome)  {showToast('Informe o nome','danger');return;}
     if(!funcao){showToast('Selecione a funcao','danger');return;}
-    // Salvar no formato --MM-DD para compatibilidade, sem ano
     const aniversario = (dia && mes) ? `--${mes.padStart(2,'0')}-${dia.padStart(2,'0')}` : '';
+    const btn = document.getElementById('btn-salvar-membro');
+    if(btn){ btn.disabled=true; btn.textContent='Salvando...'; }
     try {
-      await addDoc(collection(db,'musicos'),{
-        nome, funcao, aniversario, igrejaId, createdAt:serverTimestamp()
-      });
+      if(membroEditId) {
+        await updateDoc(doc(db,'musicos',membroEditId),{ nome, funcao, aniversario, updatedAt:serverTimestamp() });
+        showToast('Membro atualizado!','success');
+        membroEditId = null;
+        if(btn){ btn.textContent='Cadastrar Membro'; }
+        const cc = document.getElementById('btn-cancelar-membro'); if(cc) cc.style.display='none';
+        const tt = document.getElementById('equipe-form-titulo'); if(tt) tt.textContent='Cadastrar Membro da Equipe';
+      } else {
+        await addDoc(collection(db,'musicos'),{ nome, funcao, aniversario, igrejaId, createdAt:serverTimestamp() });
+        showToast('Membro cadastrado!','success');
+      }
       document.getElementById('musico-nome').value='';
       document.getElementById('musico-funcao').value='';
       document.getElementById('musico-aniv-dia').value='';
       document.getElementById('musico-aniv-mes').value='';
-      showToast('Membro cadastrado!','success');
-    } catch(err){ showToast('Erro ao cadastrar','danger'); }
+    } catch(err){ showToast('Erro ao salvar','danger'); }
+    if(btn){ btn.disabled=false; if(!membroEditId) btn.textContent='Cadastrar Membro'; }
+  };
+
+  window.editarMembro = function(id) {
+    if(!isLider()){showToast('Apenas o lider pode editar','danger');return;}
+    const m = musicos.find(x=>x.id===id); if(!m) return;
+    membroEditId = id;
+    document.getElementById('musico-nome').value = m.nome || '';
+    document.getElementById('musico-funcao').value = m.funcao || '';
+    const anivData = parseAniversario(m.aniversario);
+    document.getElementById('musico-aniv-dia').value = anivData ? String(anivData.dia) : '';
+    document.getElementById('musico-aniv-mes').value = anivData ? String(anivData.mes) : '';
+    const btn = document.getElementById('btn-salvar-membro');
+    if(btn) btn.textContent = 'Salvar Alterações';
+    const cc = document.getElementById('btn-cancelar-membro'); if(cc) cc.style.display='inline-block';
+    const tt = document.getElementById('equipe-form-titulo'); if(tt) tt.textContent='Editar Membro';
+    document.getElementById('equipe-form-card').scrollIntoView({behavior:'smooth',block:'start'});
+    showToast('Editando: '+m.nome,'');
+  };
+
+  window.cancelarEdicaoMembro = function() {
+    membroEditId = null;
+    document.getElementById('musico-nome').value='';
+    document.getElementById('musico-funcao').value='';
+    document.getElementById('musico-aniv-dia').value='';
+    document.getElementById('musico-aniv-mes').value='';
+    const btn = document.getElementById('btn-salvar-membro'); if(btn) btn.textContent='Cadastrar Membro';
+    const cc = document.getElementById('btn-cancelar-membro'); if(cc) cc.style.display='none';
+    const tt = document.getElementById('equipe-form-titulo'); if(tt) tt.textContent='Cadastrar Membro da Equipe';
   };
 
   window.redefinirPinMembro = async function(id, nome) {
@@ -625,7 +664,11 @@
         const anivInfo = anivData ? `dia ${anivData.dia}/${anivData.mes}` : '';
         html+=`<div class="musico-chip">
           <span>${esc(m.nome)}${anivInfo?`<small class="chip-aniv"> ${anivInfo}</small>`:''}</span>
-          ${isLider()?`<div style="display:flex;gap:6px;"><button class="musico-del" onclick="redefinirPinMembro('${m.id}','${m.nome}')" title="Redefinir PIN" style="background:#1e3a8a;color:#93c5fd;border-color:#1e3a8a;font-size:10px;padding:4px 7px;">PIN</button><button class="musico-del" onclick="excluirMembro('${m.id}')">x</button></div>`:''}
+          ${isLider()?`<div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;margin-top:4px;">
+            <button class="musico-del" onclick="editarMembro('${m.id}')" title="Editar" style="background:#064e3b;color:#34d399;border:1px solid #065f46;font-size:10px;padding:4px 7px;border-radius:6px;">✏️ Editar</button>
+            <button class="musico-del" onclick="redefinirPinMembro('${m.id}','${m.nome}')" title="Redefinir PIN" style="background:#1e3a8a;color:#93c5fd;border:1px solid #1e40af;font-size:10px;padding:4px 7px;border-radius:6px;">PIN</button>
+            <button class="musico-del" onclick="excluirMembro('${m.id}')" style="background:#450a0a;color:#f87171;border:1px solid #7f1d1d;font-size:10px;padding:4px 7px;border-radius:6px;">✕</button>
+          </div>`:''}
         </div>`;
       });
       html+=`</div></div>`;
@@ -1258,6 +1301,109 @@
     if (!confirm('Remover esta música da Gospelteca?')) return;
     try { await deleteDoc(doc(db,'gospelteca',id)); showToast('Música removida','danger'); }
     catch(err) { showToast('Erro ao remover','danger'); }
+  };
+
+  // ══════════════════════════════════════════════════════
+  // HISTÓRICO DE HINOS
+  // ══════════════════════════════════════════════════════
+  window.renderHistorico = function() {
+    const lista = document.getElementById('historico-lista'); if(!lista) return;
+    const lider = isLider();
+
+    // Ações em lote só pro líder
+    const acoes = document.getElementById('hist-acoes-lote');
+    if(acoes) acoes.style.display = lider ? 'flex' : 'none';
+
+    // Pegar filtros
+    const deEl  = document.getElementById('hist-de');
+    const ateEl = document.getElementById('hist-ate');
+
+    // Inicializa filtros com mês atual se vazios
+    if(deEl && !deEl.value){
+      const agora = new Date();
+      const anoInicio = agora.getFullYear() - 1;
+      deEl.value = anoInicio+'-'+String(agora.getMonth()+1).padStart(2,'0');
+    }
+    if(ateEl && !ateEl.value){
+      const agora = new Date();
+      ateEl.value = agora.getFullYear()+'-'+String(agora.getMonth()+1).padStart(2,'0');
+    }
+
+    const de  = deEl?.value  ? new Date(deEl.value+'-01')  : null;
+    const ate = ateEl?.value ? new Date(ateEl.value+'-01') : null;
+    if(ate) ate.setMonth(ate.getMonth()+1); // até o fim do mês
+
+    // Filtrar escalas com hinos no período
+    const filtradas = escalas.filter(e => {
+      if(!e.hinos || !e.hinos.trim()) return false;
+      const d = new Date(e.dataISO+'T00:00:00');
+      if(de  && d < de)  return false;
+      if(ate && d >= ate) return false;
+      return true;
+    }).sort((a,b) => b.dataISO.localeCompare(a.dataISO)); // mais recente primeiro
+
+    if(filtradas.length === 0){
+      lista.innerHTML = '<div class="empty-state"><div class="empty-icon">📄</div><h3>Nenhum registro encontrado</h3><p>Tente ajustar o período do filtro.</p></div>';
+      return;
+    }
+
+    let html = `<div class="historico-resumo">${filtradas.length} escala${filtradas.length>1?'s':''} com hinos no período</div>`;
+
+    filtradas.forEach(e => {
+      const [ano,mes,dia] = e.dataISO.split('-');
+      const diaSem = SEMANA[new Date(e.dataISO+'T00:00:00').getDay()];
+      const linhas = (e.hinos||'').trim().split('
+').filter(l=>l.trim());
+      html += `<div class="historico-card">
+        <div class="historico-card-header">
+          <div>
+            <div class="historico-card-data">${diaSem}, ${parseInt(dia)}/${parseInt(mes)}/${ano}</div>
+            <div class="historico-card-hora">${e.horario || ''}</div>
+          </div>
+          ${lider ? `<button class="historico-btn-del" onclick="deletarEscalaHistorico('${e.id}','${dia}/${mes}/${ano}')">🗑</button>` : ''}
+        </div>
+        <div class="historico-hinos-lista">
+          ${linhas.map(l=>`<div class="historico-hino-item">🎵 ${esc(l.trim())}</div>`).join('')}
+        </div>
+        ${e.links && e.links.trim() ? `<div class="historico-links">${formatarLinksHtml(e.links)}</div>` : ''}
+      </div>`;
+    });
+
+    lista.innerHTML = html;
+  };
+
+  window.deletarEscalaHistorico = async function(id, dataStr) {
+    if(!isLider()){showToast('Apenas o líder pode excluir','danger');return;}
+    if(!confirm('Remover a escala do dia '+dataStr+' e todos os seus dados?')) return;
+    try {
+      await deleteDoc(doc(db,'escalas',id));
+      showToast('Escala removida','danger');
+    } catch(err){ showToast('Erro ao remover','danger'); }
+  };
+
+  window.deletarEscalasPeriodo = async function() {
+    if(!isLider()){showToast('Apenas o líder pode excluir','danger');return;}
+    const deEl  = document.getElementById('hist-de');
+    const ateEl = document.getElementById('hist-ate');
+    const de  = deEl?.value  ? new Date(deEl.value+'-01')  : null;
+    const ate = ateEl?.value ? new Date(ateEl.value+'-01') : null;
+    if(ate) ate.setMonth(ate.getMonth()+1);
+
+    const paraExcluir = escalas.filter(e => {
+      const d = new Date(e.dataISO+'T00:00:00');
+      if(de  && d < de)  return false;
+      if(ate && d >= ate) return false;
+      return true;
+    });
+
+    if(paraExcluir.length === 0){ showToast('Nenhuma escala no período','danger'); return; }
+    if(!confirm('Excluir '+paraExcluir.length+' escala(s) do período filtrado? Esta ação não pode ser desfeita!')) return;
+
+    let ok=0;
+    for(const e of paraExcluir){
+      try { await deleteDoc(doc(db,'escalas',e.id)); ok++; } catch(err){}
+    }
+    showToast(ok+' escala(s) removida(s)','danger');
   };
 
   function isLider(){ return !!usuarioLogado; }
@@ -2007,6 +2153,25 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
 .ritmo-detalhe-corpo .ritmo-padrao{font-family:'Share Tech Mono',monospace;font-size:13px;color:#fbbf24;background:rgba(251,191,36,0.06);border-radius:6px;padding:8px 10px;margin-top:6px;display:block;letter-spacing:0.5px;}
 .ritmo-detalhe-corpo .ritmo-dica{background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.2);border-radius:var(--radius-sm);padding:10px 12px;font-size:13px;color:#c4b5fd;margin-top:12px;}
 
+/* ══ HISTÓRICO DE HINOS ══ */
+.historico-wrap{padding:4px 0 80px;}
+.historico-header-bar{display:flex;align-items:center;justify-content:space-between;padding:14px 0 6px;font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:var(--accent);}
+.historico-sub{font-size:13px;color:var(--text-muted);margin-bottom:16px;line-height:1.5;}
+.historico-filtros{display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:flex-end;margin-bottom:16px;}
+.historico-filtro-grupo{display:flex;flex-direction:column;gap:5px;}
+.historico-filtro-grupo label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);}
+.historico-btn-filtrar{padding:10px 16px;background:linear-gradient(135deg,#00acc1,#006064);border:none;border-radius:var(--radius-sm);color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;}
+.historico-btn-del-lote{padding:10px 16px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.35);border-radius:var(--radius-sm);color:#f87171;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;}
+.historico-resumo{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);margin-bottom:12px;padding:8px 0;border-bottom:1px solid var(--border);}
+.historico-card{background:var(--bg-card);border:1px solid var(--border-neon);border-radius:var(--radius);padding:16px;margin-bottom:12px;box-shadow:var(--shadow-neon);}
+.historico-card-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px;}
+.historico-card-data{font-family:'Playfair Display',serif;font-size:16px;font-weight:700;color:#fff;}
+.historico-card-hora{font-size:12px;color:var(--accent);font-weight:700;margin-top:2px;}
+.historico-btn-del{background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.3);color:#f87171;border-radius:8px;padding:7px 11px;font-size:15px;cursor:pointer;flex-shrink:0;}
+.historico-hinos-lista{display:flex;flex-direction:column;gap:5px;margin-bottom:8px;}
+.historico-hino-item{font-size:14px;font-weight:700;color:var(--text-hinos);padding:6px 10px;background:rgba(251,191,36,0.05);border-left:3px solid rgba(251,191,36,0.3);border-radius:0 6px 6px 0;line-height:1.4;}
+.historico-links{margin-top:8px;padding-top:8px;border-top:1px solid var(--border);}
+
 /* ══ GOSPELTECA ══ */
 .gsp-wrap{padding:0 0 80px;}
 .gsp-header-bar{display:flex;align-items:center;justify-content:space-between;padding:14px 0 10px;font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:var(--accent);}
@@ -2156,6 +2321,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
     <button id="tab-ritmos"         class="nav-tab"                 onclick="switchTab('ritmos')">&#127941; Ritmos</button>
     <button id="tab-gospelteca"     class="nav-tab"                 onclick="switchTab('gospelteca')">&#127911; Gospelteca</button>
     <button id="tab-equipe"         class="nav-tab" style="display:none;" onclick="switchTab('equipe')">Equipe</button>
+    <button id="tab-historico"      class="nav-tab"                 onclick="switchTab('historico')">&#128196; Hinos</button>
   </nav>
 
   <main class="main">
@@ -2218,6 +2384,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
             <div class="hcard-icon">&#127911;</div>
             <div class="hcard-titulo">Gospelteca</div>
             <div class="hcard-desc">Links das músicas</div>
+          </button>
+          <button class="hcard hcard-blue" onclick="switchTab('historico')">
+            <div class="hcard-icon">&#128196;</div>
+            <div class="hcard-titulo">Hist. Hinos</div>
+            <div class="hcard-desc">Repertório por período</div>
           </button>
           <button class="hcard hcard-gold" id="hcard-equipe" style="display:none;" onclick="switchTab('equipe')">
             <div class="hcard-icon">&#128104;&#8205;&#127908;</div>
@@ -2585,8 +2756,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
 
     <!-- PANEL: EQUIPE -->
     <div id="panel-equipe" class="panel">
-      <div class="equipe-form">
-        <h3>Cadastrar Membro da Equipe</h3>
+      <div class="equipe-form" id="equipe-form-card">
+        <h3 id="equipe-form-titulo">Cadastrar Membro da Equipe</h3>
         <div class="field-row">
           <div class="field-group">
             <label>Nome</label>
@@ -2639,13 +2810,46 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
             </select>
           </div>
         </div>
-        <button class="btn btn-primary" style="margin-top:8px;" onclick="salvarMembro()">Cadastrar Membro</button>
+        <div style="display:flex;gap:8px;margin-top:8px;">
+          <button id="btn-salvar-membro" class="btn btn-primary" onclick="salvarMembro()">Cadastrar Membro</button>
+          <button id="btn-cancelar-membro" class="btn btn-secondary" onclick="cancelarEdicaoMembro()" style="display:none;">Cancelar</button>
+        </div>
       </div>
       <div class="equipe-lista-card">
         <h3>Equipe da Igreja</h3>
         <div id="lista-equipe"></div>
       </div>
     </div>
+    <!-- PANEL: HISTÓRICO DE HINOS -->
+    <div id="panel-historico" class="panel">
+      <div class="historico-wrap">
+        <div class="historico-header-bar">
+          <span>&#128196; Histórico de Hinos</span>
+        </div>
+        <p class="historico-sub">Todos os hinos usados nas escalas, organizados por data. Filtre por período e exclua escalas antigas.</p>
+
+        <!-- Filtros de período -->
+        <div class="historico-filtros">
+          <div class="historico-filtro-grupo">
+            <label>De</label>
+            <input type="month" id="hist-de" class="input-neon" style="padding:9px 12px;font-size:14px;">
+          </div>
+          <div class="historico-filtro-grupo">
+            <label>Até</label>
+            <input type="month" id="hist-ate" class="input-neon" style="padding:9px 12px;font-size:14px;">
+          </div>
+          <button class="historico-btn-filtrar" onclick="renderHistorico()">Filtrar</button>
+        </div>
+
+        <!-- Ações em lote (só líder) -->
+        <div id="hist-acoes-lote" style="display:none;margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="historico-btn-del-lote" onclick="deletarEscalasPeriodo()">🗑 Excluir período filtrado</button>
+        </div>
+
+        <div id="historico-lista"></div>
+      </div>
+    </div>
+
     <!-- PANEL: RITMOS -->
     <div id="panel-ritmos" class="panel">
       <div class="ritmos-wrap">
