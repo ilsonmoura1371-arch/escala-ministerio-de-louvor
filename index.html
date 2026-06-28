@@ -480,9 +480,16 @@
   window.fecharApp = async function() {
     if (confirm('Deseja sair e fechar o aplicativo?')) {
       try { if (auth.currentUser) await signOut(auth); } catch(e) {}
-      membroLogado = false; igrejaId = null;
+      try { localStorage.removeItem('escala_sessao_membro'); } catch(e) {}
+      membroLogado = false; igrejaId = null; usuarioLogado = null;
+      // Tenta fechar (funciona em poucos navegadores/contextos).
       window.close();
-      window.location.href = 'about:blank';
+      // Se o navegador bloquear o close() (comportamento padrão no Android/Chrome),
+      // volta para a tela inicial em vez de exibir uma página em branco.
+      setTimeout(() => {
+        mostrarTelaInicio();
+        showToast('Você saiu do app. Pode fechar pelo botão do seu celular.', 'success');
+      }, 250);
     }
   };
 
