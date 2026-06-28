@@ -1352,8 +1352,7 @@
     filtradas.forEach(e => {
       const [ano,mes,dia] = e.dataISO.split('-');
       const diaSem = SEMANA[new Date(e.dataISO+'T00:00:00').getDay()];
-      const linhas = (e.hinos||'').trim().split('
-').filter(l=>l.trim());
+      const linhas = (e.hinos||'').trim().split('\n').filter(l=>l.trim());
       html += `<div class="historico-card">
         <div class="historico-card-header">
           <div>
