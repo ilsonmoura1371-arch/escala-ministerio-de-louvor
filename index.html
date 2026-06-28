@@ -367,6 +367,104 @@
     document.getElementById('modal-trocar-pin').style.display = 'none';
   };
 
+  // ── MODAL "ESQUECI MEU PIN" (autoatendimento do membro) ──
+  window.abrirRecuperarPin = function() {
+    let modal = document.getElementById('modal-recuperar-pin');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'modal-recuperar-pin';
+      modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;z-index:9999;padding:24px;';
+      modal.innerHTML = `
+        <div style="background:#0c1424;border:1px solid rgba(0,229,255,0.25);border-radius:14px;padding:28px 24px;width:100%;max-width:360px;box-shadow:0 0 40px rgba(0,229,255,0.15);">
+          <div style="font-size:28px;text-align:center;margin-bottom:8px;">🔑</div>
+          <h3 style="color:#e2e8f0;text-align:center;margin-bottom:6px;font-family:'Playfair Display',serif;">Esqueci meu PIN</h3>
+          <p style="color:#64748b;font-size:13px;text-align:center;margin-bottom:18px;line-height:1.5;">Confirme seu nome e sua data de aniversário (dia e mês) cadastrados para redefinir seu PIN.</p>
+          <input type="text" id="rp-nome" class="input-neon" placeholder="Seu nome (como cadastrado)" style="margin-bottom:10px;">
+          <div style="display:flex;gap:8px;margin-bottom:14px;">
+            <select id="rp-aniv-dia" class="input-neon" style="flex:1;">
+              <option value="">Dia</option>
+              <option value="1">1</option><option value="2">2</option><option value="3">3</option>
+              <option value="4">4</option><option value="5">5</option><option value="6">6</option>
+              <option value="7">7</option><option value="8">8</option><option value="9">9</option>
+              <option value="10">10</option><option value="11">11</option><option value="12">12</option>
+              <option value="13">13</option><option value="14">14</option><option value="15">15</option>
+              <option value="16">16</option><option value="17">17</option><option value="18">18</option>
+              <option value="19">19</option><option value="20">20</option><option value="21">21</option>
+              <option value="22">22</option><option value="23">23</option><option value="24">24</option>
+              <option value="25">25</option><option value="26">26</option><option value="27">27</option>
+              <option value="28">28</option><option value="29">29</option><option value="30">30</option>
+              <option value="31">31</option>
+            </select>
+            <select id="rp-aniv-mes" class="input-neon" style="flex:1;">
+              <option value="">Mês</option>
+              <option value="1">Janeiro</option><option value="2">Fevereiro</option>
+              <option value="3">Março</option><option value="4">Abril</option>
+              <option value="5">Maio</option><option value="6">Junho</option>
+              <option value="7">Julho</option><option value="8">Agosto</option>
+              <option value="9">Setembro</option><option value="10">Outubro</option>
+              <option value="11">Novembro</option><option value="12">Dezembro</option>
+            </select>
+          </div>
+          <p id="rp-erro" style="color:#ef4444;font-size:13px;text-align:center;margin-bottom:12px;display:none;"></p>
+          <button id="btn-confirmar-rp" onclick="confirmarRecuperarPin()" style="width:100%;padding:14px;background:linear-gradient(135deg,#00acc1,#006064);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:8px;">Redefinir PIN</button>
+          <button style="width:100%;padding:12px;background:transparent;color:#64748b;border:1px solid #1e293b;border-radius:12px;font-size:14px;cursor:pointer;" onclick="cancelarRecuperarPin()">Cancelar</button>
+          <p style="color:#475569;font-size:11px;text-align:center;margin-top:12px;line-height:1.4;">Não lembra a data de aniversário cadastrada? Fale com o líder do ministério para redefinir.</p>
+        </div>`;
+      document.body.appendChild(modal);
+    }
+    document.getElementById('rp-nome').value = (document.getElementById('membro-nome').value || '').trim();
+    document.getElementById('rp-aniv-dia').value = '';
+    document.getElementById('rp-aniv-mes').value = '';
+    document.getElementById('rp-erro').style.display = 'none';
+    modal.style.display = 'flex';
+  };
+
+  window.cancelarRecuperarPin = function() {
+    const modal = document.getElementById('modal-recuperar-pin');
+    if (modal) modal.style.display = 'none';
+  };
+
+  window.confirmarRecuperarPin = async function() {
+    const modal       = document.getElementById('modal-recuperar-pin');
+    const erroEl      = document.getElementById('rp-erro');
+    const nomeInformado = document.getElementById('rp-nome').value.trim();
+    const dia = document.getElementById('rp-aniv-dia').value;
+    const mes = document.getElementById('rp-aniv-mes').value;
+
+    erroEl.style.display = 'none';
+    if (!nomeInformado) { erroEl.textContent = 'Digite seu nome.'; erroEl.style.display = 'block'; return; }
+    if (!dia || !mes)   { erroEl.textContent = 'Selecione o dia e o mês do seu aniversário.'; erroEl.style.display = 'block'; return; }
+
+    const btn = document.getElementById('btn-confirmar-rp');
+    btn.disabled = true; btn.textContent = 'Verificando...';
+
+    try {
+      const snapMusicos = await getDocs(collection(db, 'musicos'));
+      let membroDoc = null, membroDocId = null;
+      snapMusicos.forEach(d => {
+        const dados = d.data();
+        if (dados.nome && dados.nome.trim().toLowerCase() === nomeInformado.toLowerCase()) {
+          membroDoc = dados; membroDocId = d.id;
+        }
+      });
+      if (!membroDoc) throw new Error('Nome não encontrado. Verifique como foi cadastrado pelo líder.');
+
+      const anivEsperado = `--${mes.padStart(2,'0')}-${dia.padStart(2,'0')}`;
+      if (!membroDoc.aniversario) throw new Error('Você não tem data de aniversário cadastrada. Fale com o líder do ministério.');
+      if (membroDoc.aniversario !== anivEsperado) throw new Error('Dados não coincidem. Fale com o líder do ministério.');
+
+      await updateDoc(doc(db, 'musicos', membroDocId), { pin: null });
+      modal.style.display = 'none';
+      document.getElementById('membro-nome').value  = membroDoc.nome;
+      document.getElementById('membro-senha').value = '';
+      showToast('PIN redefinido! Entre novamente usando o PIN padrão "1234".', 'success');
+    } catch(err) {
+      erroEl.textContent = err.message;
+      erroEl.style.display = 'block';
+    }
+    btn.disabled = false; btn.textContent = 'Redefinir PIN';
+  };
+
   window.sair = async function() {
     if (usuarioLogado) {
       if (confirm("Deseja sair?")) { await signOut(auth); }
@@ -2238,6 +2336,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
         <form onsubmit="handleAuthMembro(event)">
           <input type="text"     id="membro-nome"  class="input-neon" placeholder="Seu nome (como cadastrado)" autocomplete="name">
           <input type="password" id="membro-senha" class="input-neon" placeholder="PIN pessoal (1º acesso: 1234)">
+          <p style="text-align:right;margin:-4px 2px 10px;"><a href="javascript:void(0)" onclick="abrirRecuperarPin()" style="color:#00acc1;font-size:12px;text-decoration:underline;">Esqueci meu PIN</a></p>
           <p id="membro-erro" class="erro-msg-inicio"></p>
           <button type="submit" id="btn-membro-auth" class="btn-inicio btn-inicio-membro">Entrar</button>
         </form>
