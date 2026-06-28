@@ -485,10 +485,11 @@
       // Tenta fechar (funciona em poucos navegadores/contextos).
       window.close();
       // Se o navegador bloquear o close() (comportamento padrão no Android/Chrome),
-      // volta para a tela inicial em vez de exibir uma página em branco.
+      // mostra uma tela de despedida em vez de voltar para o login ou ir a uma página em branco.
       setTimeout(() => {
-        mostrarTelaInicio();
-        showToast('Você saiu do app. Pode fechar pelo botão do seu celular.', 'success');
+        document.querySelectorAll('#tela-inicio, #tela-lider, #app-content').forEach(el => { if (el) el.style.display = 'none'; });
+        const saida = document.getElementById('tela-saida');
+        if (saida) saida.style.display = 'flex';
       }, 250);
     }
   };
@@ -636,7 +637,10 @@
       const recados = document.getElementById('recados-input-'+id)?.value.trim() || '';
       await updateDoc(doc(db,'escalas',id), { hinos, links, recados, updatedAt: serverTimestamp() });
       showToast('Escala salva!','success');
-    } catch(err){ showToast('Erro ao salvar','danger'); }
+    } catch(err){
+      console.error('Erro ao salvar escala completa:', err);
+      showToast('Erro ao salvar' + (err && err.code ? ' (' + err.code + ')' : ''), 'danger');
+    }
     if(btn){ btn.disabled=false; btn.textContent='Salvar Escala'; }
   };
 
@@ -2402,6 +2406,14 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
       <button class="btn-inicio btn-inicio-fechar" onclick="fecharApp()">Fechar Aplicativo</button>
     </div>
   </div>
+</div>
+
+<!-- ══ TELA DE SAÍDA (após "Fechar Aplicativo") ══ -->
+<div id="tela-saida" style="display:none;position:fixed;inset:0;z-index:10000;background:#060c18;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;">
+  <div style="font-size:48px;margin-bottom:18px;">👋</div>
+  <h2 style="color:#e2e8f0;font-family:'Playfair Display',serif;margin-bottom:10px;">Você saiu do app</h2>
+  <p style="color:#64748b;font-size:14px;max-width:280px;line-height:1.6;margin-bottom:24px;">Já pode fechar esta janela pelo botão do seu celular (deslizando para fora nos apps recentes) ou pelo X do navegador.</p>
+  <button class="btn-inicio btn-inicio-lider" style="max-width:240px;" onclick="document.getElementById('tela-saida').style.display='none'; mostrarTelaInicio();">Voltar ao app</button>
 </div>
 
 <!-- ══ TELA LÍDER ══ -->
