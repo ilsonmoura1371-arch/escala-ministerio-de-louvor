@@ -721,6 +721,56 @@
     } catch(err){ showToast('Erro ao redefinir PIN','danger'); }
   };
 
+  // ── DIAGNÓSTICO: encontrar registros duplicados pelo nome (qualquer igreja) ──
+  window.diagnosticarMembro = async function() {
+    if(!isLider()){showToast('Apenas o lider pode usar o diagnostico','danger');return;}
+    const nomeBusca = (document.getElementById('diag-nome').value || '').trim().toLowerCase();
+    const resultEl  = document.getElementById('diag-resultado');
+    if (!nomeBusca) { showToast('Digite um nome para buscar','danger'); return; }
+    resultEl.innerHTML = '<p style="color:#64748b;font-size:13px;">Buscando...</p>';
+    try {
+      const snap = await getDocs(collection(db, 'musicos'));
+      const achados = [];
+      snap.forEach(d => {
+        const dados = d.data();
+        if (dados.nome && dados.nome.trim().toLowerCase() === nomeBusca) {
+          achados.push({ id: d.id, ...dados });
+        }
+      });
+      if (achados.length === 0) {
+        resultEl.innerHTML = '<p style="color:#64748b;font-size:13px;">Nenhum registro encontrado com esse nome.</p>';
+        return;
+      }
+      let html = `<p style="color:${achados.length > 1 ? '#fbbf24' : '#22c55e'};font-size:13px;font-weight:700;margin-bottom:10px;">${achados.length} registro(s) encontrado(s)${achados.length > 1 ? ' — isso pode ser a causa do problema de login!' : ''}</p>`;
+      achados.forEach(m => {
+        const mesmaIgreja = m.igrejaId === igrejaId;
+        const criado = m.createdAt && m.createdAt.toDate ? m.createdAt.toDate().toLocaleDateString('pt-BR') : '—';
+        html += `
+          <div style="border:1px solid ${mesmaIgreja ? 'rgba(0,229,255,0.3)' : 'rgba(239,68,68,0.3)'};border-radius:10px;padding:12px;margin-bottom:8px;background:${mesmaIgreja ? 'rgba(0,229,255,0.05)' : 'rgba(239,68,68,0.05)'};">
+            <p style="color:#e2e8f0;font-size:13px;margin-bottom:4px;"><strong>ID do registro:</strong> ${esc(m.id)}</p>
+            <p style="color:${mesmaIgreja ? '#22d3ee' : '#f87171'};font-size:12px;margin-bottom:4px;">${mesmaIgreja ? '✓ Pertence a ESTA igreja' : '✗ Pertence a OUTRA igreja (id: ' + esc(m.igrejaId||'nenhuma') + ')'}</p>
+            <p style="color:#94a3b8;font-size:12px;margin-bottom:4px;"><strong>Aniversário:</strong> ${m.aniversario ? esc(m.aniversario) : 'não cadastrado'}</p>
+            <p style="color:#94a3b8;font-size:12px;margin-bottom:4px;"><strong>PIN definido:</strong> ${m.pin ? 'sim (já trocou o PIN padrão)' : 'não (ainda usa o padrão 1234)'}</p>
+            <p style="color:#94a3b8;font-size:12px;margin-bottom:8px;"><strong>Criado em:</strong> ${criado}</p>
+            ${!mesmaIgreja ? `<button onclick="excluirRegistroDuplicado('${m.id}')" style="padding:8px 14px;background:#7f1d1d;color:#fecaca;border:1px solid #991b1b;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">Excluir este registro duplicado</button>` : '<p style="color:#475569;font-size:11px;">Este é o registro correto da sua igreja — não precisa excluir.</p>'}
+          </div>`;
+      });
+      resultEl.innerHTML = html;
+    } catch(err) {
+      resultEl.innerHTML = '<p style="color:#ef4444;font-size:13px;">Erro ao buscar: ' + esc(err.message) + '</p>';
+    }
+  };
+
+  window.excluirRegistroDuplicado = async function(id) {
+    if(!isLider()){showToast('Apenas o lider pode excluir','danger');return;}
+    if(!confirm('Excluir este registro duplicado? Essa acao nao pode ser desfeita.')) return;
+    try {
+      await deleteDoc(doc(db,'musicos',id));
+      showToast('Registro duplicado excluido!','success');
+      diagnosticarMembro();
+    } catch(err){ showToast('Erro ao excluir registro','danger'); }
+  };
+
   window.excluirMembro = async function(id) {
     if(!isLider()){showToast('Apenas o lider pode excluir','danger');return;}
     if(!confirm('Remover este membro da equipe?')) return;
@@ -2917,6 +2967,15 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
       <div class="equipe-lista-card">
         <h3>Equipe da Igreja</h3>
         <div id="lista-equipe"></div>
+      </div>
+      <div class="equipe-lista-card" style="margin-top:14px;">
+        <h3>🔍 Diagnóstico de Membro (verificar duplicados)</h3>
+        <p style="color:#64748b;font-size:12px;margin-bottom:10px;line-height:1.5;">Se um membro não conseguir entrar mesmo com os dados certos, pode haver mais de um cadastro com o mesmo nome (de testes antigos, por exemplo). Digite o nome abaixo para ver TODOS os registros encontrados com esse nome, em qualquer igreja.</p>
+        <div style="display:flex;gap:8px;margin-bottom:10px;">
+          <input type="text" id="diag-nome" class="input-neon" placeholder="Nome do membro" style="flex:1;margin-bottom:0;">
+          <button onclick="diagnosticarMembro()" style="padding:0 18px;background:linear-gradient(135deg,#00acc1,#006064);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;white-space:nowrap;">Buscar</button>
+        </div>
+        <div id="diag-resultado"></div>
       </div>
     </div>
     <!-- PANEL: HISTÓRICO DE HINOS -->
