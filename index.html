@@ -517,6 +517,8 @@
       if(typeof iniciarListenerCifras==='function') iniciarListenerCifras();
       if(typeof iniciarListenerMensagens==='function') iniciarListenerMensagens();
       if(typeof iniciarListenerEventos==='function') iniciarListenerEventos();
+      if(typeof iniciarListenerGsp==='function') iniciarListenerGsp();
+      if(typeof iniciarListenerGspLinks==='function') iniciarListenerGspLinks();
     },0);
   }
 
@@ -529,15 +531,16 @@
      TABS
   ══════════════════════════════════════ */
   window.switchTab = function(tab) {
-    ['home','escala-atual','proxima-escala','nova','equipe','cifras','mensagens','eventos','metro','ritmos','historico'].forEach(t=>{
+    ['home','escala-atual','proxima-escala','nova','equipe','cifras','mensagens','eventos','metro','ritmos','gospelteca','historico'].forEach(t=>{
       const p=document.getElementById('panel-'+t); if(p) p.classList.toggle('active',t===tab);
     });
-    ['escala-atual','proxima-escala','nova','equipe','cifras','mensagens','eventos','metro','ritmos','historico'].forEach(t=>{
+    ['escala-atual','proxima-escala','nova','equipe','cifras','mensagens','eventos','metro','ritmos','gospelteca','historico'].forEach(t=>{
       const b=document.getElementById('tab-'+t); if(b) b.classList.toggle('active',t===tab);
     });
     if (tab==='escala-atual') { filtroMes=new Date().getMonth(); filtroAno=new Date().getFullYear(); renderLista(); }
     if (tab==='proxima-escala') renderProxima();
     if (tab==='mensagens') { setTimeout(()=>{ const c=document.getElementById('msg-lista'); if(c) c.scrollTop=c.scrollHeight; },100); }
+    if (tab==='gospelteca') renderGospelteca();
     if (tab==='historico') renderHistorico();
   };
 
@@ -1223,6 +1226,243 @@
     document.getElementById('cifra-busca').value=nome; buscarCifra();
   };
 
+
+  /* ══════════════════════════════════════
+     GOSPELTECA — Firebase
+  ══════════════════════════════════════ */
+  let musicasGsp = [], gspEditId = null, gspCategAtiva = 'adoracao', unsubGsp = null;
+  const GSP_CATS = [
+    { id:'adoracao', label:'Adoração',  icon:'🙏' },
+    { id:'louvor',   label:'Louvor',    icon:'🎉' },
+    { id:'hino',     label:'Hinos',     icon:'🎼' },
+    { id:'infantil', label:'Infantil',  icon:'🧒' },
+    { id:'especial', label:'Especial',  icon:'🌹' },
+    { id:'outro',    label:'Outro',     icon:'🎵' },
+  ];
+
+  window.iniciarListenerGsp = function iniciarListenerGsp() {
+    if (!igrejaId) return;
+    if (unsubGsp) unsubGsp();
+    const qG = query(collection(db,'gospelteca'), where('igrejaId','==',igrejaId), orderBy('titulo','asc'));
+    unsubGsp = onSnapshot(qG,
+      snap => { musicasGsp = snap.docs.map(d=>({id:d.id,...d.data()})); renderGospelteca(); },
+      err  => console.error(err)
+    );
+  };
+
+  // Links diretos por categoria — salvos no Firestore
+  let gspLinks = {}; // { adoracao: [{id, label, url}], louvor: [...], ... }
+  let unsubGspLinks = null;
+
+  window.iniciarListenerGspLinks = function iniciarListenerGspLinks() {
+    if (!igrejaId) return;
+    if (unsubGspLinks) unsubGspLinks();
+    const qL = query(collection(db,'gospelteca_links'), where('igrejaId','==',igrejaId));
+    unsubGspLinks = onSnapshot(qL, snap => {
+      gspLinks = {};
+      snap.docs.forEach(d => {
+        const data = d.data();
+        if (!gspLinks[data.categoria]) gspLinks[data.categoria] = [];
+        gspLinks[data.categoria].push({ id: d.id, label: data.label||'', url: data.url||'' });
+      });
+      renderGospelteca();
+    }, err => console.error(err));
+  };
+
+  window.renderGospelteca = function renderGospelteca() {
+    // Monta abas de categoria (sem "Todas")
+    const tabs = document.getElementById('gsp-subtabs'); if (!tabs) return;
+    tabs.innerHTML = GSP_CATS.map(c =>
+      `<button class="gsp-subtab${gspCategAtiva===c.id?' ativo':''}" onclick="gspSetCateg('${c.id}')">${c.icon} ${esc(c.label)}</button>`
+    ).join('');
+
+    const lista = document.getElementById('gsp-lista'); if (!lista) return;
+    const lider = isLider();
+    const btnMusica = document.getElementById('btn-nova-musica');
+    if (btnMusica) btnMusica.style.display = 'none'; // removido do header, integrado na página
+
+    const cat = GSP_CATS.find(c => c.id === gspCategAtiva);
+    if (!cat) return;
+
+    const musicas = musicasGsp.filter(m => m.categoria === gspCategAtiva);
+    const links   = gspLinks[gspCategAtiva] || [];
+    const total   = musicas.length + links.length;
+
+    let html = `<div class="gsp-pagina">
+      <div class="gsp-pagina-header">
+        <div class="gsp-pagina-icone">${cat.icon}</div>
+        <div>
+          <div class="gsp-pagina-titulo">${esc(cat.label)}</div>
+          <div class="gsp-pagina-count">${total} ${total===1?'item':'itens'}</div>
+        </div>
+      </div>`;
+
+    // ── Seção de Links Diretos ──
+    html += `<div class="gsp-sec-titulo">🔗 Links e Pastas</div>`;
+    if (links.length === 0) {
+      html += `<div class="gsp-vazio-links">${lider ? 'Adicione links de YouTube, Spotify ou Google Drive abaixo.' : 'Nenhum link cadastrado ainda.'}</div>`;
+    } else {
+      links.forEach((lk, idx) => {
+        const dominio = (() => { try { return new URL(lk.url).hostname.replace('www.',''); } catch(e){ return lk.url; } })();
+        const icoDom = lk.url.includes('youtube') || lk.url.includes('youtu.be') ? '▶' :
+                       lk.url.includes('spotify') ? '🎧' :
+                       lk.url.includes('drive.google') ? '📁' :
+                       lk.url.includes('soundcloud') ? '☁' : '🔗';
+        html += `<div class="gsp-link-row">
+          <div class="gsp-link-row-ico">${icoDom}</div>
+          <div class="gsp-link-row-info">
+            <div class="gsp-link-row-titulo">${esc(lk.label || dominio)}</div>
+            <div class="gsp-link-row-url">${esc(dominio)}</div>
+          </div>
+          <a href="${esc(lk.url)}" target="_blank" rel="noopener noreferrer" class="gsp-btn-abrir">Abrir ↗</a>
+          ${lider ? `<button class="gsp-btn-del-link" onclick="gspDeletarLink('${lk.id}')">×</button>` : ''}
+        </div>`;
+      });
+    }
+
+    // ── Formulário de adicionar link (sempre visível para líder) ──
+    if (lider) {
+      html += `<div class="gsp-form-link-inline">
+        <div class="gsp-form-link-titulo">+ Adicionar link</div>
+        <input type="text" id="gsp-novo-label" class="gsp-input-link" placeholder="Nome do link (ex: Playlist Adoração)">
+        <input type="url"  id="gsp-novo-url"   class="gsp-input-link" placeholder="https://youtube.com/... ou drive.google.com/...">
+        <button class="gsp-btn-salvar-link" onclick="gspSalvarLink()">Salvar Link</button>
+      </div>`;
+    }
+
+    // ── Seção de Músicas cadastradas ──
+    html += `<div class="gsp-sec-titulo" style="margin-top:20px;">🎵 Músicas Cadastradas</div>`;
+    if (musicas.length === 0) {
+      html += `<div class="gsp-vazio-links">${lider ? 'Nenhuma música. Use "+ Música" para cadastrar.' : 'Nenhuma música nesta categoria.'}</div>`;
+    } else {
+      musicas.forEach(m => {
+        html += `<div class="gsp-link-row">
+          <div class="gsp-link-row-ico">🎵</div>
+          <div class="gsp-link-row-info">
+            <div class="gsp-link-row-titulo">${esc(m.titulo||'Sem título')}</div>
+            <div class="gsp-link-row-url">${esc(m.artista||'')}${m.obs ? ' • ' + esc(m.obs) : ''}</div>
+          </div>
+          ${m.link ? `<a href="${esc(m.link)}" target="_blank" rel="noopener noreferrer" class="gsp-btn-abrir">Ouvir ↗</a>` : ''}
+          ${lider ? `<button class="gsp-btn-del-link" onclick="deletarMusica('${m.id}')">×</button>` : ''}
+        </div>`;
+      });
+    }
+
+    // ── Botão cadastrar música ──
+    if (lider) {
+      html += `<button class="gsp-btn-nova-musica" onclick="abrirFormMusica()">+ Cadastrar Música</button>`;
+    }
+
+    html += `</div>`; // fecha gsp-pagina
+    lista.innerHTML = html;
+  };
+
+  window.gspSetCateg = function(id) {
+    gspCategAtiva = id;
+    renderGospelteca();
+  };
+
+  // ── Salvar link no Firestore ──
+  window.gspSalvarLink = async function() {
+    // Captura ANTES de qualquer await (evita perda com re-render do listener)
+    const urlEl = document.getElementById('gsp-novo-url');
+    const labEl = document.getElementById('gsp-novo-label');
+    const url   = (urlEl?.value || '').trim();
+    const label = (labEl?.value || '').trim();
+    if (!url) { showToast('Cole o link antes de salvar', 'danger'); return; }
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      showToast('Link inválido — deve começar com http:// ou https://', 'danger'); return;
+    }
+    if (!label) { showToast('Informe o nome do link', 'danger'); return; }
+    const btn = document.querySelector('.gsp-btn-salvar-link');
+    if (btn) { btn.disabled = true; btn.textContent = 'Salvando...'; }
+    try {
+      if (!igrejaId) throw new Error('Sessão inválida — faça login novamente.');
+      await addDoc(collection(db,'gospelteca_links'), {
+        url, label, categoria: gspCategAtiva, igrejaId, criadoEm: serverTimestamp()
+      });
+      if (urlEl) urlEl.value = '';
+      if (labEl) labEl.value = '';
+      showToast('Link salvo! ✅', 'success');
+    } catch(err) {
+      console.error('Erro ao salvar link:', err);
+      const msg = err.code === 'permission-denied'
+        ? 'Sem permissão. Verifique as regras do Firestore.'
+        : err.message || 'Erro ao salvar link';
+      showToast(msg, 'danger');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = 'Salvar Link'; }
+    }
+  };
+
+  window.gspDeletarLink = async function(id) {
+    if (!isLider()) return;
+    if (!confirm('Remover este link?')) return;
+    try { await deleteDoc(doc(db,'gospelteca_links',id)); showToast('Link removido','danger'); }
+    catch(e) { showToast('Erro ao remover','danger'); }
+  };
+
+  window.abrirFormMusica = function(id) {
+    if (!isLider()) { showToast('Apenas o líder pode adicionar músicas','danger'); return; }
+    gspEditId = id || null;
+    const m = id ? musicasGsp.find(x=>x.id===id) : null;
+    document.getElementById('gsp-form-titulo-label').textContent = m ? 'Editar Música' : 'Nova Música';
+    document.getElementById('gsp-titulo').value    = m ? (m.titulo||'') : '';
+    document.getElementById('gsp-artista').value   = m ? (m.artista||'') : '';
+    document.getElementById('gsp-categoria').value = m ? (m.categoria||gspCategAtiva) : gspCategAtiva;
+    document.getElementById('gsp-link').value      = m ? (m.link||'') : '';
+    document.getElementById('gsp-obs').value       = m ? (m.obs||'') : '';
+    document.getElementById('gsp-form').style.display = 'block';
+    document.getElementById('gsp-form').scrollIntoView({behavior:'smooth',block:'start'});
+  };
+
+  window.fecharFormMusica = function() {
+    document.getElementById('gsp-form').style.display = 'none';
+    gspEditId = null;
+  };
+
+  window.salvarMusica = async function() {
+    if (!isLider()) { showToast('Apenas o líder pode adicionar','danger'); return; }
+    const titulo    = document.getElementById('gsp-titulo').value.trim();
+    const artista   = document.getElementById('gsp-artista').value.trim();
+    const categoria = document.getElementById('gsp-categoria').value;
+    const link      = document.getElementById('gsp-link').value.trim();
+    const obs       = document.getElementById('gsp-obs').value.trim();
+    if (!titulo) { showToast('Informe o título da música','danger'); return; }
+    if (link && !link.startsWith('http://') && !link.startsWith('https://')) {
+      showToast('Link inválido — deve começar com http:// ou https://','danger'); return;
+    }
+    const btnM = document.getElementById('btn-salvar-musica');
+    if (btnM) { btnM.disabled = true; btnM.textContent = 'Salvando...'; }
+    const obj = { titulo, artista, categoria, link, obs, igrejaId, updatedAt: serverTimestamp() };
+    try {
+      if (!igrejaId) throw new Error('Sessão inválida — faça login novamente.');
+      if (gspEditId) {
+        await updateDoc(doc(db,'gospelteca',gspEditId), obj);
+        showToast('Música atualizada! ✅','success');
+      } else {
+        obj.createdAt = serverTimestamp();
+        await addDoc(collection(db,'gospelteca'), obj);
+        showToast('Música adicionada! ✅','success');
+      }
+      fecharFormMusica();
+    } catch(err) {
+      console.error('Erro ao salvar música:', err);
+      const msg = err.code === 'permission-denied'
+        ? 'Sem permissão. Verifique as regras do Firestore.'
+        : err.message || 'Erro ao salvar';
+      showToast(msg, 'danger');
+    } finally {
+      if (btnM) { btnM.disabled = false; btnM.textContent = 'Salvar Música'; }
+    }
+  };
+
+  window.deletarMusica = async function(id) {
+    if (!isLider()) { showToast('Apenas o líder pode remover','danger'); return; }
+    if (!confirm('Remover esta música da Gospelteca?')) return;
+    try { await deleteDoc(doc(db,'gospelteca',id)); showToast('Música removida','danger'); }
+    catch(err) { showToast('Erro ao remover','danger'); }
+  };
   // ══════════════════════════════════════════════════════
   // HISTÓRICO DE HINOS
   // ══════════════════════════════════════════════════════
@@ -2097,6 +2337,52 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
 .historico-links{margin-top:8px;padding-top:8px;border-top:1px solid var(--border);}
 
 
+/* ══ GOSPELTECA ══ */
+.gsp-wrap{padding:0 0 80px;}
+.gsp-header-bar{display:flex;align-items:center;justify-content:space-between;padding:14px 0 10px;font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:var(--accent);}
+/* Abas de categoria — scroll horizontal */
+.gsp-subtabs{display:flex;gap:8px;overflow-x:auto;padding-bottom:8px;margin-bottom:16px;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+.gsp-subtabs::-webkit-scrollbar{display:none;}
+.gsp-subtab{flex-shrink:0;padding:9px 18px;border-radius:20px;border:1px solid rgba(0,229,255,0.2);background:transparent;color:var(--text-muted);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.15s;white-space:nowrap;}
+.gsp-subtab.ativo{background:linear-gradient(135deg,rgba(0,229,255,0.12),rgba(0,229,255,0.06));border-color:rgba(0,229,255,0.5);color:var(--accent);box-shadow:0 0 14px rgba(0,229,255,0.15);}
+/* Página de categoria */
+.gsp-pagina{padding-bottom:20px;}
+.gsp-pagina-header{display:flex;align-items:center;gap:16px;background:linear-gradient(135deg,rgba(0,229,255,0.06),rgba(0,229,255,0.02));border:1px solid rgba(0,229,255,0.18);border-radius:var(--radius);padding:18px 20px;margin-bottom:18px;box-shadow:var(--shadow-neon);}
+.gsp-pagina-icone{font-size:38px;flex-shrink:0;font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
+.gsp-pagina-titulo{font-family:'Playfair Display',serif;font-size:22px;font-weight:700;color:#fff;}
+.gsp-pagina-count{font-size:12px;color:var(--text-muted);margin-top:2px;}
+/* Títulos de seção */
+.gsp-sec-titulo{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:10px;display:flex;align-items:center;gap:6px;}
+/* Linhas de link */
+.gsp-link-row{display:flex;align-items:center;gap:10px;background:var(--bg-card);border:1px solid var(--border-neon);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:8px;transition:border-color .15s;}
+.gsp-link-row:hover{border-color:rgba(0,229,255,0.35);}
+.gsp-link-row-ico{font-size:20px;flex-shrink:0;width:32px;text-align:center;font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
+.gsp-link-row-info{flex:1;min-width:0;}
+.gsp-link-row-titulo{font-size:14px;font-weight:700;color:var(--text-main);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.gsp-link-row-url{font-size:11px;color:var(--text-muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.gsp-btn-abrir{display:inline-flex;align-items:center;gap:4px;background:rgba(0,229,255,0.08);border:1px solid rgba(0,229,255,0.25);color:var(--accent);padding:7px 13px;border-radius:20px;font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap;flex-shrink:0;}
+.gsp-btn-abrir:active{transform:scale(0.95);}
+.gsp-btn-del-link{background:transparent;border:none;color:#ef4444;cursor:pointer;font-size:18px;padding:4px 6px;flex-shrink:0;opacity:.7;line-height:1;}
+.gsp-btn-del-link:hover{opacity:1;}
+/* Vazio */
+.gsp-vazio-links{font-size:13px;color:var(--text-muted);font-style:italic;padding:10px 2px 12px;line-height:1.6;}
+/* Formulário de link inline */
+.gsp-form-link-inline{background:rgba(0,229,255,0.03);border:1px dashed rgba(0,229,255,0.2);border-radius:var(--radius-sm);padding:14px;margin-top:10px;}
+.gsp-form-link-titulo{font-size:12px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;}
+.gsp-input-link{display:block;width:100%;background:var(--bg-input);border:1px solid rgba(0,229,255,0.15);border-radius:var(--radius-sm);color:var(--text-main);font-family:'DM Sans',sans-serif;font-size:14px;padding:10px 12px;outline:none;margin-bottom:8px;box-sizing:border-box;}
+.gsp-input-link:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,229,255,0.07);}
+.gsp-input-link::placeholder{color:#2a3a50;}
+.gsp-btn-salvar-link{width:100%;padding:13px;border:none;border-radius:var(--radius-sm);background:linear-gradient(135deg,#00acc1,#006064);color:#fff;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 4px 18px rgba(0,229,255,0.25);}
+.gsp-btn-salvar-link:active{transform:scale(0.98);}
+/* Botão nova música */
+.gsp-btn-nova-musica{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:14px;padding:13px;border:1px dashed rgba(124,58,237,0.4);border-radius:var(--radius-sm);background:rgba(124,58,237,0.04);color:#c4b5fd;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;transition:all .2s;}
+.gsp-btn-nova-musica:hover{background:rgba(124,58,237,0.1);border-color:rgba(124,58,237,0.6);}
+/* Form de cadastro de música */
+.gsp-empty{background:rgba(0,229,255,0.04);border:1px solid rgba(0,229,255,0.12);border-radius:var(--radius);padding:28px 20px;text-align:center;color:var(--text-muted);font-size:13px;line-height:1.6;margin-bottom:12px;}
+.gsp-empty-icon{font-size:38px;margin-bottom:10px;font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
+.gsp-form-card{background:var(--bg-card);border:1px solid rgba(0,229,255,0.25);border-radius:var(--radius);padding:20px;margin-top:16px;box-shadow:var(--shadow-neon);}
+.gsp-form-titulo{font-family:'Playfair Display',serif;font-size:17px;font-weight:700;color:var(--accent);margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid rgba(0,229,255,0.15);}
+
 </style>
 </head>
 <body>
@@ -2207,6 +2493,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
     <button id="tab-eventos"        class="nav-tab"                 onclick="switchTab('eventos')">Eventos</button>
     <button id="tab-metro"          class="nav-tab"                 onclick="switchTab('metro')">&#9201; Metro</button>
     <button id="tab-ritmos"         class="nav-tab"                 onclick="switchTab('ritmos')">&#127941; Ritmos</button>
+    <button id="tab-gospelteca"     class="nav-tab"                 onclick="switchTab('gospelteca')">&#127911; Gospelteca</button>
     <button id="tab-equipe"         class="nav-tab" style="display:none;" onclick="switchTab('equipe')">Equipe</button>
     <button id="tab-historico"      class="nav-tab"                 onclick="switchTab('historico')">&#128196; Hinos</button>
   </nav>
@@ -2266,6 +2553,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
             <div class="hcard-icon">&#127941;</div>
             <div class="hcard-titulo">Ritmos</div>
             <div class="hcard-desc">Guias para músicos</div>
+          </button>
+          <button class="hcard hcard-blue" onclick="switchTab('gospelteca')">
+            <div class="hcard-icon">&#127911;</div>
+            <div class="hcard-titulo">Gospelteca</div>
+            <div class="hcard-desc">Links das músicas</div>
           </button>
           <button class="hcard hcard-blue" onclick="switchTab('historico')">
             <div class="hcard-icon">&#128196;</div>
@@ -2827,6 +3119,47 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text
               <div class="ritmo-beats-visual" id="ritmo-beats-visual"></div>
             </div>
             <div id="rd-corpo" class="ritmo-detalhe-corpo"></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- PANEL: GOSPELTECA -->
+    <div id="panel-gospelteca" class="panel">
+      <div class="gsp-wrap">
+        <div class="gsp-header-bar">
+          <span>&#127911; Gospelteca</span>
+          <button id="btn-nova-musica" class="btn-novo-evento" onclick="abrirFormMusica()" style="display:none;">+ Música</button>
+        </div>
+
+        <!-- Sub-abas categorias -->
+        <div class="gsp-subtabs" id="gsp-subtabs"></div>
+
+        <!-- Lista de músicas -->
+        <div id="gsp-lista" class="gsp-lista"></div>
+
+        <!-- Formulário nova/editar música -->
+        <div id="gsp-form" class="gsp-form-card" style="display:none;">
+          <div class="gsp-form-titulo" id="gsp-form-titulo-label">Nova Música</div>
+          <div class="field-group"><label>Título</label><input type="text" id="gsp-titulo" class="input-neon" placeholder="Nome da música"></div>
+          <div class="field-group"><label>Artista / Ministério</label><input type="text" id="gsp-artista" class="input-neon" placeholder="Ex: Hillsong, Aline Barros..."></div>
+          <div class="field-group">
+            <label>Categoria</label>
+            <select id="gsp-categoria" class="input-neon">
+              <option value="adoracao">Adoração</option>
+              <option value="louvor">Louvor</option>
+              <option value="hino">Hinos Clássicos</option>
+              <option value="infantil">Infantil</option>
+              <option value="especial">Especial / Ofertório</option>
+              <option value="outro">Outro</option>
+            </select>
+          </div>
+          <div class="field-group"><label>Link (YouTube, Spotify, etc.)</label><input type="url" id="gsp-link" class="input-neon" placeholder="https://youtube.com/watch?v=..."></div>
+          <div class="field-group"><label>Observações (opcional)</label><textarea id="gsp-obs" class="input-neon" rows="2" placeholder="Tom, andamento, notas..."></textarea></div>
+          <div style="display:flex;gap:8px;margin-top:10px;">
+            <button class="btn btn-primary" onclick="salvarMusica()">Salvar</button>
+            <button class="btn btn-secondary" onclick="fecharFormMusica()">Cancelar</button>
           </div>
         </div>
 
